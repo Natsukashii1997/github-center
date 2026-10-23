@@ -12,7 +12,7 @@ const CONCURRENCY = 4;
 // 每个窗口最多核这么多个候选（约是近 1 天全部有事件记录的项目数），保证每天一次的运行在额度内跑得完。
 const MAX_CANDIDATES = 5000;
 
-async function mapLimit(items, n, fn) {
+export async function mapLimit(items, n, fn) {
   const out = new Array(items.length);
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {

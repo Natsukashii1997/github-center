@@ -1,4 +1,5 @@
-// GitHub 官方接口：星数历史（核数）、项目信息（当前总 Star、项目 id）和仓库搜索（新项目榜、累计高星榜）。原始响应原样交给调用方保存。
+// GitHub 官方接口：星数历史（核数）、项目信息（当前总 Star、项目 id）、仓库搜索（新项目榜、累计高星榜），
+// 以及项目资料要读的 README 和仓库目录（#6）。原始响应原样交给调用方保存。
 // 候选有项目 id 时按 id 访问（不受改名影响），只有名字时按名字访问。
 const API = 'https://api.github.com';
 export const PER_PAGE = 6;
@@ -12,7 +13,7 @@ const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // stats 记实际发出的请求次数（含重试）。单个请求最多等 timeoutMs，连接挂住就算失败重试，不让每天的运行卡死。
 export function githubClient({ fetch, token, sleep = realSleep, now = Date.now, timeoutMs = 60_000 }) {
-  const stats = { history: 0, project: 0, search: 0 };
+  const stats = { history: 0, project: 0, search: 0, readme: 0, tree: 0 };
   let pauseUntil = 0;
   async function get(kind, p) {
     const url = API + p;
@@ -59,5 +60,7 @@ export function githubClient({ fetch, token, sleep = realSleep, now = Date.now, 
     history: (c) => get('history', `${path(c)}/stargazers/history?per_page=${PER_PAGE}`),
     project: (c) => get('project', path(c)),
     search: (q) => get('search', `/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=100`),
+    readme: (c) => get('readme', `${path(c)}/readme`),
+    tree: (c, ref) => get('tree', `${path(c)}/git/trees/${encodeURIComponent(ref)}?recursive=1`),
   };
 }

@@ -35,7 +35,8 @@ test('首页显示近 1 天榜单：名次、项目、当天新增、当前总 S
   assert.equal(status, 200);
   assert.match(body, /统计日 2026-10-22（UTC）/);
   assert.match(body, /更新于 2026-10-23 16:40（北京时间）/);
-  const rows = [...body.matchAll(/<tr><td>(\d+)<\/td><td><a href="https:\/\/github\.com\/([^"]+)">[^<]+<\/a><\/td><td>\+([\d,]+)<\/td><td>([\d,]+)<\/td><\/tr>/g)].map((m) => m.slice(1));
+  // 项目名链到站内的项目页（#6）。
+  const rows = [...body.matchAll(/<tr><td>(\d+)<\/td><td><a href="\/p\/([^"]+)">[^<]+<\/a><\/td><td>\+([\d,]+)<\/td><td>([\d,]+)<\/td><\/tr>/g)].map((m) => m.slice(1));
   assert.deepEqual(rows.slice(0, 7), [
     ['1', 'php/php-src', '5,200', '193,409'],
     ['2', 'anthropics/knowledge-work-plugins', '3,100', '115,709'],
@@ -107,7 +108,7 @@ test('更新失败时仍显示上一次的榜单，写明它的真实日期和�
   const { body } = await visit(dir);
   assert.match(body, /统计日 2026-10-23 的榜单更新失败：官方热门日榜返回 503。下面仍是统计日 2026-10-22 的榜单。/);
   assert.match(body, /统计日 2026-10-22（UTC）/);
-  assert.match(body, /<a href="https:\/\/github\.com\/php\/php-src">/);
+  assert.match(body, /<a href="\/p\/php\/php-src">/);
   // 失败的日子比当前快照旧（重跑更早的日子失败）时不提示。
   writeFileSync(join(dir, 'status.json'), JSON.stringify({ boards: { d1: { day: '2026-10-21', at: '2026-10-24T02:10:00.000Z', status: 'failed', error: 'x' } } }));
   assert.doesNotMatch((await visit(dir)).body, /更新失败/);

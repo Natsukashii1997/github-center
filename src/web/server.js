@@ -1,14 +1,15 @@
 // 本机网站：只监听 127.0.0.1；登录后才能看（#5）。页面只读快照和更新记录，访问时不调用任何外部接口。样式从简，视觉由 #13、#14 负责。
-// 首页是涨星榜（近 1/7/30 天），另有新项目榜、官方热门榜、累计高星榜。
+// 首页是涨星榜（近 1/7/30 天），另有新项目榜、官方热门榜、累计高星榜；点开榜单上的项目进入项目页（#6）。
 import { createServer } from 'node:http';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
 import { readLatestSnapshot, readStatus, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
+import { findProfile, boardProjects } from '../profiles/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
 const beijing = (iso) => new Date(Date.parse(iso) + 8 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const label = (w) => `近 ${WINDOWS[w].days} 天`;
-const repo = (name) => `<a href="https://github.com/${esc(name)}">${esc(name)}</a>`;
+const repo = (name) => `<a href="/p/${esc(name)}">${esc(name)}</a>`;
 const PAGES = [['/', '涨星榜'], ['/new', LISTS.new], ['/trending', LISTS.trending], ['/top', LISTS.top]];
 const SEARCH_NOTE = '已知现象：GitHub 搜索会把少数仓库计进总数，但列表里不返回它们，所以极少数项目可能不在这里。';
 
@@ -84,7 +85,38 @@ ${failure('trending', snapshot, status)}${table(['名次', '项目', `${TRENDING
   };
 }
 
+// 项目页（#6）：简介（干什么、能解决什么问题）、项目文档写到的使用条件、仓库里的 Skill、原项目链接。
+// 内容都来自存下的项目资料；简介还没生成好就写“简介生成中”，不拿猜测的内容顶替。
+function projectPage(fullName, profile) {
+  const g = profile?.generated;
+  const m = profile?.material;
+  const list = (items) => `<ul>\n${items.map(([head, text, note]) => `<li><strong>${esc(head)}</strong>　${esc(text)}<br><span class="note">${esc(note)}</span></li>`).join('\n')}\n</ul>`;
+  const parts = [`<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a></p>`, '<h2>简介</h2>'];
+  if (g) {
+    parts.push(`<p>${esc(g.what)}</p>`, `<p>能帮你解决：${esc(g.problem)}</p>`, '<h2>使用条件</h2>');
+    parts.push(g.conditions.length ? list(g.conditions.map((c) => [c.kind, c.text, `原文：${c.quote}`])) : '<p>项目文档里没有写到付费、账号、密钥或特定环境的要求。</p>');
+  } else {
+    parts.push('<p>简介生成中。</p>');
+  }
+  if (m) {
+    parts.push(`<h2>Skill</h2>`);
+    parts.push(m.skills.length ? list(m.skills.map((s) => [s.name, g?.skillPurposes[s.path] ?? s.description, s.path === '.' ? '仓库根目录' : s.path])) : '<p>仓库里没有按 SKILL.md 约定写的 Skill。</p>');
+    if (m.treeTruncated || m.skillsTruncated) parts.push('<p class="note">仓库太大，Skill 列表可能不全。</p>');
+    const readme = m.readme ? `<a href="${esc(m.readme.htmlUrl)}">${esc(m.readme.path)}</a>${m.readme.truncated ? '（较长，只读了前 4 万字）' : ''}` : '仓库里没有 README';
+    const made = g ? `；简介和使用条件由 AI 根据项目原文生成于 ${beijing(g.at)}${g.materialHash === m.hash ? '' : '，项目资料已有更新，简介待重新生成'}` : '';
+    parts.push(`<p class="note">依据：${readme}、仓库目录和 Skill 文件，读取于 ${beijing(m.fetchedAt)}（北京时间）${made}。</p>`);
+  }
+  return { title: esc(fullName), body: parts.join('\n') };
+}
+
 function route(url, dataDir) {
+  const project = url.pathname.match(/^\/p\/([\w.-]+\/[\w.-]+)$/);
+  if (project) {
+    // 只给有资料或正在榜单上的项目出页面。
+    const profile = findProfile(dataDir, project[1]);
+    const listed = profile || boardProjects(dataDir).some((p) => p.name.toLowerCase() === project[1].toLowerCase());
+    return listed && projectPage(profile?.fullName ?? project[1], profile);
+  }
   const status = readStatus(dataDir);
   const q = (k, d) => url.searchParams.get(k) ?? d;
   switch (url.pathname) {

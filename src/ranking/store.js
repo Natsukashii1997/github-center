@@ -5,10 +5,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
 const snapshotPath = (board, day) => join('snapshots', board, `${day}.json`);
-const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null);
+export const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null);
 
 // 先写临时文件再改名，中途断掉不会留下半个文件；临时文件名各次运行不同，两次运行撞上也不互相踩。
-function writeAtomic(path, text) {
+export function writeAtomic(path, text) {
   mkdirSync(dirname(path), { recursive: true });
   const tmp = `${path}.${randomUUID()}.tmp`;
   writeFileSync(tmp, text);

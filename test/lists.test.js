@@ -126,7 +126,8 @@ test('同一统计日重跑不覆盖三个榜单的快照，也不再请求上�
 });
 
 // ---- 接缝 2：榜单页 ----
-const rows = (body) => [...body.matchAll(/<tr><td>(\d+)<\/td><td><a href="https:\/\/github\.com\/([^"]+)">/g)].map((m) => [Number(m[1]), m[2]]);
+// 项目名链到站内的项目页（#6）。
+const rows = (body) => [...body.matchAll(/<tr><td>(\d+)<\/td><td><a href="\/p\/([^"]+)">/g)].map((m) => [Number(m[1]), m[2]]);
 
 test('新项目榜、累计高星榜页：前 20（含并列），写明范围和搜索的已知现象', async () => {
   const dataDir = fresh();
