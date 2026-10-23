@@ -4,7 +4,9 @@
 
 所有者选定的“三 导读”已深化为高保真候选包 `design/t1b/`。T1b 审查共 16 条发现：9 条已改进候选包并复审通过，7 条不改、不适用或延后，理由写在下表。没有未处理的发现，结论为 **READY_FOR_USER_APPROVAL**。
 
-请所有者批准的确切版本：**t1b-r2，整包 sha256 `ca5350abb9f8c84a961e12b9fd6612a52d2096f684d294da8654b2892a7ca514`**（清单与算法见“权威包清单”）。批准前不写生产界面（#13）。
+请所有者批准的确切版本：**t1b-r2，整包 sha256 `ca5350abb9f8c84a961e12b9fd6612a52d2096f684d294da8654b2892a7ca514`**（清单与算法见“权威包清单”）。
+
+**所有者已于 2026-10-23 批准 t1b-r2，这一版冻结**（批准记录见文末）。#13 生产界面按这一版实现，何时开工由所有者安排。
 
 版本说明：r1 是提交 0c8c033 里的初稿（未审查，整包 sha256 `69106f440c1ac39791893f5904b4b04b83ed5118e6f601d6ee036325a79c2956`），已被 r2 取代。
 
@@ -23,7 +25,7 @@ Design Read: 一个人每天花两分钟看的私人涨星榜。左边是按名�
 Preserve: 名次索引加常驻阅读卡的两栏结构；选中块平移与上下方向键切换；走势图只用一处强调（窗口内的柱子）；全站一个强调色，状态色只用于状态；页头一行小字说清数据来历；明暗两套共用同一套语义变量并跟随系统；只动 transform 与 opacity，减少动态效果时直接切换；有信息的小字对比度不低于 4.5:1。
 Deferred dimensions: 见下文“延后项”
 Recommendation: READY_FOR_USER_APPROVAL
-Next owner: 常浩 approval
+Next owner: primary workflow（所有者已批准；#13 由所有者安排开工）
 Freshness: CURRENT for t1b-r2 / ca5350abb9f8c84a961e12b9fd6612a52d2096f684d294da8654b2892a7ca514
 ```
 
@@ -140,14 +142,14 @@ cd design && find t1b -type f | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 
 ## 常浩 visual-direction approval record
 
 ```md
-Decision: pending
+Decision: approved
 Approver: 常浩
 Approved authority package manifest: docs/design/t1b-review.md#权威包清单t1b-r2
 Approved package version/hash: t1b-r2 / ca5350abb9f8c84a961e12b9fd6612a52d2096f684d294da8654b2892a7ca514
 Package members: 标准页 index.html；组件板 components.html；语义变量 tokens.css；共用组件 components.css、app.js；注册资产 icons.js、icons-LICENSE.txt；同一组件拼装的其余页面 project.html、boards.html、daily.html、favorites.html、login.html；示例数据 data.js
 Approved authority dimensions: 结构、风格、资产
-Decision evidence: 待所有者答复
-Date: 待填
+Decision evidence: 所有者在 Claude 会话中回复“批准 t1b-r2（ca5350ab）。”（审查记录与 Issue #12 评论请其批准这一确切版本之后）
+Date: 2026-10-23T19:26+08:00
 Freshness: current
-Implementation allowed: no
+Implementation allowed: yes（只限按 t1b-r2 冻结版本实现 #13；design/t1b/ 任何改动都会使本批准失效）
 ```
