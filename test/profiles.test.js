@@ -202,7 +202,7 @@ test('生成失败或 Codex 登录失效：项目页显示“简介生成中”�
   assert.deepEqual(r.results.map((x) => x.status), ['failed', 'failed']);
   const { body } = await visit(dataDir, 'p/acme/agent-kit');
   assert.match(body, /<p>简介生成中。<\/p>/);
-  assert.doesNotMatch(body, /使用条件|能帮你解决/);
+  assert.doesNotMatch(body, /<h2>使用条件<\/h2>|能帮你解决/);
   // Skill 列表来自 SKILL.md 原文，照常显示（用途用原文的 description）。
   assert.match(body, /<strong>pdf<\/strong>　Read and fill PDF forms\./);
   assert.match(JSON.parse(readFileSync(join(dataDir, 'profiles', '101.json'), 'utf8')).lastError.message, /Not logged in/);
@@ -221,7 +221,7 @@ test('生成失败或 Codex 登录失效：项目页显示“简介生成中”�
   assert.equal(again.results[0].status, 'failed');
   const stale = (await visit(dataDir, 'p/acme/agent-kit')).body;
   assert.match(stale, /<p>简介生成中。<\/p>/);
-  assert.doesNotMatch(stale, /把笔记变成能运行的智能体|使用条件|pdf 的中文用途/);
+  assert.doesNotMatch(stale, /把笔记变成能运行的智能体|<h2>使用条件<\/h2>|pdf 的中文用途/);
   assert.match(stale, /<strong>pdf<\/strong>　Read and fill PDF forms\./);
 });
 

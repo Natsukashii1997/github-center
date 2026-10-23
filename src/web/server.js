@@ -1,9 +1,9 @@
 // 本机网站：只监听 127.0.0.1；登录后才能看（#5）。页面只读快照和更新记录，访问时不调用任何外部接口。样式从简，视觉由 #13、#14 负责。
-// 首页是涨星榜（近 1/7/30 天），另有新项目榜、官方热门榜、累计高星榜；点开榜单上的项目进入项目页（#6）。
+// 首页是涨星榜（近 1/7/30 天），另有新项目榜、官方热门榜、累计高星榜；点开榜单上的项目进入项目页（#6），项目页能复制安装指令（#7）。
 import { createServer } from 'node:http';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
 import { readLatestSnapshot, readStatus, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
-import { findProfile, isOnBoards } from '../profiles/index.js';
+import { findProfile, isOnBoards, installInstruction, AIS } from '../profiles/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
@@ -85,9 +85,37 @@ ${failure('trending', snapshot, status)}${table(['名次', '项目', `${TRENDING
   };
 }
 
-// 项目页（#6）：简介（干什么、能解决什么问题）、项目文档写到的使用条件、仓库里的 Skill、原项目链接。
+// 一键复制安装指令，复制后短暂提示，几秒后提示消失。剪贴板接口不能用时退回到选中文字再复制。
+const COPY_SCRIPT = `document.getElementById('copy-install').addEventListener('click', async () => {
+  const text = document.getElementById('install-text');
+  const status = document.getElementById('copy-status');
+  let ok = true;
+  try { await navigator.clipboard.writeText(text.value); } catch { text.select(); ok = document.execCommand('copy'); }
+  status.textContent = ok ? '已复制，可以粘贴给你的 AI 了' : '没能自动复制，请在上面的框里全选后手动复制';
+  clearTimeout(window.copyTimer);
+  window.copyTimer = setTimeout(() => { status.textContent = ''; }, 3000);
+});`;
+
+// 安装指令（#7）：选交给 Claude Code 还是 Codex、装整个项目还是某个 Skill（不用脚本也能换），指令放在只读文本框里，一键复制。
+function installSection(fullName, profile, generated, query) {
+  const ai = Object.hasOwn(AIS, query.get('ai') ?? '') ? query.get('ai') : 'claude-code';
+  const skills = profile.material.skills;
+  const skillPath = skills.some((s) => s.path === query.get('skill')) ? query.get('skill') : '';
+  const option = (value, text, selected) => `<option value="${esc(value)}"${selected ? ' selected' : ''}>${esc(text)}</option>`;
+  return `<h2 id="install">安装指令</h2>
+<form method="get" action="/p/${esc(fullName)}#install">
+<label>交给 <select name="ai">${Object.entries(AIS).map(([k, v]) => option(k, v, k === ai)).join('')}</select></label>
+<label>安装 <select name="skill">${option('', '整个项目', !skillPath)}${skills.map((s) => option(s.path, `Skill：${s.name}`, s.path === skillPath)).join('')}</select></label>
+<button>换成这个</button>
+</form>
+<textarea id="install-text" rows="18" readonly>${esc(installInstruction({ profile, generated, ai, skillPath }))}</textarea>
+<p><button type="button" id="copy-install">复制指令</button> <span id="copy-status" class="note" role="status"></span></p>
+<script>${COPY_SCRIPT}</script>`;
+}
+
+// 项目页（#6）：简介（干什么、能解决什么问题）、项目文档写到的使用条件、仓库里的 Skill、安装指令（#7）、原项目链接。
 // 内容都来自存下的项目资料。简介没生成好、或文档更新后还没重新生成好，就写“简介生成中”，不拿猜测或过期的内容顶替。
-function projectPage(fullName, profile) {
+function projectPage(fullName, profile, query) {
   const m = profile?.material;
   const g = m && profile.generated?.materialHash === m.hash ? profile.generated : null;
   const list = (items) => `<ul>\n${items.map(([head, text, note]) => `<li><strong>${esc(head)}</strong>　${esc(text)}<br><span class="note">${esc(note)}</span></li>`).join('\n')}\n</ul>`;
@@ -101,7 +129,8 @@ function projectPage(fullName, profile) {
     parts.push('<p>简介生成中。</p>');
   }
   if (m) {
-    parts.push('<h2>Skill</h2>');
+    // 安装指令放在 Skill 列表前面：Skill 多的仓库列表很长。
+    parts.push(installSection(fullName, profile, g, query), '<h2>Skill</h2>');
     parts.push(m.skills.length ? list(m.skills.map((s) => [s.name, g?.skillPurposes[s.path] ?? s.description, s.path === '.' ? '仓库根目录' : s.path])) : '<p>仓库里没有按 SKILL.md 约定写的 Skill。</p>');
     if (m.treeTruncated || m.skillsTruncated) parts.push('<p class="note">仓库太大，Skill 列表可能不全。</p>');
     const readme = m.readme ? `<a href="${esc(m.readme.htmlUrl)}">${esc(m.readme.path)}</a>` : '仓库里没有 README';
@@ -117,7 +146,7 @@ function route(url, dataDir) {
   if (project) {
     // 只给有资料或正在榜单上的项目出页面。
     const profile = findProfile(dataDir, project[1]);
-    return (profile || isOnBoards(dataDir, project[1])) && projectPage(profile?.fullName ?? project[1], profile);
+    return (profile || isOnBoards(dataDir, project[1])) && projectPage(profile?.fullName ?? project[1], profile, url.searchParams);
   }
   const status = readStatus(dataDir);
   const q = (k, d) => url.searchParams.get(k) ?? d;
@@ -139,7 +168,7 @@ function route(url, dataDir) {
   return null;
 }
 
-const STYLE = 'body{font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;margin:40px auto;max-width:880px;padding:0 24px;color:#202a30;background:#faf9f6}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #dfe4e1;text-align:left}td:nth-child(3),td:nth-child(4),th:nth-child(3),th:nth-child(4){text-align:right;font-variant-numeric:tabular-nums}a{color:#176b75;text-decoration:none}.note{color:#657176;font-size:12px}.warn{color:#8a4b0f}header form{display:inline}';
+const STYLE = 'body{font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;margin:40px auto;max-width:880px;padding:0 24px;color:#202a30;background:#faf9f6}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #dfe4e1;text-align:left}td:nth-child(3),td:nth-child(4),th:nth-child(3),th:nth-child(4){text-align:right;font-variant-numeric:tabular-nums}a{color:#176b75;text-decoration:none}.note{color:#657176;font-size:12px}.warn{color:#8a4b0f}header form{display:inline}textarea{width:100%;box-sizing:border-box;font:12px/1.5 ui-monospace,Menlo,monospace}';
 const document = (title, inner) => `<!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><title>${title}</title>
