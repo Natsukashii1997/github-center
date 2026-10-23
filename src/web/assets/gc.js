@@ -232,7 +232,7 @@ window.GC = (() => {
       const id = `${p.repo}#${s.path}`, on = favSkills.has(id);
       return `<div class="skill"><code>${esc(s.name)}</code><span>${esc(s.desc)}</span><span class="acts"><button class="ib" type="button" data-fav-id="${esc(id)}" data-skill="${esc(s.path)}" aria-pressed="${on}" aria-label="${on ? '取消收藏' : '收藏'}">${on ? I['star-fill'] : I.star}</button><button class="btn btn-g btn-s" type="button" data-skill-copy="${esc(s.path)}">${I.copy}<span>复制安装</span></button></span></div>`;
     }).join('')}</div>` : '';
-    const meta = [p.lang && `<span>${esc(p.lang)}</span>`, p.created && `<span>创建于 ${md(utc(p.created))}</span>`].filter(Boolean).join('');
+    const meta = [...p.cats.map((c) => `<span>${esc(c)}</span>`), p.lang && `<span>${esc(p.lang)}</span>`, p.created && `<span>创建于 ${md(utc(p.created))}</span>`].filter(Boolean).join('');
     return `<div class="body">
       ${ctx.eyebrow ? `<div class="eyebrow">${ctx.eyebrow}</div>` : ''}
       <div class="title"><img class="av" alt="" data-key="${esc(p.repo)}" referrerpolicy="no-referrer" src="${avatar(p, 96)}"><div><h2><span class="o">${esc(ownerOf(p))}/</span>${esc(nameOf(p))}</h2><div class="meta">${meta}</div></div></div>
