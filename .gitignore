@@ -1,0 +1,44 @@
+# Local secrets and account configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials*
+auth.json
+.DS_Store
+
+# Runtime state and raw evidence: local only
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.log
+*.pid
+*.lock
+**/plan.json
+**/status.json
+**/process.json
+**/MAINTENANCE.json
+**/automation.json
+**/automation-prompt.txt
+**/STOP
+**/probes/
+**/raw/
+**/cache/
+**/snapshot/
+**/maintenance/
+**/versions/
+**/review-evidence/
+**/results/
+
+# Generated Python / tooling output
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+node_modules/
+dist/
+coverage/

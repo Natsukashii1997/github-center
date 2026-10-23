@@ -1,0 +1,521 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-10-23",
+  "scope": "Local reviewable staging only; no remote write and no collector execution.",
+  "source_root": "<LOCAL_EVIDENCE_ROOT>",
+  "files": [
+    {
+      "source": "GitHub动态开源参考清单-2026-10-22.md",
+      "destination": "research/GitHub动态开源参考清单-2026-10-22.md",
+      "source_sha256": "feb7bfd2ee25dfad0f3e493f7a35bd727aecf53d8bc1b9f05863f5df7c73c0f3",
+      "destination_sha256": "876f8105895aed2eea3a283cd1ed77085b2601853ad73bf14a06c7a6f2722700",
+      "source_bytes": 26411,
+      "destination_bytes": 26410,
+      "redactions": [],
+      "host_dependencies": [],
+      "bootstrap_normalization": "Removed redundant blank lines at EOF; source unchanged."
+    },
+    {
+      "source": "GitHub快速中心-可行性核验-2026-10-22.md",
+      "destination": "research/GitHub快速中心-可行性核验-2026-10-22.md",
+      "source_sha256": "2c2c7bf5dbf0bb9b38a22b15e0ba1ce5e40fba59dc70a6524a022a9ca88b7f9e",
+      "destination_sha256": "317ac61322f9db47f4c8a62f85be8c7196b4c8333dc7329c5dc364b0cf17a626",
+      "source_bytes": 10600,
+      "destination_bytes": 10414,
+      "redactions": [
+        {
+          "type": "replace_local_outputs_root",
+          "occurrences": 6,
+          "replacement": "<LOCAL_EVIDENCE_ROOT>/"
+        }
+      ],
+      "host_dependencies": []
+    },
+    {
+      "source": "GitHub快速中心-全站采集与日更核验-2026-10-22.md",
+      "destination": "research/GitHub快速中心-全站采集与日更核验-2026-10-22.md",
+      "source_sha256": "80143bdb8178b75fbde05482e7f8df792e76328bc060f0d8bd50bf69b61f830d",
+      "destination_sha256": "d12a158d2667588f369d9fcabc77e8526d45fe44ad470f836bd6b16509daf98b",
+      "source_bytes": 11726,
+      "destination_bytes": 11540,
+      "redactions": [
+        {
+          "type": "replace_local_outputs_root",
+          "occurrences": 6,
+          "replacement": "<LOCAL_EVIDENCE_ROOT>/"
+        }
+      ],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-feasibility/AI日报实测样例-2026-10-22.md",
+      "destination": "research/github-center-feasibility/AI日报实测样例-2026-10-22.md",
+      "source_sha256": "d218dae68f0217b38ea3458badd7c902ccc253d434c0a489f63ac51cd55a95f4",
+      "destination_sha256": "d218dae68f0217b38ea3458badd7c902ccc253d434c0a489f63ac51cd55a95f4",
+      "source_bytes": 2726,
+      "destination_bytes": 2726,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-feasibility/free-ai-options.md",
+      "destination": "research/github-center-feasibility/free-ai-options.md",
+      "source_sha256": "c0e3135417259b704d0e604f35d6661779ef3177c55a0502bfa1f18af53b9334",
+      "destination_sha256": "c0e3135417259b704d0e604f35d6661779ef3177c55a0502bfa1f18af53b9334",
+      "source_bytes": 9737,
+      "destination_bytes": 9737,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-feasibility/global-star-data.md",
+      "destination": "research/github-center-feasibility/global-star-data.md",
+      "source_sha256": "187ff6fc257e4cdfeffdfbbe239aded7f874e10deb2d10a8f57d3a4babbb85b0",
+      "destination_sha256": "82eb9628c52b19c40a2cb64d97c627accf0c1be2717d121b9c000ba8504229fa",
+      "source_bytes": 17613,
+      "destination_bytes": 17612,
+      "redactions": [],
+      "host_dependencies": [],
+      "bootstrap_normalization": "Removed redundant blank lines at EOF; source unchanged."
+    },
+    {
+      "source": "github-center-feasibility/evidence-ai/independent-review.md",
+      "destination": "research/github-center-feasibility/evidence-ai/independent-review.md",
+      "source_sha256": "c8dc77377bb5d6d9e2e4bf5ba0fcc25aab4bfdae1e9602ed596082fc69f0aea7",
+      "destination_sha256": "c8dc77377bb5d6d9e2e4bf5ba0fcc25aab4bfdae1e9602ed596082fc69f0aea7",
+      "source_bytes": 4256,
+      "destination_bytes": 4256,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-feasibility/evidence-top1/independent-review.md",
+      "destination": "research/github-center-feasibility/evidence-top1/independent-review.md",
+      "source_sha256": "527d1fbe50305094ea5ce623327a801889a48f8a6c0cf25964c8e7ff7f3eafb7",
+      "destination_sha256": "527d1fbe50305094ea5ce623327a801889a48f8a6c0cf25964c8e7ff7f3eafb7",
+      "source_bytes": 1378,
+      "destination_bytes": 1378,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-daily-validation/daily-run-review.md",
+      "destination": "research/github-center-daily-validation/daily-run-review.md",
+      "source_sha256": "fcb2b49e0fe242bd4a45fd77fae2a2d2778ecb15fd2f569daba7bd5aed0cc0b2",
+      "destination_sha256": "fcb2b49e0fe242bd4a45fd77fae2a2d2778ecb15fd2f569daba7bd5aed0cc0b2",
+      "source_bytes": 12355,
+      "destination_bytes": 12355,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-daily-validation/free-hosting-review.md",
+      "destination": "research/github-center-daily-validation/free-hosting-review.md",
+      "source_sha256": "01175f3c4d07fef1711a78192255a615fac9bee88f141efae823d020245a6116",
+      "destination_sha256": "01175f3c4d07fef1711a78192255a615fac9bee88f141efae823d020245a6116",
+      "source_bytes": 4834,
+      "destination_bytes": 4834,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-daily-validation/month-completeness-review.md",
+      "destination": "research/github-center-daily-validation/month-completeness-review.md",
+      "source_sha256": "0c047f2c1f326e7e9e756f6c9d0d041ec86b4605ed421d11f7a27084e04d19d5",
+      "destination_sha256": "0c047f2c1f326e7e9e756f6c9d0d041ec86b4605ed421d11f7a27084e04d19d5",
+      "source_bytes": 11429,
+      "destination_bytes": 11429,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-daily-validation/recovery-validation.md",
+      "destination": "research/github-center-daily-validation/recovery-validation.md",
+      "source_sha256": "ebd3464ae02821080d7f5dffe814888fb255c22edf88a63eace7d247f8223768",
+      "destination_sha256": "63b9ea9618ec1df04dbe5a32b14a8f8471560cc88712e947091870ed9cdbd68c",
+      "source_bytes": 4177,
+      "destination_bytes": 4053,
+      "redactions": [
+        {
+          "type": "replace_local_outputs_root",
+          "occurrences": 4,
+          "replacement": "<LOCAL_EVIDENCE_ROOT>/"
+        }
+      ],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-daily-validation/stat-day-semantics.md",
+      "destination": "research/github-center-daily-validation/stat-day-semantics.md",
+      "source_sha256": "f9c041b8cd67dea8e78012548d7dec15c9aa149ac3abdd07de51c9f3bbd63739",
+      "destination_sha256": "f9c041b8cd67dea8e78012548d7dec15c9aa149ac3abdd07de51c9f3bbd63739",
+      "source_bytes": 6159,
+      "destination_bytes": 6159,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-daily-validation/月榜Top20实测示例-2026-10-22.md",
+      "destination": "research/github-center-daily-validation/月榜Top20实测示例-2026-10-22.md",
+      "source_sha256": "ca1e4d73f1bbce06a050fa4203e74def3f898b0f7ccf7449aa9b8e487a699f6c",
+      "destination_sha256": "7695aadd7a3ef6e3a081327a8accd7fbe67b43802acb38a882ad058e792c7484",
+      "source_bytes": 2337,
+      "destination_bytes": 2306,
+      "redactions": [
+        {
+          "type": "replace_local_outputs_root",
+          "occurrences": 1,
+          "replacement": "<LOCAL_EVIDENCE_ROOT>/"
+        }
+      ],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/CURRENT.md",
+      "destination": "research/github-center-sustained-run/CURRENT.md",
+      "source_sha256": "1007fdc7883d9ec0058c1f640fca7a30b471a1a962653c23bdcf22bedb925ea9",
+      "destination_sha256": "1007fdc7883d9ec0058c1f640fca7a30b471a1a962653c23bdcf22bedb925ea9",
+      "source_bytes": 5873,
+      "destination_bytes": 5873,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/acceptance-review.md",
+      "destination": "research/github-center-sustained-run/acceptance-review.md",
+      "source_sha256": "5dbffebbe6aa4b5fd796d5a42e8cb4e2c6a8b34b240716a5564644029921bb0c",
+      "destination_sha256": "8125e7ea2c56a675e48dc4718bb6b0278eb7507da3b88fc7323371358917fcfc",
+      "source_bytes": 10774,
+      "destination_bytes": 10681,
+      "redactions": [
+        {
+          "type": "replace_local_outputs_root",
+          "occurrences": 3,
+          "replacement": "<LOCAL_EVIDENCE_ROOT>/"
+        }
+      ],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/runner-review.md",
+      "destination": "research/github-center-sustained-run/runner-review.md",
+      "source_sha256": "1065a2803a740770c8194079863cecff56f17f21a649b3fc5389c24ce88cbd5d",
+      "destination_sha256": "1065a2803a740770c8194079863cecff56f17f21a649b3fc5389c24ce88cbd5d",
+      "source_bytes": 4933,
+      "destination_bytes": 4933,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/transport-test-report.md",
+      "destination": "research/github-center-sustained-run/transport-test-report.md",
+      "source_sha256": "3f2699c3a6ce811780e1076936e7049d0ba516abbd0c4063d27d5ff94c9b6ff5",
+      "destination_sha256": "3f2699c3a6ce811780e1076936e7049d0ba516abbd0c4063d27d5ff94c9b6ff5",
+      "source_bytes": 6186,
+      "destination_bytes": 6186,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/修复报告.md",
+      "destination": "research/github-center-sustained-run/修复报告.md",
+      "source_sha256": "74afe9032b76eccc83c86c89d4d50f4002e47cc239002aa39649f75b299c10d7",
+      "destination_sha256": "74afe9032b76eccc83c86c89d4d50f4002e47cc239002aa39649f75b299c10d7",
+      "source_bytes": 3585,
+      "destination_bytes": 3585,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/运行说明.md",
+      "destination": "research/github-center-sustained-run/运行说明.md",
+      "source_sha256": "822e8eaefdb7691e036f3322599092d9b4e3060d8a95fb1611deeb3c005ecb2b",
+      "destination_sha256": "822e8eaefdb7691e036f3322599092d9b4e3060d8a95fb1611deeb3c005ecb2b",
+      "source_bytes": 3649,
+      "destination_bytes": 3649,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/runner.py",
+      "destination": "research/github-center-sustained-run/runner.py",
+      "source_sha256": "0a6e4062a33f552a79701b931377709e1fda0c11229367ed9f5d14831848456a",
+      "destination_sha256": "0a6e4062a33f552a79701b931377709e1fda0c11229367ed9f5d14831848456a",
+      "source_bytes": 30557,
+      "destination_bytes": 30557,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/transport.py",
+      "destination": "research/github-center-sustained-run/transport.py",
+      "source_sha256": "91299a7e27bb5f7832dbc209198d94f9a41f1e775e2e25a53a923a2f22e28522",
+      "destination_sha256": "91299a7e27bb5f7832dbc209198d94f9a41f1e775e2e25a53a923a2f22e28522",
+      "source_bytes": 31739,
+      "destination_bytes": 31739,
+      "redactions": [],
+      "host_dependencies": [
+        "Hardcoded Homebrew gh executable; preserved experiment source."
+      ]
+    },
+    {
+      "source": "github-center-sustained-run/start_worker.py",
+      "destination": "research/github-center-sustained-run/start_worker.py",
+      "source_sha256": "50602dfbe8034d2c5b6fd134a5cdf2717828bedd59ab56700ad14e9573bc929c",
+      "destination_sha256": "50602dfbe8034d2c5b6fd134a5cdf2717828bedd59ab56700ad14e9573bc929c",
+      "source_bytes": 962,
+      "destination_bytes": 962,
+      "redactions": [],
+      "host_dependencies": [
+        "Hardcoded host Python 3.14 framework executable; preserved experiment source."
+      ]
+    },
+    {
+      "source": "github-center-sustained-run/test_runner.py",
+      "destination": "research/github-center-sustained-run/test_runner.py",
+      "source_sha256": "341327c45932e84444bbaecf301a60165f1c418551495e7f83fe356db1a83718",
+      "destination_sha256": "341327c45932e84444bbaecf301a60165f1c418551495e7f83fe356db1a83718",
+      "source_bytes": 8883,
+      "destination_bytes": 8883,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-sustained-run/tests_transport.py",
+      "destination": "research/github-center-sustained-run/tests_transport.py",
+      "source_sha256": "b740314f59fa086df15e01fd05f80e8e8d118f2a3dc77c25266411eb69ea0f22",
+      "destination_sha256": "b740314f59fa086df15e01fd05f80e8e8d118f2a3dc77c25266411eb69ea0f22",
+      "source_bytes": 20076,
+      "destination_bytes": 20076,
+      "redactions": [],
+      "host_dependencies": [
+        "Hardcoded Homebrew gh executable; preserved experiment source."
+      ]
+    },
+    {
+      "source": "github-center-speed-study/bounds-analysis.md",
+      "destination": "research/github-center-speed-study/bounds-analysis.md",
+      "source_sha256": "5d46ea8f39a15f555c9038a9aafe9a0ab72ba2dfa169d149504c65c932a766ca",
+      "destination_sha256": "5d46ea8f39a15f555c9038a9aafe9a0ab72ba2dfa169d149504c65c932a766ca",
+      "source_bytes": 7841,
+      "destination_bytes": 7841,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-speed-study/source-alternatives.md",
+      "destination": "research/github-center-speed-study/source-alternatives.md",
+      "source_sha256": "8ce34a751c6e078be13375c6b83701240a6943dbfa9079017ae3be329556e3fb",
+      "destination_sha256": "8ce34a751c6e078be13375c6b83701240a6943dbfa9079017ae3be329556e3fb",
+      "source_bytes": 8080,
+      "destination_bytes": 8080,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-speed-study/transport-analysis.md",
+      "destination": "research/github-center-speed-study/transport-analysis.md",
+      "source_sha256": "c5f660aca175a7e23b7cffc7bcc2f97655fe23d8f97042e232f8592012cddb87",
+      "destination_sha256": "c26d94edf0135478a33f1796f3a4d0dfed0a308016e83cfd83423d634073c531",
+      "source_bytes": 10591,
+      "destination_bytes": 10498,
+      "redactions": [
+        {
+          "type": "replace_local_outputs_root",
+          "occurrences": 3,
+          "replacement": "<LOCAL_EVIDENCE_ROOT>/"
+        }
+      ],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-speed-study/完整基线后的门槛验证约定.md",
+      "destination": "research/github-center-speed-study/完整基线后的门槛验证约定.md",
+      "source_sha256": "72cee8396814542030f54dfaaec8cf6383e07964f56d6d55973d772d39248c00",
+      "destination_sha256": "72cee8396814542030f54dfaaec8cf6383e07964f56d6d55973d772d39248c00",
+      "source_bytes": 3255,
+      "destination_bytes": 3255,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-speed-study/日更提速结论.md",
+      "destination": "research/github-center-speed-study/日更提速结论.md",
+      "source_sha256": "267be21aeb1344e765796d8c640293d6aca519e7305bc228fefe0b90431617d4",
+      "destination_sha256": "267be21aeb1344e765796d8c640293d6aca519e7305bc228fefe0b90431617d4",
+      "source_bytes": 6293,
+      "destination_bytes": 6293,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-upstream-investigation/official-sources.md",
+      "destination": "research/github-center-upstream-investigation/official-sources.md",
+      "source_sha256": "34ce4e426e29ed1f0d49c764f936daedb48b6edea6b75730f167a5b93b1b64b9",
+      "destination_sha256": "34ce4e426e29ed1f0d49c764f936daedb48b6edea6b75730f167a5b93b1b64b9",
+      "source_bytes": 3539,
+      "destination_bytes": 3539,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-upstream-investigation/safety-analysis.md",
+      "destination": "research/github-center-upstream-investigation/safety-analysis.md",
+      "source_sha256": "c080dbb31d3cbe943a52e949b7468b0ac77a41063ab15ba403dced489cbb2776",
+      "destination_sha256": "c080dbb31d3cbe943a52e949b7468b0ac77a41063ab15ba403dced489cbb2776",
+      "source_bytes": 9299,
+      "destination_bytes": 9299,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-upstream-investigation/排查结论.md",
+      "destination": "research/github-center-upstream-investigation/排查结论.md",
+      "source_sha256": "971cfa825f6f38cdcfc09fdb35cc5ff805e50a257406e79776491a63b3c00043",
+      "destination_sha256": "971cfa825f6f38cdcfc09fdb35cc5ff805e50a257406e79776491a63b3c00043",
+      "source_bytes": 5455,
+      "destination_bytes": 5455,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-safe-recovery/validate_coverage.py",
+      "destination": "research/github-center-safe-recovery/validate_coverage.py",
+      "source_sha256": "a28e0c33060630e1ba3087b9d852c6833f24e6f8a8a76c01593d7ccd3e0bbf4e",
+      "destination_sha256": "a28e0c33060630e1ba3087b9d852c6833f24e6f8a8a76c01593d7ccd3e0bbf4e",
+      "source_bytes": 24814,
+      "destination_bytes": 24814,
+      "redactions": [],
+      "host_dependencies": [
+        "Requires excluded local snapshot databases and probe evidence; not a self-contained runnable migration."
+      ]
+    },
+    {
+      "source": "github-center-safe-recovery/validate_monotone.py",
+      "destination": "research/github-center-safe-recovery/validate_monotone.py",
+      "source_sha256": "35a82f104b7d602fa4bfc63c0c359f3b15b284e72ee457505bceed0a66746d8f",
+      "destination_sha256": "35a82f104b7d602fa4bfc63c0c359f3b15b284e72ee457505bceed0a66746d8f",
+      "source_bytes": 18981,
+      "destination_bytes": 18981,
+      "redactions": [],
+      "host_dependencies": [
+        "Requires excluded local snapshot databases and probe evidence; not a self-contained runnable migration."
+      ]
+    },
+    {
+      "source": "github-center-safe-recovery/分路补齐结论.md",
+      "destination": "research/github-center-safe-recovery/分路补齐结论.md",
+      "source_sha256": "ec5da22e07fa312610643abcaff1d11748a4592ee245ab380f3b4958d1e2d391",
+      "destination_sha256": "ec5da22e07fa312610643abcaff1d11748a4592ee245ab380f3b4958d1e2d391",
+      "source_bytes": 6334,
+      "destination_bytes": 6334,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-safe-recovery/验证约定.md",
+      "destination": "research/github-center-safe-recovery/验证约定.md",
+      "source_sha256": "e220287dfaf36b6d211c9f664de9cbd7d52e0ff8bb4bb2134117cc867959dc18",
+      "destination_sha256": "e220287dfaf36b6d211c9f664de9cbd7d52e0ff8bb4bb2134117cc867959dc18",
+      "source_bytes": 2872,
+      "destination_bytes": 2872,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-safe-recovery/monotone-independent-review.md",
+      "destination": "research/github-center-safe-recovery/monotone-independent-review.md",
+      "source_sha256": "5add4f37b7d7ae678b728a9edca746470b32dd939e10981782f5ee04acfde8f8",
+      "destination_sha256": "5add4f37b7d7ae678b728a9edca746470b32dd939e10981782f5ee04acfde8f8",
+      "source_bytes": 4798,
+      "destination_bytes": 4798,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-safe-recovery/empty-independent-review.md",
+      "destination": "research/github-center-safe-recovery/empty-independent-review.md",
+      "source_sha256": "11bc1b3f7a73a4e87d726daa39f7ea977bf4b1c0dce8bf322047706f3c97ec74",
+      "destination_sha256": "11bc1b3f7a73a4e87d726daa39f7ea977bf4b1c0dce8bf322047706f3c97ec74",
+      "source_bytes": 3295,
+      "destination_bytes": 3295,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-upstream-investigation/drift-candidate/test_recovery.py",
+      "destination": "research/github-center-sustained-run/test_recovery.py",
+      "source_sha256": "86eeec85de12c03380831ee47577d44ef092ac97d3a1cd82858f615c2790c717",
+      "destination_sha256": "86eeec85de12c03380831ee47577d44ef092ac97d3a1cd82858f615c2790c717",
+      "source_bytes": 6566,
+      "destination_bytes": 6566,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-upstream-investigation/drift-candidate/test_atomic_mismatch.py",
+      "destination": "research/github-center-sustained-run/test_atomic_mismatch.py",
+      "source_sha256": "2827239d1974bd6fb8602b00105f8ec97b9f03a3f71c9aab055a424a9953df1f",
+      "destination_sha256": "2827239d1974bd6fb8602b00105f8ec97b9f03a3f71c9aab055a424a9953df1f",
+      "source_bytes": 2013,
+      "destination_bytes": 2013,
+      "redactions": [],
+      "host_dependencies": []
+    },
+    {
+      "source": "github-center-upstream-investigation/drift-candidate/test_leaf_drift.py",
+      "destination": "research/github-center-sustained-run/test_leaf_drift.py",
+      "source_sha256": "efa3a646847cdd1b79dcf7285c98e5242e57a51fc15a5115cc176c23a25d03ca",
+      "destination_sha256": "efa3a646847cdd1b79dcf7285c98e5242e57a51fc15a5115cc176c23a25d03ca",
+      "source_bytes": 9278,
+      "destination_bytes": 9278,
+      "redactions": [],
+      "host_dependencies": []
+    }
+  ],
+  "generated_files": [
+    {
+      "destination": "research/README.md",
+      "destination_sha256": "6ca3e00ff925d0e973b0e467c7a3ee240333361ac7e0b4f743a9ca91fe0ab71f",
+      "destination_bytes": 2801,
+      "purpose": "Research snapshot maturity, host dependencies, excluded local evidence, and no-execution boundary.",
+      "integration_note": "Updated after 5/5 isolated offline suites passed; source files unchanged."
+    }
+  ],
+  "exclusions": [
+    "SQLite databases and WAL/SHM",
+    "Raw response/probe collections",
+    "Caches and generated replay artifacts",
+    "Runtime plan.json and account-specific absolute paths",
+    "Automation prompts/configuration",
+    "Logs, PID, lock and process/status/maintenance markers",
+    "Backups, snapshot directories and old runner copies",
+    "Credentials and third-party repository copies",
+    "Historical daily probe source scripts",
+    "PPT and slide build artifacts"
+  ],
+  "secret_shape_scan": {
+    "scanned_files": 43,
+    "patterns": [
+      "github_token_shape",
+      "openai_key_shape",
+      "private_key_block",
+      "authorization_bearer_value",
+      "url_embedded_credential"
+    ],
+    "findings": [],
+    "limitations": "Pattern-based inspection is not a credential-absence guarantee; no values printed."
+  },
+  "totals": {
+    "copied_files": 42,
+    "generated_files": 1,
+    "research_files": 43,
+    "research_bytes": 388229
+  },
+  "notes": [
+    "No project scripts or tests were executed.",
+    "Core collector and all imported Python source files are byte-identical.",
+    "Markdown edits are limited to replacing the personal local outputs root with an evidence placeholder.",
+    "Import does not move original project files or change the collector runtime."
+  ]
+}
