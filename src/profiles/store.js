@@ -43,5 +43,5 @@ export function boardProjects(dataDir) {
   return out;
 }
 
-// 这个项目（按名字，不分大小写）是否正在某个榜单上。
-export const isOnBoards = (dataDir, fullName) => boardProjects(dataDir).some((p) => p.name.toLowerCase() === fullName.toLowerCase());
+// 榜单上的这个项目（按名字不分大小写，或按项目 id），不在榜单上返回 undefined。
+export const findOnBoards = (dataDir, { name, id }) => boardProjects(dataDir).find((p) => (id ? p.id === id : p.name.toLowerCase() === name.toLowerCase()));

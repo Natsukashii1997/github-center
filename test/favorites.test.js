@@ -1,16 +1,19 @@
 // #8：收藏项目与单个 Skill。全部走登录后的 HTTP（接缝 2），两个账号的收藏互不可见。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { http, form, serve, testAccount } from './helpers/web.js';
 
-// 一个有资料的项目：两个 Skill。
+// 一个有资料的项目（两个 Skill），另有一个在榜单上、还没读到资料的项目。
+const profilePath = (dir) => join(dir, 'profiles', '101.json');
 function dataDirWithProfile() {
   const dir = mkdtempSync(join(tmpdir(), 'gc-fav-'));
   mkdirSync(join(dir, 'profiles'), { recursive: true });
-  writeFileSync(join(dir, 'profiles', '101.json'), JSON.stringify({
+  mkdirSync(join(dir, 'snapshots', 'd1'), { recursive: true });
+  writeFileSync(join(dir, 'snapshots', 'd1', '2026-10-22.json'), JSON.stringify({ window: 'd1', statDay: '2026-10-22', entries: [{ rank: 1, projectId: 202, fullName: 'acme/tiny', gain: 9, total: 99 }] }));
+  writeFileSync(profilePath(dir), JSON.stringify({
     projectId: 101,
     fullName: 'acme/agent-kit',
     defaultBranch: 'main',
@@ -136,6 +139,51 @@ test('只接受本站这个端口提交的表单（登录、退出、收藏都�
     assert.equal((await post(site, { project_id: '101', skill: '', action: 'delete-all' })).status, 400);
     // 跳回地址同样只认本站路径。
     assert.equal((await post(site, { project_id: '101', skill: '', action: 'add', next: '//evil.example/' })).headers.location, '/');
+  } finally {
+    site.close();
+  }
+});
+
+test('还没读到资料的上榜项目也能收藏整个项目（不能收藏 Skill）；收藏 Skill 后跳回页上那一条', async () => {
+  const site = await serve(dataDirWithProfile());
+  try {
+    const page = await site.get('p/acme/tiny');
+    assert.match(page.body, /简介生成中/);
+    assert.match(page.body, /<input type="hidden" name="project_id" value="202">[\s\S]*?<button>收藏这个项目<\/button>/);
+    assert.equal((await post(site, { project_id: '202', skill: '', action: 'add', next: '/p/acme/tiny' })).status, 303);
+    assert.equal((await post(site, { project_id: '202', skill: 'skills/x', action: 'add' })).status, 404);
+    assert.equal((await post(site, { project_id: '0', skill: '', action: 'add' })).status, 404);
+    assert.deepEqual(favoriteLinks((await site.get('favorites')).body), [['/p/acme/tiny', 'acme/tiny']]);
+
+    const r = await post(site, { project_id: '101', skill: 'skills/pdf', action: 'add', next: '/p/acme/agent-kit#skill-skills/pdf' });
+    assert.equal(r.headers.location, '/p/acme/agent-kit#skill-skills/pdf');
+  } finally {
+    site.close();
+  }
+});
+
+test('项目改名、Skill 从仓库删掉、项目资料不在了：“我的收藏”照样列出，写明情况，也能取消', async () => {
+  const dataDir = dataDirWithProfile();
+  const site = await serve(dataDir);
+  try {
+    await add(site);
+    await add(site, 'skills/pdf');
+    const profile = JSON.parse(readFileSync(profilePath(dataDir), 'utf8'));
+    profile.fullName = 'acme/agent-kit-2';
+    profile.material.skills = profile.material.skills.filter((s) => s.path !== 'skills/pdf');
+    writeFileSync(profilePath(dataDir), JSON.stringify(profile));
+    let mine = (await site.get('favorites')).body;
+    // 用改名后的名字直达；删掉的 Skill 写明。
+    assert.deepEqual(favoriteLinks(mine), [['/p/acme/agent-kit-2#skill-skills/pdf', 'acme/agent-kit-2 里的 Skill：pdf'], ['/p/acme/agent-kit-2', 'acme/agent-kit-2']]);
+    assert.match(mine, /里的 Skill：pdf<\/a>（仓库里已经没有这个 Skill）/);
+    assert.equal((await site.get('p/acme/agent-kit-2')).status, 200);
+
+    rmSync(profilePath(dataDir));
+    mine = (await site.get('favorites')).body;
+    assert.match(mine, /<li>acme\/agent-kit（项目资料已不在，站内页面打不开；<a href="https:\/\/github\.com\/acme\/agent-kit">在 GitHub 打开<\/a>）/);
+    await remove(site, 'skills/pdf');
+    await remove(site);
+    assert.match((await site.get('favorites')).body, /还没有收藏。/);
   } finally {
     site.close();
   }

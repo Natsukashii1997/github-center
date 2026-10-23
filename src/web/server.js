@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
 import { openFavorites } from './favorites.js';
 import { readLatestSnapshot, readStatus, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
-import { findProfile, readProfile, isOnBoards, currentGenerated, skillPlace, skillPurpose, installInstruction, INSTALL_AIS } from '../profiles/index.js';
+import { findProfile, readProfile, findOnBoards, currentGenerated, skillPlace, skillPurpose, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
@@ -116,20 +116,20 @@ function installSection(profile, query) {
 }
 
 // 收藏或取消收藏的按钮（#8）：一个小表单，提交后回到 next。skillPath 为空表示整个项目。
-const favoriteButton = ({ projectId, skillPath = '', saved, label, next }) => `<form method="post" action="/favorites" class="fav">
+const favoriteButton = ({ projectId, skillPath = '', saved, what, next }) => `<form method="post" action="/favorites" class="fav">
 <input type="hidden" name="project_id" value="${esc(projectId)}"><input type="hidden" name="skill" value="${esc(skillPath)}">
 <input type="hidden" name="action" value="${saved ? 'remove' : 'add'}"><input type="hidden" name="next" value="${esc(next)}">
-<button>${saved ? '取消收藏' : '收藏'}${label}</button></form>`;
+<button>${saved ? '取消收藏' : '收藏'}${what}</button></form>`;
 
 // 项目页（#6）：简介（干什么、能解决什么问题）、项目文档写到的使用条件、仓库里的 Skill、安装指令（#7）、原项目链接、收藏（#8）。
 // 内容都来自存下的项目资料。简介没生成好、或文档更新后还没重新生成好，就写“简介生成中”，不拿猜测或过期的内容顶替。
-// saved 是这个人在这个项目上收藏了哪些（整个项目记为 ''）。还没有资料的项目不能收藏。
-function projectPage(fullName, profile, query, saved) {
+// projectId 为空（只从官方热门榜知道名字、还没有资料）时不能收藏；saved 是这个人在这个项目上收藏了哪些（整个项目记为 ''）。
+function projectPage(fullName, profile, query, { projectId, saved }) {
   const m = profile?.material;
   const g = currentGenerated(profile);
   const here = `/p/${fullName}`;
   const list = (items) => `<ul>\n${items.map(([head, text, note]) => `<li><strong>${esc(head)}</strong>　${esc(text)}<br><span class="note">${esc(note)}</span></li>`).join('\n')}\n</ul>`;
-  const parts = [`<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a>${m ? `　${favoriteButton({ projectId: profile.projectId, saved: saved.has(''), label: '这个项目', next: here })}` : ''}</p>`, '<h2>简介</h2>'];
+  const parts = [`<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a>${projectId ? `　${favoriteButton({ projectId, saved: saved.has(''), what: '这个项目', next: here })}` : ''}</p>`, '<h2>简介</h2>'];
   if (g) {
     parts.push(`<p>${esc(g.what)}</p>`, `<p>能帮你解决：${esc(g.problem)}</p>`, '<h2>使用条件</h2>');
     parts.push(g.conditions.length ? list(g.conditions.map((c) => [c.kind, c.text, `原文：${c.quote}`])) : '<p>在读到的项目文档里没有找到付费、账号、密钥或特定环境的要求。</p>');
@@ -141,7 +141,7 @@ function projectPage(fullName, profile, query, saved) {
   if (m) {
     // 安装指令放在 Skill 列表前面：Skill 多的仓库列表很长。
     parts.push(installSection(profile, query), '<h2>Skill</h2>');
-    const skillItem = (s) => `<li id="skill-${esc(s.path)}"><strong>${esc(s.name)}</strong>　${esc(skillPurpose(s, g))}　${favoriteButton({ projectId: profile.projectId, skillPath: s.path, saved: saved.has(s.path), label: '这个 Skill', next: `${here}#skill-${s.path}` })}<br><span class="note">${esc(skillPlace(s.path))}</span></li>`;
+    const skillItem = (s) => `<li id="skill-${esc(s.path)}"><strong>${esc(s.name)}</strong>　${esc(skillPurpose(s, g))}　${favoriteButton({ projectId, skillPath: s.path, saved: saved.has(s.path), what: '这个 Skill', next: `${here}#skill-${s.path}` })}<br><span class="note">${esc(skillPlace(s.path))}</span></li>`;
     parts.push(m.skills.length ? `<ul>\n${m.skills.map(skillItem).join('\n')}\n</ul>` : '<p>仓库里没有按 SKILL.md 约定写的 Skill。</p>');
     if (m.treeTruncated || m.skillsTruncated) parts.push('<p class="note">仓库太大，Skill 列表可能不全。</p>');
     const readme = m.readme ? `<a href="${esc(m.readme.htmlUrl)}">${esc(m.readme.path)}</a>` : '仓库里没有 README';
@@ -153,13 +153,18 @@ function projectPage(fullName, profile, query, saved) {
 }
 
 // 我的收藏（#8）：这个人的全部收藏，新的在前；每条都能直达项目页（Skill 直达项目页上那一条），也能直接取消。
-// 名字优先用项目资料里现在的（项目可能改过名），没有资料就用收藏时记下的。
+// 名字优先用项目资料里现在的（项目可能改过名），没有资料就用收藏时记下的。项目页打不开、Skill 已从仓库删掉的，写明原因。
 function favoritesPage(items, dataDir) {
   if (!items.length) return { title: '我的收藏', body: '<p>还没有收藏。在项目页点“收藏”，就会出现在这里。</p>' };
   const rows = items.map((f) => {
-    const fullName = readProfile(dataDir, f.projectId)?.fullName ?? f.fullName;
-    const link = f.skillPath ? `<a href="/p/${esc(fullName)}#skill-${esc(f.skillPath)}">${esc(fullName)} 里的 Skill：${esc(f.skillName)}</a>` : `<a href="/p/${esc(fullName)}">${esc(fullName)}</a>（整个项目）`;
-    return `<li>${link}　${favoriteButton({ projectId: f.projectId, skillPath: f.skillPath, saved: true, label: '', next: '/favorites' })}<br><span class="note">收藏于 ${beijing(f.createdAt)}（北京时间）</span></li>`;
+    const profile = readProfile(dataDir, f.projectId);
+    const fullName = profile?.fullName ?? f.fullName;
+    const name = f.skillPath ? `${esc(fullName)} 里的 Skill：${esc(f.skillName)}` : esc(fullName);
+    let item;
+    if (!profile && !findOnBoards(dataDir, { id: f.projectId })) item = `${name}（项目资料已不在，站内页面打不开；<a href="https://github.com/${esc(fullName)}">在 GitHub 打开</a>）`;
+    else if (f.skillPath) item = `<a href="/p/${esc(fullName)}#skill-${esc(f.skillPath)}">${name}</a>${profile?.material.skills.some((s) => s.path === f.skillPath) ? '' : '（仓库里已经没有这个 Skill）'}`;
+    else item = `${repo(fullName)}（整个项目）`;
+    return `<li>${item}　${favoriteButton({ projectId: f.projectId, skillPath: f.skillPath, saved: true, what: '', next: '/favorites' })}<br><span class="note">收藏于 ${beijing(f.createdAt)}（北京时间）</span></li>`;
   });
   return { title: '我的收藏', body: `<p>共 ${items.length} 条，只有你自己看得到。</p>\n<ul>\n${rows.join('\n')}\n</ul>` };
 }
@@ -169,8 +174,11 @@ function route(url, dataDir, { account, favorites }) {
   if (project) {
     // 只给有资料或正在榜单上的项目出页面。
     const profile = findProfile(dataDir, project[1]);
-    const saved = profile ? favorites.savedIn(account.id, profile.projectId) : new Set();
-    return (profile || isOnBoards(dataDir, project[1])) && projectPage(profile?.fullName ?? project[1], profile, url.searchParams, saved);
+    const listed = profile ? null : findOnBoards(dataDir, { name: project[1] });
+    if (!profile && !listed) return null;
+    const projectId = profile?.projectId ?? listed.id;
+    const saved = projectId ? favorites.savedIn(account.id, projectId) : new Set();
+    return projectPage(profile?.fullName ?? listed.name, profile, url.searchParams, { projectId, saved });
   }
   if (url.pathname === '/favorites') return favoritesPage(favorites.list(account.id), dataDir);
   const status = readStatus(dataDir);
@@ -223,12 +231,12 @@ const COOKIE = 'gc_session';
 const cookieOf = (req) => req.headers.cookie?.split(/;\s*/).map((c) => c.split('=')).find(([k]) => k === COOKIE)?.[1];
 const sessionCookie = (token, maxAge) => `${COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 // 登录后只跳回本站的路径，不跳到别的网站：按浏览器的规则解析（会去掉 Tab 和换行、把反斜杠当斜杠）后仍是本站才跳，
-// 并且只用解析出的已编码路径，跳转地址里不会有汉字或控制字符。
+// 并且只用解析出的已编码路径和锚点（收藏 Skill 后回到页上那一条），跳转地址里不会有汉字或控制字符。
 function safeNext(next) {
   if (typeof next !== 'string' || !next.startsWith('/')) return '/';
   try {
     const url = new URL(next, 'http://127.0.0.1');
-    return url.origin === 'http://127.0.0.1' ? url.pathname + url.search : '/';
+    return url.origin === 'http://127.0.0.1' ? url.pathname + url.search + url.hash : '/';
   } catch {
     return '/';
   }
@@ -290,7 +298,8 @@ export function startServer({ dataDir, port = 5310 }) {
       if (url.pathname.startsWith('/api/')) return send(401, { 'content-type': 'application/json; charset=utf-8' }, JSON.stringify({ error: '未登录' }));
       return send(303, { location: `/login?next=${encodeURIComponent(url.pathname + url.search)}` });
     }
-    // 收藏或取消收藏（#8）：只动自己的收藏。收藏时项目和 Skill 必须在存下的项目资料里；取消不用，资料没了也能取消。
+    // 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上就行；
+    // 取消不用查，资料没了也能取消。
     if (url.pathname === '/favorites' && req.method === 'POST') {
       if (!sameOrigin(req)) return text(403, '只接受本站提交的表单');
       const form = await readForm(req).catch(() => null);
@@ -303,10 +312,12 @@ export function startServer({ dataDir, port = 5310 }) {
         return send(303, { location: next });
       }
       if (form.get('action') !== 'add') return text(400, '不认识的操作');
-      const profile = Number.isSafeInteger(projectId) ? readProfile(dataDir, projectId) : null;
+      const known = Number.isSafeInteger(projectId) && projectId > 0;
+      const profile = known ? readProfile(dataDir, projectId) : null;
+      const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) : null;
       const skill = skillPath && profile?.material?.skills.find((s) => s.path === skillPath);
-      if (!profile?.material || (skillPath && !skill)) return text(404, '没有这个项目或 Skill 的资料');
-      favorites.add(account.id, { projectId, fullName: profile.fullName, skillPath, skillName: skill?.name ?? '' });
+      if (skillPath ? !skill : !profile && !listed) return text(404, '没有这个项目或 Skill 的资料');
+      favorites.add(account.id, { projectId, fullName: profile?.fullName ?? listed.name, skillPath, skillName: skill?.name ?? '' });
       return send(303, { location: next });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});

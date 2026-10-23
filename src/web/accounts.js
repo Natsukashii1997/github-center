@@ -1,25 +1,14 @@
 // 账号与登录会话（#5）：不开放注册，所有者在本机用命令开账号（自己的和伙伴的）、重置密码。
 // 密码由命令随机生成、只显示一次，库里只存 scrypt 哈希（每个账号单独加盐）；
 // 登录后发一个随机会话令牌放在 Cookie 里，库里只存令牌的哈希，30 天后失效。存在 data/center.db（Node 自带 SQLite）。
-import { DatabaseSync } from 'node:sqlite';
 import { scryptSync, randomBytes, timingSafeEqual, createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { openCenterDb } from './center-db.js';
 
 export const SESSION_DAYS = 30;
 export const ROLES = { owner: '所有者', partner: '伙伴' };
 const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 const hashPassword = (password, salt) => scryptSync(password, salt, 64).toString('hex');
 const newPassword = () => randomBytes(12).toString('base64url');
-
-// 账号、会话和收藏（#8）都存在 data/center.db。网站和开账号命令会同时打开这个库：
-// 用 WAL 让读写互不阻塞，碰上对方正在写就最多等 5 秒，而不是立刻报错。
-export function openCenterDb(dataDir) {
-  mkdirSync(dataDir, { recursive: true });
-  const db = new DatabaseSync(join(dataDir, 'center.db'));
-  db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
-  return db;
-}
 
 export function openAccounts(dataDir) {
   const db = openCenterDb(dataDir);
