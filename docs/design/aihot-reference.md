@@ -1,5 +1,7 @@
 # 视觉参考：AIHOT 整体风格（#12 v2 的共同约束）
 
+> 2026-10-23 所有者再次明确：AIHOT 只作**气质**参考（克制、高级、优雅、美观），不复刻它的布局、配色和招牌插图；界面要从本项目内容的底层逻辑出发。所以从 v3 起，本文件只有“气质”和“不做”两节仍然适用，设计变量、字体、形状、动效各版自定，见 [t1a-review.md](t1a-review.md)。下文是 v2 当时的共同约束，留作记录。
+
 所有者 2026-10-23 明确：视觉以 [AIHOT](https://github.com/KKKKhazix/AIHOT)（线上 https://aihot.news）的整体风格为参考，要求克制、高级、优雅、美观。本文件是 v2 三套候选的共同约束；三套只在布局与动效编排上不同，不在色板和气质上分叉。
 
 来源：AIHOT `apps/web/app/app.css`（设计变量注释原文为“warm off-white paper, ink text, one teal accent, hairline borders, no gradients”）、`docs/assets/shots-*.png`、线上首页与 `/hot` 热点榜（2026-10-23 在 1440×900 下查看）。
