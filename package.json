@@ -5,7 +5,7 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
-    "rank": "node bin/rank-day.js",
+    "rank": "node --use-env-proxy bin/rank-day.js",
     "serve": "node bin/serve.js"
   }
 }

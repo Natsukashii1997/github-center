@@ -12,3 +12,11 @@ export function lastEndedDay(now) {
   d.setUTCDate(d.getUTCDate() - 1);
   return d.toISOString().slice(0, 10);
 }
+
+// 近 1、7、30 天：截至统计日（含）往前数的统计日，按日累计；since 是同一时间跨度的官方热门榜。
+export const WINDOWS = { d1: { days: 1, since: 'daily' }, d7: { days: 7, since: 'weekly' }, d30: { days: 30, since: 'monthly' } };
+
+export function windowDays(day, n) {
+  const t = Date.parse(`${day}T00:00:00Z`);
+  return Array.from({ length: n }, (_, i) => new Date(t - (n - 1 - i) * 86400e3).toISOString().slice(0, 10));
+}

@@ -1,11 +1,19 @@
-// 文件存储：每次运行的官方原始响应单独存放；快照按统计日只写一次，已存在就不覆盖。
-import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+// 文件存储：每次运行的官方原始响应单独存放；快照按窗口和统计日只写一次，已存在就不覆盖。
+// 另存每天的全站 Star 事件合计（只用来挑候选，近 7/30 天复用）和每个窗口最近一次更新的结果。
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, renameSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
-export const WINDOW = 'd1';
-const snapshotDir = join('snapshots', WINDOW);
-const snapshotPath = (day) => join(snapshotDir, `${day}.json`);
+const snapshotPath = (window, day) => join('snapshots', window, `${day}.json`);
+const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null);
+
+// 先写临时文件再改名，中途断掉不会留下半个文件；临时文件名各次运行不同，两次运行撞上也不互相踩。
+function writeAtomic(path, text) {
+  mkdirSync(dirname(path), { recursive: true });
+  const tmp = `${path}.${randomUUID()}.tmp`;
+  writeFileSync(tmp, text);
+  renameSync(tmp, path);
+}
 
 export function openStore(dataDir, runId) {
   return {
@@ -16,8 +24,8 @@ export function openStore(dataDir, runId) {
       return { url: res.url, path, sha256: createHash('sha256').update(res.body).digest('hex'), date: res.date };
     },
     publish(snapshot) {
-      const path = snapshotPath(snapshot.statDay);
-      mkdirSync(join(dataDir, snapshotDir), { recursive: true });
+      const path = snapshotPath(snapshot.window, snapshot.statDay);
+      mkdirSync(dirname(join(dataDir, path)), { recursive: true });
       try {
         writeFileSync(join(dataDir, path), JSON.stringify(snapshot, null, 2) + '\n', { flag: 'wx' });
         return { status: 'published', path };
@@ -29,14 +37,31 @@ export function openStore(dataDir, runId) {
   };
 }
 
-export function findSnapshot(dataDir, day) {
-  const path = snapshotPath(day);
-  return existsSync(join(dataDir, path)) ? { path, snapshot: JSON.parse(readFileSync(join(dataDir, path), 'utf8')) } : null;
+export function findSnapshot(dataDir, window, day) {
+  const path = snapshotPath(window, day);
+  const snapshot = readJson(join(dataDir, path));
+  return snapshot ? { path, snapshot } : null;
 }
 
-export function readLatestSnapshot(dataDir) {
-  const dir = join(dataDir, snapshotDir);
+export function readLatestSnapshot(dataDir, window = 'd1') {
+  const dir = join(dataDir, 'snapshots', window);
   if (!existsSync(dir)) return null;
   const latest = readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().pop();
-  return latest ? JSON.parse(readFileSync(join(dir, latest), 'utf8')) : null;
+  return latest ? readJson(join(dir, latest)) : null;
 }
+
+export const readEvents = (dataDir, day) => readJson(join(dataDir, 'events', `${day}.json`));
+export const saveEvents = (dataDir, day, events) => writeAtomic(join(dataDir, 'events', `${day}.json`), JSON.stringify(events) + '\n');
+
+// 每个窗口只记最新统计日的结果：重跑更早的日子不会盖掉更新的失败记录。
+export function recordStatus(dataDir, { day, at, windows }) {
+  const path = join(dataDir, 'status.json');
+  const status = readJson(path) ?? { windows: {} };
+  for (const [window, r] of Object.entries(windows)) {
+    if ((status.windows[window]?.day ?? '') > day) continue;
+    status.windows[window] = { day, at, status: r.status, ...(r.error ? { error: r.error } : {}) };
+  }
+  writeAtomic(path, JSON.stringify(status, null, 2) + '\n');
+}
+
+export const readStatus = (dataDir) => readJson(join(dataDir, 'status.json'));

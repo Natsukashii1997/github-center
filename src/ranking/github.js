@@ -4,21 +4,51 @@ const API = 'https://api.github.com';
 export const PER_PAGE = 6;
 const path = (c) => (c.id ? `/repositories/${c.id}` : `/repos/${c.name}`);
 
-export function githubClient({ fetch, token }) {
+// 本机 gh 账号的每小时额度和 Codex 的严格实验共用；它给自己留 1,000 次底，这里留得更多，额度紧时先让它用。
+export const RESERVE = 1500;
+const RETRIES = 3;
+const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// stats 记实际发出的请求次数（含重试）。
+export function githubClient({ fetch, token, sleep = realSleep, now = Date.now }) {
   const stats = { history: 0, project: 0 };
-  async function get(p) {
+  let pauseUntil = 0;
+  async function get(kind, p) {
     const url = API + p;
-    const res = await fetch(url, {
-      headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', 'user-agent': 'github-center' },
-    });
-    const body = await res.text();
-    if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`${url} 返回 ${res.status}：${body.slice(0, 200)}`);
-    return { url, body, date: res.headers.get('date') };
+    for (let attempt = 1; ; attempt++) {
+      if (pauseUntil > now()) await sleep(pauseUntil - now());
+      stats[kind]++;
+      let res;
+      try {
+        res = await fetch(url, {
+          headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', 'user-agent': 'github-center' },
+        });
+      } catch (e) {
+        if (attempt < RETRIES) { await sleep(attempt * 2000); continue; }
+        throw new Error(`${url} 请求失败：${e.message}`);
+      }
+      const h = res.headers;
+      const remaining = h.has('x-ratelimit-remaining') ? Number(h.get('x-ratelimit-remaining')) : null;
+      const resetAt = h.has('x-ratelimit-reset') ? Number(h.get('x-ratelimit-reset')) * 1000 + 5000 : null;
+      if (remaining !== null && remaining < RESERVE && resetAt) pauseUntil = Math.max(pauseUntil, resetAt);
+      const body = await res.text();
+      if (res.status === 404) return null;
+      if (res.ok) return { url, body, date: h.get('date') };
+      // 被限流：等到额度重置（或按 retry-after）再试。
+      if (res.status === 429 || (res.status === 403 && (remaining === 0 || h.has('retry-after')))) {
+        const retryAfter = Number(h.get('retry-after'));
+        pauseUntil = Math.max(pauseUntil, retryAfter ? now() + retryAfter * 1000 : resetAt ?? now() + 60_000);
+        if (attempt < RETRIES * 2) continue;
+      } else if (res.status >= 500 && attempt < RETRIES) {
+        await sleep(attempt * 2000);
+        continue;
+      }
+      throw new Error(`${url} 返回 ${res.status}：${body.slice(0, 200)}`);
+    }
   }
   return {
     stats,
-    history: (c) => (stats.history++, get(`${path(c)}/stargazers/history?per_page=${PER_PAGE}`)),
-    project: (c) => (stats.project++, get(path(c))),
+    history: (c) => get('history', `${path(c)}/stargazers/history?per_page=${PER_PAGE}`),
+    project: (c) => get('project', path(c)),
   };
 }

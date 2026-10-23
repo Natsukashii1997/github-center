@@ -1,8 +1,13 @@
-import { bucketOf, lastEndedDay } from './stat-day.js';
-import { archiveHour, clickhouseHour, trendingDaily } from './sources.js';
+import { bucketOf, lastEndedDay, windowDays, WINDOWS } from './stat-day.js';
+import { archiveHour, clickhouseHour, clickhouseDay, trending } from './sources.js';
 import { githubClient, PER_PAGE } from './github.js';
-import { openStore, findSnapshot, WINDOW } from './store.js';
+import { openStore, findSnapshot, readEvents, saveEvents, recordStatus } from './store.js';
 import { topWithTies } from './rank.js';
+import { selfCheck, lowerThreshold } from './check.js';
+
+const MAX_FAILED_SHARE = 0.05;
+// 每个窗口最多核这么多个候选（约是近 1 天全部有事件记录的项目数），保证每天一次的运行在额度内跑得完。
+const MAX_CANDIDATES = 5000;
 
 async function mapLimit(items, n, fn) {
   const out = new Array(items.length);
@@ -31,85 +36,185 @@ function mergeById(rows) {
   return [...new Set(byName.values())];
 }
 
-// 1. 找候选：24 个小时的 Star 事件按项目合计取前 limit 个，并入官方热门日榜，最后人人都有项目 id。
-// 官方热门日榜只能抓到运行当天的，它只多给几个候选；每个候选的数字仍按统计日核对。
-async function findCandidates({ fetch, day, gh, limit }) {
-  const fallbackHours = [];
-  const hours = await mapLimit([...Array(24).keys()], 4, async (hour) => {
-    try {
-      return await archiveHour({ fetch, day, hour });
-    } catch {
-      fallbackHours.push(hour);
-      const rows = await clickhouseHour({ fetch, day, hour });
-      if (!rows.length) throw new Error(`第 ${hour} 小时 GH Archive 缺失，ClickHouse 也没有这一小时的数据，按更新失败处理`);
-      return rows;
-    }
-  });
-  const fromArchive = mergeById(hours.flat()).sort((a, b) => b.events - a.events || (a.name < b.name ? -1 : 1)).slice(0, limit);
-  const trending = await trendingDaily({ fetch });
-  const unavailable = [];
-  const resolved = await mapLimit(mergeById([...fromArchive, ...trending]), 6, async (c) => {
-    if (c.id) return c;
-    const res = await gh.project(c);
-    if (!res) return (unavailable.push(c.name), null);
-    const p = JSON.parse(res.body);
-    return { id: p.id, name: p.full_name };
-  });
-  const candidates = mergeById(resolved.filter(Boolean)).map(({ id, name }) => ({ id, name }));
-  return { candidates, unavailable, counts: { archive: fromArchive.length, trending: trending.length, fallbackHours: fallbackHours.sort((a, b) => a - b) } };
-}
+const byEvents = (a, b) => b.events - a.events || (a.name < b.name ? -1 : 1);
+const nameKey = (name) => `name:${name.toLowerCase()}`;
+const keyOf = (c) => (c.id ? `id:${c.id}` : nameKey(c.name));
 
-// 2. 官方核数：每个候选读一次官方星数历史，取统计日那一格。缺那一周就不发布（缺失不补零）；
-// 只有统计日时项目还不存在（历史不满一页且最早一周晚于统计日）才记为当天 0。
-async function verifyGains({ candidates, gh, store, bucket, day, unavailable }) {
-  const missing = [];
-  const verified = await mapLimit(candidates, 6, async (c) => {
-    const res = await gh.history(c);
-    if (!res) return (unavailable.push(c.name), null);
-    const weeks = JSON.parse(res.body);
-    const week = weeks.find((w) => w.week === bucket.week);
-    const notYetCreated = !week && weeks.length < PER_PAGE && weeks.every((w) => w.week > bucket.week);
-    if (!week && !notYetCreated) return (missing.push(c.name), null);
-    return { candidate: c, fullName: c.name, gain: week ? week.days[bucket.dayIndex] : 0, history: store.saveRaw('history', String(c.id), res) };
-  });
-  if (missing.length) throw new Error(`${missing.length} 个候选在官方星数历史里缺统计日 ${day} 那一周（如 ${missing.slice(0, 3).join('、')}），不发布`);
-  return verified.filter(Boolean);
-}
-
-// 3. 上榜项目再读一次项目信息，取当前总 Star。
-async function withTotals({ top, gh, store }) {
-  return mapLimit(top, 6, async (t) => {
-    const res = await gh.project(t.candidate);
-    if (!res) throw new Error(`上榜项目 ${t.fullName} 的项目信息读不到（404），不发布`);
-    const p = JSON.parse(res.body);
-    return { rank: t.rank, projectId: p.id, fullName: p.full_name, gain: t.gain, total: p.stargazers_count, evidence: { history: t.history, project: store.saveRaw('project', String(p.id), res) } };
-  });
-}
-
-// 跑一次出榜：某个已结束统计日的近 1 天涨星榜前 20（含末位并列）。
-export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, now = () => new Date(), limit = 300 }) {
-  const bucket = bucketOf(day);
-  if (day > lastEndedDay(now())) throw new Error(`统计日 ${day} 还没结束（按 UTC），最近一个已结束的是 ${lastEndedDay(now())}`);
-  const done = findSnapshot(dataDir, day);
-  if (done) return { status: 'exists', ...done };
-
-  const runId = `${day}_${now().toISOString().replace(/[:.]/g, '-')}`;
-  const store = openStore(dataDir, runId);
-  const gh = githubClient({ fetch, token });
-  const { candidates, unavailable, counts } = await findCandidates({ fetch, day, gh, limit });
-  const verified = await verifyGains({ candidates, gh, store, bucket, day, unavailable });
-  const entries = await withTotals({ top: topWithTies(verified.filter((v) => v.gain > 0)), gh, store });
-
-  const snapshot = {
-    window: WINDOW,
-    statDay: day,
-    bucket,
-    boundaryMode: 'observed_utc',
-    generatedAt: now().toISOString(),
-    runId,
-    candidates: { total: candidates.length, ...counts, unavailable },
-    requests: { ...gh.stats },
-    entries,
+// 同一次运行里同一个项目的官方请求只发一次，各窗口共用结果。
+function oncePerProject(fn) {
+  const cache = new Map();
+  return (c) => {
+    const key = keyOf(c);
+    if (!cache.has(key)) cache.set(key, fn(c));
+    return cache.get(key);
   };
-  return { ...store.publish(snapshot), snapshot };
+}
+
+// 1. 某个统计日的全站 Star 事件按项目合计。存过就直接用；统计日当天读 GH Archive 的 24 个小时文件（缺的小时用 ClickHouse 补），
+// 更早的日子（近 7/30 天才用到）从 ClickHouse 按天补。
+async function dayEvents({ fetch, sleep, dataDir, day, latest }) {
+  const saved = readEvents(dataDir, day);
+  if (saved) return saved;
+  let events;
+  if (latest) {
+    const fallbackHours = [];
+    const hours = await mapLimit([...Array(24).keys()], 4, async (hour) => {
+      try {
+        return await archiveHour({ fetch, day, hour });
+      } catch {
+        fallbackHours.push(hour);
+        const rows = await clickhouseHour({ fetch, sleep, day, hour });
+        if (!rows.length) throw new Error(`第 ${hour} 小时 GH Archive 缺失，ClickHouse 也没有这一小时的数据，按更新失败处理`);
+        return rows;
+      }
+    });
+    events = { day, source: 'gharchive', fallbackHours: fallbackHours.sort((a, b) => a - b), rows: mergeById(hours.flat()) };
+  } else {
+    events = { day, source: 'clickhouse', fallbackHours: [], rows: await clickhouseDay({ fetch, sleep, day }) };
+    if (!events.rows.length) throw new Error(`ClickHouse 没有 ${day} 的事件数据，按更新失败处理`);
+  }
+  saveEvents(dataDir, day, events);
+  return events;
+}
+
+async function windowEvents({ fetch, sleep, dataDir, days }) {
+  const perDay = [];
+  for (const d of days) perDay.push(await dayEvents({ fetch, sleep, dataDir, day: d, latest: d === days.at(-1) }));
+  return {
+    rows: mergeById(perDay.flatMap((e) => e.rows)).sort(byEvents),
+    fallbackHours: perDay.at(-1).fallbackHours,
+    backfilledDays: perDay.filter((e) => e.source === 'clickhouse').map((e) => e.day),
+  };
+}
+
+// 2. 官方核数：每个候选读一次官方星数历史（6 周，近 1/7/30 天都从这一次里取），同一次运行里各窗口共用。
+function verifier({ gh, store }) {
+  return oncePerProject((c) => gh.history(c).then(
+    (res) => (res ? { weeks: JSON.parse(res.body), evidence: store.saveRaw('history', String(c.id ?? c.name.replace('/', '__')), res) } : { unavailable: true }),
+    (e) => ({ error: e.message }),
+  ));
+}
+
+// 窗口内每个统计日取官方星数历史里那一格相加。缺某一周就算核数失败（缺失不补零）；
+// 只有那天项目还不存在（历史不满一页且最早一周晚于那天）才记为 0。
+function gainOf(weeks, days) {
+  let sum = 0;
+  for (const d of days) {
+    const b = bucketOf(d);
+    const week = weeks.find((w) => w.week === b.week);
+    if (week) sum += week.days[b.dayIndex];
+    else if (!(weeks.length < PER_PAGE && weeks.every((w) => w.week > b.week))) return null;
+  }
+  return sum;
+}
+
+function projects({ gh, store }) {
+  return oncePerProject((c) => gh.project(c).then((res) => {
+    if (!res) throw new Error(`上榜项目 ${c.name} 的项目信息读不到（404），不发布`);
+    const p = JSON.parse(res.body);
+    return { p, evidence: store.saveRaw('project', String(p.id), res) };
+  }));
+}
+
+// 3. 前 20（含末位并列）再读一次项目信息，取当前总 Star 和项目 id。
+// 只有名字的候选到这一步才拿到 id：同一项目用新旧两个名字都进了榜（改过名）时只留一个，再重排。
+async function rankEntries({ verified, project }) {
+  let pool = verified.filter((v) => v.gain > 0);
+  for (;;) {
+    const top = topWithTies(pool);
+    const rows = await mapLimit(top, 6, async (t) => ({ t, ...(await project(t.candidate)) }));
+    const seen = new Set();
+    const dup = new Set(rows.filter(({ p }) => seen.has(p.id) || !seen.add(p.id)).map(({ t }) => t.candidate));
+    if (!dup.size) {
+      return rows.map(({ t, p, evidence }) => ({ rank: t.rank, projectId: p.id, fullName: p.full_name, gain: t.gain, total: p.stargazers_count, records: t.records, evidence: { history: t.history, project: evidence } }));
+    }
+    pool = pool.filter((v) => !dup.has(v.candidate));
+  }
+}
+
+const delta = (a, b) => Object.fromEntries(Object.keys(a).map((k) => [k, a[k] - b[k]]));
+
+// 一个窗口出榜：候选取事件记录次数前 limit 名（同次数的一起进）并入官方热门榜，核数排名后自检；
+// 自检不过就降低候选门槛、补核新进的候选再排，直到通过；门槛降到 1 或候选到上限仍不过，就如实标注“可能不完整”。
+async function rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, limit, maxCandidates }) {
+  const before = { ...gh.stats };
+  const days = windowDays(day, WINDOWS[window].days);
+  const ev = await windowEvents({ fetch, sleep, dataDir, days });
+  const hot = await trending({ fetch, sleep, since: WINDOWS[window].since });
+  let threshold = ev.rows[Math.min(limit, ev.rows.length) - 1]?.events ?? 1;
+  // 候选上限对应的最低门槛：门槛再低，事件数据里达到它的项目就超过上限了。
+  const floor = ev.rows.length > maxCandidates ? ev.rows[maxCandidates].events + 1 : 1;
+  // 只从热门榜进来的候选，自检时也按它在事件数据里的真实记录次数算。
+  const recorded = new Map(ev.rows.flatMap((r) => [[nameKey(r.name), r.events], ...(r.id ? [[keyOf(r), r.events]] : [])]));
+  const recordsOf = (c) => c.events || recorded.get(keyOf(c)) || recorded.get(nameKey(c.name)) || 0;
+  for (;;) {
+    const fromEvents = ev.rows.filter((r) => r.events >= threshold);
+    const candidates = mergeById([...fromEvents, ...hot]);
+    const results = await mapLimit(candidates, 6, verify);
+    const unavailable = [];
+    const failed = [];
+    const verified = [];
+    candidates.forEach((c, i) => {
+      const r = results[i];
+      if (r.unavailable) return unavailable.push(c.name);
+      const gain = r.weeks ? gainOf(r.weeks, days) : null;
+      if (gain === null) return failed.push({ name: c.name, reason: r.error ?? (days.length === 1 ? `官方星数历史缺统计日 ${day} 那一周` : `官方星数历史缺 ${days[0]} 至 ${day} 之间的某一周`) });
+      verified.push({ candidate: c, fullName: c.name, gain, records: recordsOf(c), history: r.evidence });
+    });
+    // 少数候选核数失败照样发布、标注“可能不完整”；大面积失败多半是上游出了问题，按更新失败处理。
+    if (failed.length > MAX_FAILED_SHARE * candidates.length || !verified.some((v) => v.gain > 0)) {
+      throw new Error(`${candidates.length} 个候选里 ${failed.length} 个核数失败（如 ${failed[0]?.name}：${failed[0]?.reason}），不发布`);
+    }
+    const entries = await rankEntries({ verified, project });
+    const check = selfCheck({ entries, threshold });
+    const next = Math.max(lowerThreshold(check), floor);
+    if (check.passed || next >= threshold) {
+      return { days, ev, candidates, fromEvents: fromEvents.length, hot: hot.length, unavailable, failed, entries, check, requests: delta(gh.stats, before) };
+    }
+    threshold = next;
+  }
+}
+
+// 跑一次出榜：某个已结束统计日的近 1、7、30 天涨星榜前 20（含末位并列），每个窗口单独发布。
+// 已发布的窗口不重跑；某个窗口失败不影响其他窗口，失败原因记进 status.json，网站据此提示。
+export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, now = () => new Date(), limit = 300, maxCandidates = MAX_CANDIDATES, windows = Object.keys(WINDOWS), sleep }) {
+  if (day > lastEndedDay(now())) throw new Error(`统计日 ${day} 还没结束（按 UTC），最近一个已结束的是 ${lastEndedDay(now())}`);
+  const results = {};
+  const todo = windows.filter((w) => {
+    const done = findSnapshot(dataDir, w, day);
+    if (done) results[w] = { status: 'exists', ...done };
+    return !done;
+  });
+
+  if (todo.length) {
+    const runId = `${day}_${now().toISOString().replace(/[:.]/g, '-')}`;
+    const store = openStore(dataDir, runId);
+    const gh = githubClient({ fetch, token, sleep });
+    const verify = verifier({ gh, store });
+    const project = projects({ gh, store });
+    for (const window of todo) {
+      try {
+        const r = await rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, limit, maxCandidates });
+        const snapshot = {
+          window,
+          statDay: day,
+          from: r.days[0],
+          bucket: bucketOf(day),
+          boundaryMode: 'observed_utc',
+          generatedAt: now().toISOString(),
+          runId,
+          candidates: { total: r.candidates.length, archive: r.fromEvents, trending: r.hot, fallbackHours: r.ev.fallbackHours, backfilledDays: r.ev.backfilledDays, unavailable: r.unavailable, failed: r.failed },
+          check: r.check,
+          incomplete: !r.check.passed || r.failed.length > 0,
+          requests: r.requests,
+          entries: r.entries.map(({ records, ...e }) => e),
+        };
+        results[window] = { ...store.publish(snapshot), snapshot };
+      } catch (e) {
+        results[window] = { status: 'failed', error: e.message };
+      }
+    }
+  }
+  recordStatus(dataDir, { day, at: now().toISOString(), windows: results });
+  return { day, windows: results };
 }

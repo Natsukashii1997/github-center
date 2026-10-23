@@ -1,21 +1,44 @@
 // 接缝 1：出榜管线。上游全部来自录制数据，不访问网络。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { rankDay, readLatestSnapshot } from '../src/ranking/index.js';
+import { rankDay, readLatestSnapshot, readStatus } from '../src/ranking/index.js';
 import { recordedUpstream } from './helpers/recorded-upstream.js';
 
 const day = '2026-10-22';
 const now = () => new Date('2026-10-23T08:40:00Z');
 const fresh = () => mkdtempSync(join(tmpdir(), 'gc-rank-'));
 const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
+const noSleep = async () => {};
+const fixture = (path) => JSON.parse(readFileSync(new URL(`./fixtures/upstream/${path}`, import.meta.url)));
+
+// 只跑近 1 天；返回这个窗口的结果。
+async function d1({ upstream = recordedUpstream(), dataDir = fresh(), ...opts } = {}) {
+  const r = await rankDay({ day, dataDir, fetch: upstream.fetch, token: 't', now, windows: ['d1'], sleep: noSleep, ...opts });
+  return r.windows.d1;
+}
+
+// 预先放好某天的全站 Star 事件合计（代替下载），用来设定每个项目的事件记录次数。
+function seedEvents(dataDir, d, rows) {
+  mkdirSync(join(dataDir, 'events'), { recursive: true });
+  writeFileSync(join(dataDir, 'events', `${d}.json`), JSON.stringify({ day: d, source: 'gharchive', fallbackHours: [], rows }));
+}
+
+// 录制素材里每个有官方历史的项目，事件记录次数设成统计日当天新增的一半（记录比例 50%）。
+function halfRecorded() {
+  return ['1903522', '1140828898', '1266797999', '1273427276', '1200597263', '1241364151', '1428842369', '1423101235', '1246285721', '1420922340',
+    '1429685674', '1422525548', '1143604550', '937253475', '214587193', '160919119', '1092047360', '518122174', '1284084888', '1145981909',
+    '1306722822', '1178268818', '1330431542', '42976210'].map((id) => {
+    const gain = fixture(`history/${id}.json`).find((w) => w.week === 1792281600).days[4];
+    return { id: Number(id), name: fixture(`repos/${id}.json`).full_name, events: Math.floor(gain / 2) };
+  });
+}
 
 test('近 1 天榜单取前 20，末位并列一起上榜，同分同名次', async () => {
-  const { fetch } = recordedUpstream();
-  const { snapshot } = await rankDay({ day, dataDir: fresh(), fetch, token: 't', now });
+  const { snapshot } = await d1();
   const rows = snapshot.entries.map((e) => [e.rank, e.fullName, e.gain]);
   assert.equal(rows.length, 21);
   assert.deepEqual(rows.slice(0, 7), [
@@ -30,12 +53,12 @@ test('近 1 天榜单取前 20，末位并列一起上榜，同分同名次', as
   assert.deepEqual(rows.slice(19).map(([r, , g]) => [r, g]), [[20, 120], [20, 120]]);
   assert.equal(snapshot.entries[0].total, 193409);
   assert.equal(snapshot.statDay, day);
+  assert.equal(snapshot.window, 'd1');
 });
 
 test('每个上榜数字都能追溯到保存的官方原始响应', async () => {
   const dataDir = fresh();
-  const { fetch } = recordedUpstream();
-  const { snapshot } = await rankDay({ day, dataDir, fetch, token: 't', now });
+  const { snapshot } = await d1({ dataDir });
   // 2026-10-22 是周四：所在周从 2026-10-18 周日 00:00 UTC（1792281600）起，第 4 格。
   assert.deepEqual(snapshot.bucket, { week: 1792281600, dayIndex: 4 });
   for (const e of snapshot.entries) {
@@ -51,97 +74,218 @@ test('每个上榜数字都能追溯到保存的官方原始响应', async () =>
 
 test('同一统计日重跑不覆盖已发布的快照，也不再请求上游', async () => {
   const dataDir = fresh();
-  const first = await rankDay({ day, dataDir, fetch: recordedUpstream().fetch, token: 't', now });
-  assert.equal(first.status, 'published');
-  const before = readFileSync(join(dataDir, first.path));
+  const first = await rankDay({ day, dataDir, fetch: recordedUpstream().fetch, token: 't', now, sleep: noSleep, windows: ['d1', 'd7'] });
+  assert.equal(first.windows.d1.status, 'published');
+  const before = readFileSync(join(dataDir, first.windows.d1.path));
   const again = recordedUpstream();
-  const second = await rankDay({ day, dataDir, fetch: again.fetch, token: 't', now: () => new Date('2026-10-23T09:10:00Z') });
-  assert.equal(second.status, 'exists');
-  assert.equal(second.path, first.path);
-  assert.deepEqual(readFileSync(join(dataDir, first.path)), before);
+  const second = await rankDay({ day, dataDir, fetch: again.fetch, token: 't', now: () => new Date('2026-10-23T09:10:00Z'), sleep: noSleep, windows: ['d1'] });
+  assert.equal(second.windows.d1.status, 'exists');
+  assert.equal(second.windows.d1.path, first.windows.d1.path);
+  assert.deepEqual(readFileSync(join(dataDir, first.windows.d1.path)), before);
   assert.equal(again.calls.length, 0);
 });
 
-test('候选来自全站事件和官方热门日榜，事件计数只用来找候选、不进快照', async () => {
-  const { fetch, calls } = recordedUpstream();
-  const { snapshot } = await rankDay({ day, dataDir: fresh(), fetch, token: 't', now });
+test('候选来自全站事件和官方热门日榜；事件计数只用来找候选和自检，每个项目的记录次数不进快照', async () => {
+  const upstream = recordedUpstream();
+  const { snapshot } = await d1({ upstream });
   // 事件数据里 15 个项目（含 php/php-src 用旧名出现的一次），热门日榜 9 个，按项目 id 去重后 23 个。
-  assert.deepEqual(snapshot.candidates, { total: 23, archive: 15, trending: 9, fallbackHours: [], unavailable: [] });
+  assert.deepEqual(snapshot.candidates, { total: 23, archive: 15, trending: 9, fallbackHours: [], backfilledDays: [], unavailable: [], failed: [] });
   assert.deepEqual(snapshot.requests, { history: 23, project: 21 });
-  assert.equal(calls.filter((c) => c.url.startsWith('https://data.gharchive.org/2026-10-22-')).length, 24);
-  assert.equal(calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/')).length, 0);
+  assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://data.gharchive.org/2026-10-22-')).length, 24);
+  assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/')).length, 0);
   for (const e of snapshot.entries) assert.deepEqual(Object.keys(e), ['rank', 'projectId', 'fullName', 'gain', 'total', 'evidence']);
   assert.equal(snapshot.entries.filter((e) => e.projectId === 1903522).length, 1);
   assert.ok(!JSON.stringify(snapshot).includes('events'));
 });
 
 test('某小时 GH Archive 缺失时，用 ClickHouse 公开库补这一小时的候选', async () => {
-  const { fetch, calls } = recordedUpstream({ missingArchiveHours: [5] });
-  const { snapshot } = await rankDay({ day, dataDir: fresh(), fetch, token: 't', now });
+  const upstream = recordedUpstream({ missingArchiveHours: [5] });
+  const { snapshot } = await d1({ upstream });
   assert.deepEqual(snapshot.candidates.fallbackHours, [5]);
   assert.equal(snapshot.candidates.total, 24);
-  const ch = calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/'));
+  const ch = upstream.calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/'));
   assert.equal(ch.length, 1);
   assert.match(ch[0].body, /'2026-10-22 05:00:00'/);
-  // ClickHouse 只给项目名：先读一次项目信息拿到 id，再按 id 读官方星数历史。
-  assert.ok(calls.some((c) => c.url === 'https://api.github.com/repos/star-history/star-history'));
-  assert.ok(calls.some((c) => c.url === 'https://api.github.com/repositories/42976210/stargazers/history?per_page=6'));
+  // ClickHouse 只给项目名：按名字读官方星数历史；只有上榜才再读项目信息拿 id。
+  assert.ok(upstream.calls.some((c) => c.url === 'https://api.github.com/repos/star-history/star-history/stargazers/history?per_page=6'));
 });
 
 test('统计日还没结束时拒绝出榜，不请求上游', async () => {
-  const { fetch, calls } = recordedUpstream();
-  await assert.rejects(rankDay({ day: '2026-10-23', dataDir: fresh(), fetch, token: 't', now }), /还没结束/);
-  assert.equal(calls.length, 0);
+  const upstream = recordedUpstream();
+  await assert.rejects(rankDay({ day: '2026-10-23', dataDir: fresh(), fetch: upstream.fetch, token: 't', now }), /还没结束/);
+  assert.equal(upstream.calls.length, 0);
 });
 
-test('数据源中断时按更新失败处理，不写快照', async () => {
+test('数据源中断时按更新失败处理，不写快照，失败原因记下来', async () => {
   const dataDir = fresh();
-  const { fetch } = recordedUpstream({ failing: [/github\.com\/trending/] });
-  await assert.rejects(rankDay({ day, dataDir, fetch, token: 't', now }), /热门日榜/);
+  const r = await d1({ dataDir, upstream: recordedUpstream({ failing: [/github\.com\/trending/] }) });
+  assert.equal(r.status, 'failed');
+  assert.match(r.error, /热门日榜/);
   assert.equal(readLatestSnapshot(dataDir), null);
+  assert.equal(readStatus(dataDir).windows.d1.status, 'failed');
 });
 
-test('官方星数历史里缺统计日那一周时不发布（缺失不补零）', async () => {
+test('官方星数历史里缺统计日那一周、全部候选都核不了时不发布（缺失不补零）', async () => {
   const dataDir = fresh();
-  const { fetch } = recordedUpstream();
-  await assert.rejects(rankDay({ day: '2026-09-01', dataDir, fetch, token: 't', now }), /缺统计日 2026-09-01 那一周/);
+  const r = await d1({ dataDir, day: '2026-09-01' });
+  assert.equal(r.status, 'failed');
+  assert.match(r.error, /缺统计日 2026-09-01 那一周/);
   assert.equal(readLatestSnapshot(dataDir), null);
 });
 
 test('统计日那天还不存在的新项目当天新增就是 0，不算缺失', async () => {
-  const { fetch } = recordedUpstream();
-  const r = await rankDay({ day: '2026-10-08', dataDir: fresh(), fetch, token: 't', now });
+  const r = await d1({ day: '2026-10-08' });
   assert.equal(r.status, 'published');
   assert.equal(r.snapshot.entries.length, 8);
   assert.ok(!r.snapshot.entries.some((e) => e.fullName === 'DietrichGebert/ponytail'));
+  assert.equal(r.snapshot.candidates.failed.length, 0);
 });
 
 test('某小时 GH Archive 缺失、ClickHouse 也没有数据时不发布', async () => {
   const dataDir = fresh();
-  const { fetch } = recordedUpstream({ missingArchiveHours: [7] });
-  await assert.rejects(rankDay({ day, dataDir, fetch, token: 't', now }), /第 7 小时/);
+  const r = await d1({ dataDir, upstream: recordedUpstream({ missingArchiveHours: [7] }) });
+  assert.equal(r.status, 'failed');
+  assert.match(r.error, /第 7 小时/);
   assert.equal(readLatestSnapshot(dataDir), null);
 });
 
 test('上榜项目的项目信息读不到时不发布', async () => {
   const dataDir = fresh();
-  const { fetch } = recordedUpstream({ notFound: [/\/repositories\/1903522$/] });
-  await assert.rejects(rankDay({ day, dataDir, fetch, token: 't', now }), /php\/php-src 的项目信息/);
+  const r = await d1({ dataDir, upstream: recordedUpstream({ notFound: [/\/repositories\/1903522$/] }) });
+  assert.equal(r.status, 'failed');
+  assert.match(r.error, /php\/php-src 的项目信息/);
   assert.equal(readLatestSnapshot(dataDir), null);
 });
 
 test('官方接口查不到的候选记进快照，不悄悄丢掉', async () => {
-  const { fetch } = recordedUpstream({ notFound: [/\/repositories\/1241364151\/stargazers/] });
-  const { status, snapshot } = await rankDay({ day, dataDir: fresh(), fetch, token: 't', now });
+  const { status, snapshot } = await d1({ upstream: recordedUpstream({ notFound: [/\/repositories\/1241364151\/stargazers/] }) });
   assert.equal(status, 'published');
   assert.deepEqual(snapshot.candidates.unavailable, ['nicholasx417/WinNative-Components']);
   assert.ok(!snapshot.entries.some((e) => e.fullName === 'nicholasx417/WinNative-Components'));
 });
 
 test('小时文件下载到一半断开时，不崩溃，改用 ClickHouse 补这一小时', async () => {
-  const { fetch } = recordedUpstream({ brokenArchiveHours: [5] });
-  const { status, snapshot } = await rankDay({ day, dataDir: fresh(), fetch, token: 't', now });
+  const { status, snapshot } = await d1({ upstream: recordedUpstream({ brokenArchiveHours: [5] }) });
   assert.equal(status, 'published');
   assert.deepEqual(snapshot.candidates.fallbackHours, [5]);
   assert.equal(snapshot.candidates.total, 24);
+});
+
+// ---- #3：近 7/30 天、每日自检、更新失败 ----
+
+const sumDays = (id, days) => {
+  const weeks = fixture(`history/${id}.json`);
+  return days.reduce((s, d) => {
+    const t = Date.parse(`${d}T00:00:00Z`) / 1000;
+    const i = new Date(t * 1000).getUTCDay();
+    return s + (weeks.find((w) => w.week === t - i * 86400)?.days[i] ?? 0);
+  }, 0);
+};
+
+test('近 7、30 天按统计日累计官方新增；更早的日子从 ClickHouse 按天补候选', async () => {
+  const dataDir = fresh();
+  const upstream = recordedUpstream({ clickhouseDayRows: [{ repo_name: 'star-history/star-history', stars: 1 }] });
+  const r = await rankDay({ day, dataDir, fetch: upstream.fetch, token: 't', now, sleep: noSleep });
+  const d7 = r.windows.d7.snapshot;
+  const d30 = r.windows.d30.snapshot;
+  assert.equal(d7.from, '2026-10-16');
+  assert.equal(d30.from, '2026-09-23');
+  assert.deepEqual(d7.candidates.backfilledDays, ['2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21']);
+  assert.equal(d30.candidates.backfilledDays.length, 29);
+  const week = ['2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22'];
+  assert.equal(d7.entries.find((e) => e.projectId === 1903522).gain, sumDays('1903522', week));
+  assert.equal(d7.entries.find((e) => e.projectId === 1903522).gain, 13027);
+  // ponytail 只有最近 2 周的历史（新建项目），更早的日子按 0 算。
+  const month = Array.from({ length: 30 }, (_, i) => new Date(Date.parse('2026-09-23T00:00:00Z') + i * 86400e3).toISOString().slice(0, 10));
+  assert.equal(d30.entries.find((e) => e.projectId === 1266797999).gain, sumDays('1266797999', month));
+  // 同一次运行里每个候选只读一次官方星数历史，三个窗口共用；当天的 GH Archive 也只下载一遍。
+  const historyCalls = upstream.calls.filter((c) => c.url.includes('/stargazers/history'));
+  assert.equal(new Set(historyCalls.map((c) => c.url)).size, historyCalls.length);
+  assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://data.gharchive.org/')).length, 24);
+  assert.equal(upstream.calls.filter((c) => String(c.body).includes('INTERVAL 1 DAY')).length, 29);
+  assert.ok(existsSync(join(dataDir, 'events', '2026-09-23.json')));
+});
+
+test('自检通过：事件记录够多，候选门槛下的漏失概率小于百万分之一，不标注', async () => {
+  const dataDir = fresh();
+  seedEvents(dataDir, day, halfRecorded());
+  const { snapshot } = await d1({ dataDir });
+  assert.equal(snapshot.check.passed, true);
+  assert.ok(snapshot.check.missProbability < 1e-6);
+  assert.equal(snapshot.check.recordRatio, 0.5);
+  assert.equal(snapshot.check.expectedRecords, 60); // 50% × 第 20 名的 120
+  assert.equal(snapshot.incomplete, false);
+});
+
+test('自检不通过：先降低候选门槛、补核新进的候选，再排名自检', async () => {
+  const dataDir = fresh();
+  seedEvents(dataDir, day, halfRecorded());
+  const upstream = recordedUpstream();
+  // 候选先只取事件记录前 5 名：门槛 750 次，远高于第 20 名应有的约 60 次。
+  const { snapshot } = await d1({ dataDir, upstream, limit: 5 });
+  assert.equal(snapshot.check.passed, true);
+  assert.ok(snapshot.check.threshold > 1 && snapshot.check.threshold < 60);
+  assert.equal(snapshot.entries.length, 21);
+  assert.equal(snapshot.candidates.total, 23);
+  // 扩大候选时已核过的不再请求。
+  assert.equal(snapshot.requests.history, 23);
+  assert.equal(new Set(upstream.calls.map((c) => c.url)).size, upstream.calls.length);
+});
+
+test('候选扩到当天全部有记录的项目仍不通过：标“可能不完整”，写出漏失概率', async () => {
+  const { snapshot } = await d1();
+  assert.equal(snapshot.check.passed, false);
+  assert.equal(snapshot.check.threshold, 1);
+  assert.ok(snapshot.check.missProbability >= 1e-6);
+  assert.equal(snapshot.incomplete, true);
+});
+
+test('候选到上限仍不通过就停下，如实标注“可能不完整”', async () => {
+  const dataDir = fresh();
+  seedEvents(dataDir, day, halfRecorded());
+  // 事件记录第 9 名是 435 次：上限 8 个时门槛最低只能降到 436。
+  const { snapshot } = await d1({ dataDir, limit: 5, maxCandidates: 8 });
+  assert.equal(snapshot.check.threshold, 436);
+  assert.equal(snapshot.candidates.archive, 8);
+  assert.equal(snapshot.check.passed, false);
+  assert.equal(snapshot.incomplete, true);
+});
+
+test('任何一个官方核数失败（重试后仍失败）：照样发布，标“可能不完整”', async () => {
+  const dataDir = fresh();
+  seedEvents(dataDir, day, halfRecorded());
+  const { status, snapshot } = await d1({ dataDir, upstream: recordedUpstream({ failing: [/\/repositories\/1241364151\/stargazers/] }) });
+  assert.equal(status, 'published');
+  assert.equal(snapshot.check.passed, true);
+  assert.equal(snapshot.candidates.failed.length, 1);
+  assert.equal(snapshot.candidates.failed[0].name, 'nicholasx417/WinNative-Components');
+  assert.match(snapshot.candidates.failed[0].reason, /503/);
+  assert.equal(snapshot.incomplete, true);
+  assert.ok(!snapshot.entries.some((e) => e.fullName === 'nicholasx417/WinNative-Components'));
+  assert.equal(snapshot.candidates.total, 24);
+  assert.equal(snapshot.requests.history, 24 + 2); // 失败的那个重试了 2 次
+});
+
+test('大面积核数失败按更新失败处理，不发布', async () => {
+  const dataDir = fresh();
+  const r = await d1({ dataDir, upstream: recordedUpstream({ failing: [/\/repositories\/(1241364151|1200597263)\/stargazers/] }) });
+  assert.equal(r.status, 'failed');
+  assert.match(r.error, /23 个候选里 2 个核数失败/);
+  assert.equal(readLatestSnapshot(dataDir), null);
+});
+
+test('更新失败时保留上一次快照；重跑更早的日子不盖掉这条失败记录', async () => {
+  const dataDir = fresh();
+  const earlier = await d1({ dataDir, day: '2026-10-08' });
+  assert.equal(earlier.status, 'published');
+  const before = readFileSync(join(dataDir, earlier.path));
+
+  const failed = await d1({ dataDir, upstream: recordedUpstream({ failing: [/github\.com\/trending/] }) });
+  assert.equal(failed.status, 'failed');
+  assert.deepEqual(readFileSync(join(dataDir, earlier.path)), before);
+  assert.equal(readLatestSnapshot(dataDir).statDay, '2026-10-08');
+  assert.deepEqual(readStatus(dataDir).windows.d1, { day, at: now().toISOString(), status: 'failed', error: failed.error });
+
+  assert.equal((await d1({ dataDir, day: '2026-10-08' })).status, 'exists');
+  assert.equal(readStatus(dataDir).windows.d1.day, day);
 });

@@ -11,7 +11,8 @@ const idByName = new Map(
   }),
 );
 
-export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours = [], failing = [], notFound = [] } = {}) {
+// clickhouseDayRows：按天查询 ClickHouse 时（补更早的日子）每天都返回这些行；不给就返回空。
+export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours = [], failing = [], notFound = [], clickhouseDayRows = [] } = {}) {
   const calls = [];
   const json = (name) => new Response(read(name), { headers: { 'content-type': 'application/json', date: 'Fri, 23 Oct 2026 08:33:34 GMT' } });
   async function fetch(input, init = {}) {
@@ -31,7 +32,8 @@ export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours 
       const name = `gharchive-${m[1]}-${String(hour).padStart(2, '0')}.ndjson`;
       return new Response(gzipSync(existsSync(new URL(name, dir)) ? read(name) : Buffer.alloc(0)));
     }
-    if (url === 'https://github.com/trending?since=daily') return new Response(read('trending-daily.html'));
+    // 周榜、月榜没有单独录制，回放日榜页面。
+    if (/^https:\/\/github\.com\/trending\?since=(daily|weekly|monthly)$/.test(url)) return new Response(read('trending-daily.html'));
     if ((m = url.match(/^https:\/\/api\.github\.com\/repositories\/(\d+)(\/stargazers\/history\?per_page=6)?$/))) {
       return json(m[2] ? `history/${m[1]}.json` : `repos/${m[1]}.json`);
     }
@@ -39,6 +41,9 @@ export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours 
       const id = idByName.get(m[1].toLowerCase());
       if (!id) return new Response('{"message":"Not Found"}', { status: 404 });
       return json(m[2] ? `history/${id}.json` : `repos/${id}.json`);
+    }
+    if (url.startsWith('https://play.clickhouse.com/') && String(init.body).includes('INTERVAL 1 DAY')) {
+      return new Response(clickhouseDayRows.map((r) => JSON.stringify(r)).join('\n'));
     }
     if (url.startsWith('https://play.clickhouse.com/')) {
       const hm = String(init.body).match(/'(\d{4}-\d{2}-\d{2}) (\d{2}):00:00'/);
