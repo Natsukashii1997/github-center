@@ -10,7 +10,7 @@ import { request } from 'node:http';
 import { connect } from 'node:net';
 import { startServer } from '../src/web/server.js';
 import { openAccounts, SESSION_DAYS } from '../src/web/accounts.js';
-import { http, form, testAccount } from './helpers/web.js';
+import { http, form, testAccount, dataOf } from './helpers/web.js';
 
 const fresh = () => mkdtempSync(join(tmpdir(), 'gc-auth-'));
 async function site(dataDir = fresh()) {
@@ -39,7 +39,7 @@ test('未登录访问任何页面都被引导去登录（记下原来要去的�
     assert.deepEqual(JSON.parse(api.body), { error: '未登录' });
     const login = await http(s.url + 'login');
     assert.equal(login.status, 200);
-    assert.match(login.body, /<input name="password" type="password"/);
+    assert.match(login.body, /<input id="pass" name="password" type="password"/);
     assert.match(login.body, /不开放注册/);
     // 拿不出有效会话令牌也不行。
     assert.equal((await http(s.url, { headers: { cookie: 'gc_session=forged' } })).status, 303);
@@ -58,15 +58,16 @@ test('登录成功：发会话 Cookie（HttpOnly），跳回原来要去的页�
     assert.equal(bad.headers['set-cookie'], undefined);
     assert.equal((await http(s.url + 'login', form({ name: 'nobody', password }))).status, 401);
 
-    const ok = await http(s.url + 'login', form({ name: 'tester', password, next: '/top' }));
+    const ok = await http(s.url + 'login', form({ name: 'tester', password, next: '/boards' }));
     assert.equal(ok.status, 303);
-    assert.equal(ok.headers.location, '/top');
+    assert.equal(ok.headers.location, '/boards');
     const cookie = ok.headers['set-cookie'][0];
     assert.match(cookie, /^gc_session=[\w-]{40,}; HttpOnly; SameSite=Lax; Path=\/; Max-Age=2592000$/);
-    const page = await http(s.url + 'top', { headers: { cookie: cookie.split(';')[0] } });
+    const page = await http(s.url + 'boards', { headers: { cookie: cookie.split(';')[0] } });
     assert.equal(page.status, 200);
-    assert.match(page.body, /tester（伙伴）/);
-    assert.match(page.body, /<form method="post" action="\/logout"><button>退出<\/button><\/form>/);
+    // 顶栏由 gc.js 画出：账号名取嵌入的数据，“退出”（id="gc-logout"）点了提交 POST /logout。
+    assert.equal(dataOf(page.body).account.name, 'tester');
+    assert.match(page.body, /<script src="\/assets\/gc\.js"><\/script>/);
     // 已登录再打开登录页直接回首页。
     assert.equal((await http(s.url + 'login', { headers: { cookie: cookie.split(';')[0] } })).headers.location, '/');
   } finally {

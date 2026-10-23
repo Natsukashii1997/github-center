@@ -1,4 +1,4 @@
-// GitHub 快速中心 · 网站共用组件（#13 起）。照冻结的视觉方案 t1b-r2（design/t1b/app.js）落地：组件的结构、类名和动效照抄，
+// GitHub 快速中心 · 网站共用组件（#13 起；#14 起其余页面共用，顶栏加“其他榜单”“日报”）。照冻结的视觉方案 t1b-r2（design/t1b/app.js）落地：组件的结构、类名和动效照抄，
 // 数据换成页面里嵌入的真实快照与项目资料（服务端 src/web/home.js 整理），收藏和安装指令走本站接口。方案里的演示面板不进入生产。
 window.GC = (() => {
   const D = JSON.parse(document.getElementById('gc-data').textContent), I = window.ICONS;
@@ -115,7 +115,7 @@ window.GC = (() => {
   let target = D.ais[0][0];
 
   // ── 顶栏 ──
-  const NAV = [['/', '涨星榜'], ['/new', '其他榜单'], ['/favorites', '我的收藏']];
+  const NAV = [['/', '涨星榜'], ['/boards', '其他榜单'], ['/daily', '日报'], ['/favorites', '我的收藏']];
   function topbar(active) {
     const el = $('header.top');
     el.innerHTML = `<div class="top-in">
@@ -300,5 +300,5 @@ window.GC = (() => {
   }, true);
 
   const q = new URLSearchParams(location.search);
-  return { D, I, WINDOWS, CATS, SPAN, AI, $, $$, esc, num, wan, md, mdShort, reduced, anim, reconcile, swap, toast, favs, favSkills, toggleFav, setFavBtn, copyInstall, topbar, setStatus, notes, tabs, chips, seg, rowCreate, rowUpdate, placeSel, cardHTML, wireCard, growBars, sweepBars, emptyHTML, avatar, ownerOf, nameOf, pageOf, q };
+  return { D, I, WINDOWS, CATS, SPAN, AI, $, $$, esc, num, wan, md, mdShort, reduced, anim, reconcile, swap, toast, favs, favSkills, toggleFav, setFavBtn, copyInstall, topbar, setStatus, notes, tabs, chips, seg, rowCreate, rowUpdate, placeSel, cardHTML, chartHTML, wireCard, growBars, sweepBars, emptyHTML, avatar, ownerOf, nameOf, pageOf, dayAt, utc, q };
 })();

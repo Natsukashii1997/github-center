@@ -44,3 +44,6 @@ export async function visit(dataDir, path = '') {
     site.close();
   }
 }
+
+// #13、#14 起页面由页面脚本画出，数据整份嵌在页面里；测试检查嵌入的数据。
+export const dataOf = (body) => JSON.parse(body.match(/<script type="application\/json" id="gc-data">([^<]*)<\/script>/)[1]);

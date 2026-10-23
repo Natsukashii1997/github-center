@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { installInstruction } from '../src/profiles/index.js';
-import { visit, serve, http } from './helpers/web.js';
+import { serve, http, dataOf } from './helpers/web.js';
 
 // 一份存下的项目资料：有 README、一份文档、两个 Skill、.claude-plugin/，简介里整理出一条条件（原文带 < 和换行）。
 const profile = () => ({
@@ -106,32 +106,29 @@ function dataDirWithProfile() {
   return dir;
 }
 
-test('项目页：默认给 Claude Code、整个项目；能换成 Codex 或单个 Skill；指令在只读框里，有复制按钮和复制成功的提示', async () => {
-  const dataDir = dataDirWithProfile();
-  const { status, body } = await visit(dataDir, 'p/acme/agent-kit');
-  assert.equal(status, 200);
-  assert.match(body, /<h2 id="install">安装指令<\/h2>/);
-  assert.match(body, /<form method="get" action="\/p\/acme\/agent-kit#install">/);
-  assert.match(body, /<option value="claude-code" selected>Claude Code<\/option><option value="codex">Codex<\/option>/);
-  assert.match(body, /<option value="" selected>整个项目<\/option><option value="skills\/pdf">Skill：pdf<\/option><option value="skills\/notes">Skill：notes<\/option>/);
-  const box = body.match(/<textarea id="install-text" rows="18" readonly>([\s\S]*?)<\/textarea>/)[1];
-  assert.match(box, /帮我安装并配置 GitHub 项目 acme\/agent-kit/);
-  // 指令里的原文照样转义，不会破坏页面。
-  assert.match(box, /\(&lt;Node 20\)/);
-  assert.match(body, /<button type="button" id="copy-install">复制指令<\/button> <span id="copy-status" class="note" role="status"><\/span>/);
-  assert.match(body, /navigator\.clipboard\.writeText/);
-  assert.match(body, /已复制，可以粘贴给你的 AI 了/);
-
-  const skill = await visit(dataDir, 'p/acme/agent-kit?ai=codex&skill=skills%2Fpdf');
-  assert.match(skill.body, /<option value="codex" selected>Codex<\/option>/);
-  assert.match(skill.body, /<option value="skills\/pdf" selected>Skill：pdf<\/option>/);
-  assert.match(skill.body, /把 GitHub 项目 acme\/agent-kit 里的 Skill「pdf」装进 Codex/);
-
-  // 不认识的选择按默认处理，不报错。
-  const odd = await visit(dataDir, 'p/acme/agent-kit?ai=cursor&skill=..%2F..%2Fetc');
-  assert.equal(odd.status, 200);
-  assert.match(odd.body, /<option value="claude-code" selected>/);
-  assert.match(odd.body, /帮我安装并配置 GitHub 项目 acme\/agent-kit/);
+test('项目页：默认给 Claude Code、整个项目；能换成 Codex 或单个 Skill；一键复制的就是接口给的指令', async () => {
+  // #14 起项目页侧栏由页面脚本画出：AI 选择用嵌入的 ais，Skill 列表上每一条都有复制按钮，点了从 /api/install 取指令写进剪贴板（浏览器实测见 #14）。
+  const site = await serve(dataDirWithProfile());
+  try {
+    const { status, body } = await site.get('p/acme/agent-kit');
+    assert.equal(status, 200);
+    // 原文里的 < 等字符在嵌入的数据里转义，不会破坏页面（dataOf 能整份读出来）。
+    const d = dataOf(body);
+    assert.deepEqual(d.ais, [['claude-code', 'Claude Code'], ['codex', 'Codex']]);
+    const p = d.projects['acme/agent-kit'];
+    assert.deepEqual([p.id, p.installable, p.skills.map((x) => x.path)], [101, true, ['skills/pdf', 'skills/notes']]);
+    // 页面复制时的请求：默认 Claude Code、整个项目；换成 Codex 和某个 Skill。
+    const whole = await site.get(`api/install?project=${p.id}&ai=${d.ais[0][0]}`);
+    assert.equal(whole.body, make({ ai: 'claude-code', skillPath: '' }));
+    assert.match(whole.body, /帮我安装并配置 GitHub 项目 acme\/agent-kit/);
+    assert.match(whole.body, /\(<Node 20\)/);
+    const skill = await site.get(`api/install?project=${p.id}&ai=codex&skill=${encodeURIComponent(p.skills[0].path)}`);
+    assert.match(skill.body, /把 GitHub 项目 acme\/agent-kit 里的 Skill「pdf」装进 Codex/);
+    // 旧版的查询参数（?ai=、?skill=）不认识也照常打开。
+    assert.equal((await site.get('p/acme/agent-kit?ai=cursor&skill=..%2F..%2Fetc')).status, 200);
+  } finally {
+    site.close();
+  }
 });
 
 test('安装指令接口（首页阅读卡上的复制用）：登录后按项目、AI 和 Skill 给出指令文字，和项目页一样；参数不对回 404', async () => {

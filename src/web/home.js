@@ -49,7 +49,7 @@ function runFigures(dataDir, w, snapshot, entry) {
 }
 
 // 顶栏的更新状态、提示条：更新失败（比当前快照新的那天失败了）优先，其次是可能不完整；生成于自检上线之前的旧快照如实说明。
-function windowStatus(snapshot, failed) {
+export function windowStatus(snapshot, failed) {
   const notes = [];
   if (failed) notes.push({ tone: 'bad', icon: 'error', title: '更新失败', text: `${md(failed.day)}的更新失败：${failed.error}。${snapshot ? `下面是上次成功的 ${md(snapshot.statDay)}数据。` : ''}` });
   if (snapshot?.incomplete) {
@@ -113,7 +113,7 @@ function board(w, snapshot, status, candidates, find) {
 
 // 一个上榜项目在卡片上要的全部内容。onBoards：它出现在哪些窗口的快照里，最新生成的在前；语言、创建日期取最新存下的项目信息，
 // 数字按运行分开放（runs），卡片按这一期榜单的运行取。
-function project(dataDir, onBoards, { account, favorites }, find) {
+export function project(dataDir, onBoards, { account, favorites }, find) {
   const { entry } = onBoards[0];
   const projectRaw = onBoards.find((b) => b.entry.evidence?.project)?.entry.evidence.project;
   const info = projectRaw ? readJson(join(dataDir, projectRaw.path)) : null;
@@ -168,7 +168,7 @@ export function homeData(dataDir, ctx) {
 }
 
 // 嵌进 <script type="application/json">：把 < 和行分隔符转义，项目文字里出现 </script> 也不会提前结束脚本。
-const embed = (data) => JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+export const embed = (data) => JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
 export const homePage = (data) => `<!doctype html>
 <html lang="zh-CN">

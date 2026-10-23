@@ -1,0 +1,144 @@
+/* 其余 5 页的版式（#14，照冻结方案 t1b-pages-r1 的 design/t1b-pages/pages.css 原样复制）。颜色、字体、间距、圆角只用 tokens.css 的变量；
+   顶栏、榜单行、阅读卡、胶囊、提示条、按钮、表单、空状态、骨架等组件沿用 components.css，这里只写这 5 页自己的容器与组合。
+   其他榜单三榜同屏、项目页正文加侧栏、日报主次结构、我的收藏卡片网格、登录左右分栏。 */
+
+.wide { max-width: var(--w-page); margin: 0 auto; padding: var(--sp-8) var(--gutter) var(--sp-16); }
+.single-wide { max-width: calc(1040px + var(--gutter) * 2); margin: 0 auto; padding: var(--sp-8) var(--gutter) var(--sp-16); }
+
+/* ── 紧凑行：三榜同屏、日报跟随栏 ──
+   名次、头像、名字与一句话、右侧主数字；名字是真正的链接（键盘可达），点整行也进项目页。 */
+.crows { list-style: none; margin: var(--sp-3) 0 0; padding: 0; }
+.crow { display: grid; grid-template-columns: 26px 24px minmax(0, 1fr) auto; column-gap: 10px; align-items: center; height: 52px; padding: 0 var(--sp-2); border-radius: var(--r-md); cursor: pointer; transition: background-color var(--dur-fast); }
+.crow:hover, .crow.is-hover { background: var(--c-surface); }
+.crow:hover .nm .n, .crow.is-hover .nm .n { text-decoration: underline; text-decoration-color: var(--c-line-2); text-underline-offset: 3px; }
+.crow .rk { padding-top: 0; align-self: center; }
+.crow .rk b { font-size: 15px; }
+.crow[data-top] .rk b { color: var(--c-ink); }
+.crow .av { width: 24px; height: 24px; margin: 0; align-self: center; }
+.crow .nm { font-size: 13.5px; }
+.crow .ds { font-size: var(--fs-micro); margin-top: 0; }
+.crow .nums { padding-top: 0; align-self: center; }
+.crow .g { font-size: 14px; }
+.crow .t { margin-top: 0; }
+/* 键盘焦点落在名字链接上时，外框画在整行上，跟随行的圆角 */
+.crow .nm a:focus-visible, .gcard .nm a:focus-visible { outline: none; }
+.crow:has(.nm a:focus-visible), .crow.is-focus { outline: var(--focus); outline-offset: 0; }
+/* 骨架行 */
+.crow.is-sk { cursor: default; pointer-events: none; }
+.crow.is-sk .av { box-shadow: none; }
+
+/* ── 其他榜单：三榜同屏 ── */
+.three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-8); margin-top: var(--sp-6); }
+@media (max-width: 1320px) { .three { gap: var(--sp-6); } }   /* 1280 宽时列间距收到 24px，名字少截一点 */
+.col { min-width: 0; }
+.col-h { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); padding-bottom: 10px; border-bottom: 1px solid var(--c-line); }
+.col-h h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.col-h .sub { margin: 0; min-height: 0; font-size: var(--fs-micro); white-space: nowrap; }
+.col .seg { margin-top: 10px; }
+.col .note { margin-top: 10px; }
+.col .empty { padding-top: 40px; padding-bottom: 40px; }
+
+/* ── 迷你走势（日报主条目）：近 30 天每日新增，窗口内高亮 ── */
+.spark { display: flex; align-items: flex-end; gap: 2px; height: 28px; box-shadow: inset 0 -1px 0 var(--c-line-2); }
+.spark i { flex: 1; height: var(--h); min-height: var(--m); background: var(--c-bar); border-radius: 1px 1px 0 0; transform-origin: bottom; }
+.spark i.on { background: var(--c-bar-on); }
+.spark-k { display: flex; justify-content: space-between; margin-top: 3px; font-family: var(--font-num); font-size: var(--fs-micro); color: var(--c-ink-3); }
+.spark-none { height: 28px; display: flex; align-items: center; font-size: var(--fs-micro); color: var(--c-ink-3); box-shadow: inset 0 -1px 0 var(--c-line); }
+
+/* ── 网格卡：我的收藏（项目卡、Skill 卡） ── */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-4); margin-top: var(--sp-5); }
+.gcard { position: relative; display: flex; flex-direction: column; gap: 10px; padding: var(--sp-5); border-radius: var(--r-xl); background: var(--c-surface); box-shadow: var(--shadow-card); cursor: pointer; }
+.gcard:hover .nm .n, .gcard:hover .nm code, .gcard.is-hover .nm .n, .gcard.is-hover .nm code { text-decoration: underline; text-decoration-color: var(--c-line-2); text-underline-offset: 3px; }
+.gcard:has(.nm a:focus-visible), .gcard.is-focus { outline: var(--focus); outline-offset: 2px; }
+.gcard .head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.gcard .av { width: 40px; height: 40px; }
+.gcard .nm { white-space: normal; overflow-wrap: anywhere; font-size: 15px; }
+.gcard .nm code { font-family: var(--font-code); font-size: 14px; font-weight: 500; }
+.gcard .head .ds { margin-top: 2px; }
+.gcard > .ds { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.5; }
+.gcard .tg { margin-top: 0; }
+.gcard .warn { display: flex; gap: 6px; align-items: flex-start; font-size: var(--fs-micro); color: var(--c-warn); }
+.gcard .warn svg { flex: none; width: 14px; height: 14px; margin-top: 1px; }
+.gcard .big { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-top: 10px; border-top: 1px solid var(--c-line); }
+.gcard .big .t { margin: 0; }
+.gcard .acts { display: flex; gap: 4px; align-items: center; }
+.gcard .when { font-size: var(--fs-micro); color: var(--c-ink-3); }
+.gcard.is-sk { min-height: 188px; cursor: default; pointer-events: none; }
+.gcard.is-sk .av { box-shadow: none; }
+
+/* ── 项目页：正文加侧栏 ── */
+.pj1 { max-width: var(--w-page); margin: 0 auto; padding: var(--sp-8) var(--gutter) var(--sp-16); display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--gutter); }
+.pj1 .main { min-width: 0; }
+.pj1 .main .title { margin-top: 0; }
+.pj1 .main .title .av { width: 56px; height: 56px; }
+.pj1 .ranks { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-4); }
+.pj1 .ranks span { font-size: var(--fs-small); color: var(--c-ink-2); padding: 3px 10px; border-radius: var(--r-pill); background: var(--c-sunk); }
+.pj1 .read { margin-top: var(--sp-8); }
+.pj1 .read p { font-size: 21px; }
+.pj1 .gen { margin-top: var(--sp-8); }
+.pj1 .main .empty { padding-top: 72px; }
+.pj1 .side { position: sticky; top: calc(var(--h-top) + var(--sp-6)); align-self: start; display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--sp-6); border-radius: var(--r-xl); background: var(--c-surface); box-shadow: var(--shadow-card); }
+.pj1 .side .stats { margin-top: 0; grid-template-columns: repeat(2, 1fr); border-top: 0; }
+.pj1 .side .stat { padding: 0 0 12px 14px; }
+.pj1 .side .stat:nth-child(odd) { border-left: 0; padding-left: 0; }
+.pj1 .side .stat:nth-child(n+3) { padding-top: 12px; padding-bottom: 0; border-top: 1px solid var(--c-line); }
+.pj1 .side .chart { margin-top: 0; }
+.pj1 .side .k { font-size: 12px; color: var(--c-ink-3); }
+.pj1 .side .seg { display: flex; width: 100%; margin-top: 8px; }
+.pj1 .side .seg button { flex: 1; width: auto; }
+.pj1 .side .seg-thumb { width: calc(50% - 2px); }
+.pj1 .side .acts { display: flex; gap: 8px; }
+.pj1 .side .acts .btn-g { flex: 1; justify-content: center; }
+.pj1 .skills { margin-top: var(--sp-8); }
+/* 侧栏骨架：和真实内容同样的位置 */
+.side.is-sk .sk { margin-top: 0; }
+
+/* 使用条件清单：每条带类别、整理后的一句话和原文摘录；依据行在最后 */
+.conds { margin-top: var(--sp-8); }
+.conds .sec-k { display: block; margin-bottom: 6px; }
+.cond-i { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: var(--sp-3); align-items: start; padding: 10px 0; border-bottom: 1px solid var(--c-line); font-size: 13.5px; color: var(--c-ink); }
+.cond-i .kind { font-size: var(--fs-micro); color: var(--c-warn); padding-top: 2px; }
+.cond-i .q { display: block; margin-top: 3px; font-size: var(--fs-small); color: var(--c-ink-3); }
+.src { margin: var(--sp-6) 0 0; font-size: 12px; color: var(--c-ink-3); line-height: 1.6; }
+
+/* Skill 列表折叠：超过 8 个只先列 8 个，其余收在按钮后面 */
+.skill-more[hidden] { display: none; }
+.more { margin-top: 10px; }
+
+/* ── 日报：主次结构 ── */
+.overview-wide { margin: var(--sp-6) 0 0; max-width: var(--w-read); font-family: var(--font-read); font-size: var(--fs-read); line-height: var(--lh-read); }
+.mr { max-width: var(--w-page); margin: 0 auto; padding: var(--sp-8) var(--gutter) var(--sp-16); display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--gutter); }
+.mr .main { min-width: 0; }
+.mr .main h2 { margin: 0; font-family: var(--font-read); font-size: 21px; font-weight: 700; letter-spacing: .02em; }
+.mr .main section { margin-top: var(--sp-10); }
+.mr .main .ditem { grid-template-columns: 30px minmax(0, 1fr) 150px; }
+.mr .main .ditem .spark { margin-top: 10px; height: 22px; }
+.mr .main .ditem .spark-none { height: 22px; margin-top: 10px; }
+.mr .main .empty { padding-top: 72px; }
+.mr .rail { position: sticky; top: calc(var(--h-top) + var(--sp-6)); align-self: start; max-height: calc(100vh - var(--h-top) - var(--sp-8)); overflow: auto; scrollbar-width: thin; }
+.mr .rail h2 { margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--c-line); font-size: 13px; font-weight: 600; color: var(--c-ink-2); }
+.mr .rail section + section { margin-top: var(--sp-6); }
+.mr .rail .crow { height: 40px; grid-template-columns: 22px 20px minmax(0, 1fr) auto; }
+.mr .rail .crow .av { width: 20px; height: 20px; }
+.mr .rail .crow .g { font-size: 13px; }
+.mr .rail .rel { grid-template-columns: 44px minmax(0, 1fr); padding: 8px 0; font-size: 12.5px; }
+.mr .rail .rel .out { display: none; }
+.mr .rail .foot { margin-top: var(--sp-3); }
+
+/* ── 我的收藏：卡片网格 ── */
+.fgrid .gcard > .ds { min-height: 0; }
+
+/* ── 登录：左右分栏 ── */
+.login-split { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+.intro { padding: var(--sp-16) 72px; display: flex; flex-direction: column; justify-content: center; border-right: 1px solid var(--c-line); }
+.claim { margin: var(--sp-10) 0 0; max-width: 440px; font-family: var(--font-read); font-size: 34px; line-height: 1.3; font-weight: 700; letter-spacing: .02em; color: var(--c-ink); }
+.how { list-style: none; margin: var(--sp-10) 0 0; padding: 0; display: grid; gap: 18px; max-width: 440px; }
+.how li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 14px; align-items: start; font-size: 14px; color: var(--c-ink-2); line-height: 1.6; }
+.how li b { display: block; color: var(--c-ink); font-weight: 500; }
+.how .n { font-family: var(--font-num); font-size: 16px; color: var(--c-ink-3); padding-top: 1px; }
+.login-split .pane { display: grid; place-items: center; padding: var(--sp-10); }
+.login-split .login { width: 360px; }
+.login-split .login h1 { font-size: 24px; }
+
+/* 项目页“资料还没读到”：和“简介生成中”同一条形，但图标不用强调色（强调色只给生成中的闪光） */
+.gen[data-tone="muted"] svg { color: var(--c-ink-3); }

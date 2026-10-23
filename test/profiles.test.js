@@ -5,7 +5,10 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { updateProfiles, codexGenerator, parseSkill } from '../src/profiles/index.js';
-import { visit } from './helpers/web.js';
+import { visit, dataOf } from './helpers/web.js';
+
+// #14 起项目页由页面脚本画出，这里看嵌入的数据：page 是页面本身的，projects[名字] 是这个项目的简介、Skill 等。
+const projectPage = async (dataDir, path) => { const r = await visit(dataDir, path); const d = r.status === 200 ? dataOf(r.body) : null; return { ...r, page: d?.page, p: d && d.projects[d.page.repo] }; };
 
 const fresh = () => mkdtempSync(join(tmpdir(), 'gc-profiles-'));
 const json = (body) => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json', date: 'Fri, 23 Oct 2026 10:00:00 GMT' } });
@@ -108,7 +111,7 @@ function dataDirWithBoard() {
   const dir = fresh();
   mkdirSync(join(dir, 'snapshots', 'd1'), { recursive: true });
   const entries = [{ rank: 1, projectId: 101, fullName: 'acme/agent-kit', gain: 900, total: 5000 }, { rank: 2, projectId: 202, fullName: 'acme/tiny', gain: 800, total: 900 }];
-  writeFileSync(join(dir, 'snapshots', 'd1', '2026-10-22.json'), JSON.stringify({ window: 'd1', statDay: '2026-10-22', entries }));
+  writeFileSync(join(dir, 'snapshots', 'd1', '2026-10-22.json'), JSON.stringify({ window: 'd1', statDay: '2026-10-22', generatedAt: '2026-10-23T08:40:00Z', entries }));
   return dir;
 }
 const now = () => new Date('2026-10-23T02:00:00Z');
@@ -130,30 +133,34 @@ test('首次上榜：读 README、仓库目录和 Skill 生成项目资料；项
     { path: 'skills/pdf', name: 'pdf', description: 'Read and fill PDF forms.' },
   ]);
 
-  const { status, body } = await visit(dataDir, 'p/acme/agent-kit');
+  const { status, body, page, p } = await projectPage(dataDir, 'p/acme/agent-kit');
   assert.equal(status, 200);
-  assert.match(body, /<h1>acme\/agent-kit<\/h1>/);
-  assert.match(body, /<a href="https:\/\/github\.com\/acme\/agent-kit">在 GitHub 打开原项目<\/a>/);
-  assert.match(body, /acme\/agent-kit 把笔记变成能运行的智能体。/);
-  assert.match(body, /能帮你解决：作者称它是最快的智能体框架/);
-  assert.match(body, /<strong>密钥<\/strong>　需要 OpenAI 的 API Key<br><span class="note">原文：Requires an OpenAI API key\.<\/span>/);
+  assert.match(body, /<title>acme\/agent-kit · GitHub 快速中心<\/title>/);
+  // 页面脚本用 repo 拼原项目链接 https://github.com/<repo>。
+  assert.equal(page.repo, 'acme/agent-kit');
+  assert.equal(page.hasProfile, true);
+  assert.match(p.what, /^acme\/agent-kit 把笔记变成能运行的智能体。/);
+  assert.match(p.problem, /作者称它是最快的智能体框架/);
+  const cond = (kind, text) => page.conditions.find((c) => c.kind === kind && c.text.startsWith(text));
+  assert.deepEqual(cond('密钥', '需要 OpenAI 的 API Key'), { kind: '密钥', text: '需要 OpenAI 的 API Key', quote: 'Requires an OpenAI API key.' });
   // 原文里带链接、弯引号的，摘录没带也核对得上；文档里写的条件也算。
-  assert.match(body, /<strong>账号<\/strong>　需要一个 Supabase 项目存数据/);
-  assert.match(body, /<strong>密钥<\/strong>　首次运行前设置 AGENT_TOKEN/);
+  assert.ok(cond('账号', '需要一个 Supabase 项目存数据'));
+  assert.ok(cond('密钥', '首次运行前设置 AGENT_TOKEN'));
   // 原文里没有的、摘录太短证明不了的，不上页面，只写明丢了几条。
-  assert.doesNotMatch(body, /Pro 套餐|Requires a paid Pro plan|>需要付费</);
-  assert.match(body, /另有 2 条 AI 整理出的条件在原文里核对不到，没有列出。/);
-  assert.match(body, /<strong>notes<\/strong>　notes 的中文用途　<form[\s\S]*?<\/form><br><span class="note">skills\/notes<\/span>/);
-  assert.match(body, /<strong>pdf<\/strong>　pdf 的中文用途　<form[\s\S]*?<\/form><br><span class="note">skills\/pdf<\/span>/);
+  assert.doesNotMatch(JSON.stringify(page.conditions), /Pro 套餐|Requires a paid Pro plan|"付费"/);
+  assert.equal(page.dropped, 2);
+  assert.deepEqual(p.skills, [
+    { name: 'notes', path: 'skills/notes', desc: 'notes 的中文用途' },
+    { name: 'pdf', path: 'skills/pdf', desc: 'pdf 的中文用途' },
+  ]);
   assert.doesNotMatch(body, /lower|broken|half|example/);
-  assert.match(body, /依据：<a href="https:\/\/github\.com\/acme\/agent-kit\/blob\/main\/README\.md">README\.md<\/a>、docs\/install\.md、docs\/faq\.md、docs\/skill\.md、仓库目录和 Skill 文件/);
-  assert.doesNotMatch(body, /只读了开头部分/);
+  assert.deepEqual(page.sources.readme, { path: 'README.md', url: 'https://github.com/acme/agent-kit/blob/main/README.md' });
+  assert.deepEqual(page.sources.docs, ['docs/install.md', 'docs/faq.md', 'docs/skill.md']);
+  assert.equal(page.truncatedDocs, false);
 
-  // 没整理出条件时只说“在读到的文档里没找到”；README 被截断要写明后面的可能没读到。
-  const tiny = await visit(dataDir, 'p/acme/tiny');
-  assert.match(tiny.body, /在读到的项目文档里没有找到付费、账号、密钥或特定环境的要求。/);
-  assert.match(tiny.body, /有的文档较长，只读了开头部分，后面写到的条件可能没有列出。/);
-  assert.match(tiny.body, /仓库里没有按 SKILL\.md 约定写的 Skill。/);
+  // 没整理出条件时页面只说“在读到的文档里没找到”；README 被截断要写明后面的可能没读到；没有 Skill 就不列。
+  const tiny = await projectPage(dataDir, 'p/acme/tiny');
+  assert.deepEqual([tiny.page.conditions, tiny.page.truncatedDocs, tiny.p.skills], [[], true, []]);
   assert.equal(generator.calls.find((m) => m.fullName === 'acme/tiny').readme.text.length, 40_000);
 
   // 生成依据存下来：资料哈希、来源链接、原始响应。
@@ -200,18 +207,18 @@ test('生成失败或 Codex 登录失效：项目页显示“简介生成中”�
   const dataDir = dataDirWithBoard();
   const r = await run(dataDir, { generator: fakeGenerator({ fail: 'Not logged in. Run codex login.' }) });
   assert.deepEqual(r.results.map((x) => x.status), ['failed', 'failed']);
-  const { body } = await visit(dataDir, 'p/acme/agent-kit');
-  assert.match(body, /<p>简介生成中。<\/p>/);
-  assert.doesNotMatch(body, /<h2>使用条件<\/h2>|能帮你解决/);
+  // 简介生成中：有资料但还没生成简介（what 为空），页面显示生成中，不列使用条件。
+  const gen = await projectPage(dataDir, 'p/acme/agent-kit');
+  assert.deepEqual([gen.page.hasProfile, gen.p.what, gen.p.problem, gen.page.conditions], [true, null, null, []]);
   // Skill 列表来自 SKILL.md 原文，照常显示（用途用原文的 description）。
-  assert.match(body, /<strong>pdf<\/strong>　Read and fill PDF forms\./);
+  assert.equal(gen.p.skills.find((x) => x.name === 'pdf').desc, 'Read and fill PDF forms.');
   assert.match(JSON.parse(readFileSync(join(dataDir, 'profiles', '101.json'), 'utf8')).lastError.message, /Not logged in/);
 
   // 下次运行（即使没有新提交）照样重试，成功后显示简介。
   const generator = fakeGenerator();
   const next = await run(dataDir, { generator });
   assert.deepEqual(next.results.map((x) => x.status), ['generated', 'generated']);
-  assert.match((await visit(dataDir, 'p/acme/agent-kit')).body, /把笔记变成能运行的智能体/);
+  assert.match((await projectPage(dataDir, 'p/acme/agent-kit')).p.what, /把笔记变成能运行的智能体/);
 
   // 文档更新后重新生成又失败：旧简介依据的是旧文档，不再显示，照样写“简介生成中”。
   const list = repos();
@@ -219,10 +226,10 @@ test('生成失败或 Codex 登录失效：项目页显示“简介生成中”�
   list[0].readme = `${AGENT_README}\nNow requires a paid license.\n`;
   const again = await run(dataDir, { upstream: fakeGitHub(list), generator: fakeGenerator({ fail: 'Not logged in. Run codex login.' }) });
   assert.equal(again.results[0].status, 'failed');
-  const stale = (await visit(dataDir, 'p/acme/agent-kit')).body;
-  assert.match(stale, /<p>简介生成中。<\/p>/);
-  assert.doesNotMatch(stale, /把笔记变成能运行的智能体|<h2>使用条件<\/h2>|pdf 的中文用途/);
-  assert.match(stale, /<strong>pdf<\/strong>　Read and fill PDF forms\./);
+  const stale = await projectPage(dataDir, 'p/acme/agent-kit');
+  assert.deepEqual([stale.p.what, stale.page.conditions], [null, []]);
+  assert.doesNotMatch(stale.body, /把笔记变成能运行的智能体|pdf 的中文用途/);
+  assert.equal(stale.p.skills.find((x) => x.name === 'pdf').desc, 'Read and fill PDF forms.');
 });
 
 test('资料读不全时保留上一次的资料和简介，下次再读', async () => {
@@ -236,16 +243,15 @@ test('资料读不全时保留上一次的资料和简介，下次再读', async
   assert.match(r.results[0].error, /skills\/pdf\/SKILL\.md 读取失败/);
   const saved = JSON.parse(readFileSync(join(dataDir, 'profiles', '101.json'), 'utf8'));
   assert.equal(saved.pushedAt, '2026-10-22T01:00:00Z');
-  assert.match((await visit(dataDir, 'p/acme/agent-kit')).body, /<strong>pdf<\/strong>/);
+  assert.deepEqual((await projectPage(dataDir, 'p/acme/agent-kit')).p.skills.map((x) => x.name), ['notes', 'pdf']);
 });
 
 test('项目页只给有资料或正在榜单上的项目（榜单上的项目名链到项目页，见首页测试）', async () => {
   const dataDir = dataDirWithBoard();
   // 还没生成资料的上榜项目：只有原项目链接和“简介生成中”。
-  const pending = await visit(dataDir, 'p/acme/tiny');
+  const pending = await projectPage(dataDir, 'p/acme/tiny');
   assert.equal(pending.status, 200);
-  assert.match(pending.body, /在 GitHub 打开原项目/);
-  assert.match(pending.body, /简介生成中/);
+  assert.deepEqual([pending.page.repo, pending.page.hasProfile, pending.p.what], ['acme/tiny', false, null]);
   assert.equal((await visit(dataDir, 'p/nobody/nothing')).status, 404);
   assert.equal((await visit(dataDir, 'p/acme')).status, 404);
 });

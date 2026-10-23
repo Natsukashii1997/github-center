@@ -84,26 +84,33 @@ test('新项目榜、累计高星榜、官方热门榜按分类在榜内过滤�
   ];
   put(dir, `snapshots/new/${day}.json`, { list: 'new', statDay: day, generatedAt: '2026-10-23T08:40:00.000Z', from: '2026-09-23', entries });
   put(dir, `snapshots/trending/${day}.json`, { list: 'trending', statDay: day, generatedAt: '2026-10-23T08:40:00.000Z', pages: Object.fromEntries(['daily', 'weekly', 'monthly'].map((s) => [s, { fetchedAt: null, entries: entries.map((e) => ({ ...e, periodStars: 1 })) }])) });
-  const page = await visit(dir, `new?cat=${encodeURIComponent('Skill')}`);
-  const rows = [...page.body.matchAll(/<tr><td>(\d+)<\/td><td><a href="\/p\/([^"]+)">/g)].map((m) => [Number(m[1]), m[2]]);
-  assert.deepEqual(rows, [[1, 'php/php-src'], [2, 'x/skill-only']]);
-  assert.match(page.body, /<strong>Skill<\/strong>/);
-  assert.match(page.body, /本榜还有 1 个项目没归类/);
-  assert.match(page.body, /<td>开发者工具与基础设施、Skill<\/td>/);
-  const all = await visit(dir, 'new?cat=nope');
-  assert.equal([...all.body.matchAll(/<tr><td>\d+<\/td>/g)].length, 3);
-  assert.match(all.body, /<strong>全部<\/strong>/);
+  // #14 起三个榜并排在 /boards，分类筛选在页面里做（assets/boards.js：留下这个分类的项目，名次按过滤后的顺序 1、2、3，
+  // 写明本榜没归类的个数，不认识的分类当作全部）。这里检查页面筛选要用的数据：每个上榜项目的分类随项目嵌入。
+  const r = await visit(dir, `boards?cat=${encodeURIComponent('Skill')}`);
+  assert.equal(r.status, 200);
+  const data = dataOf(r.body);
+  assert.deepEqual(data.cats, CATEGORIES);
+  const cats = (list) => list.map((e) => [e.repo, data.projects[e.repo].cats]);
+  const expected = [['php/php-src', ['开发者工具与基础设施', 'Skill']], ['u/unknown', []], ['x/skill-only', ['Skill']]];
+  assert.deepEqual(cats(data.lists.new.entries), expected);
+  assert.deepEqual(cats(data.lists.trending.pages.weekly.entries), expected);
+  // 页面里按 Skill 过滤：php/php-src、x/skill-only 排 1、2，u/unknown 没归类计 1 个；按“开发者工具与基础设施”只剩 php/php-src。
+  const pick = (list, cat) => list.filter((e) => data.projects[e.repo].cats.includes(cat)).map((e, i) => [i + 1, e.repo]);
+  assert.deepEqual(pick(data.lists.new.entries, 'Skill'), [[1, 'php/php-src'], [2, 'x/skill-only']]);
+  assert.equal(data.lists.new.entries.filter((e) => !data.projects[e.repo].cats.length).length, 1);
+  assert.deepEqual(pick(data.lists.trending.pages.weekly.entries, '开发者工具与基础设施'), [[1, 'php/php-src']]);
+  // 不认识的分类照样打开（页面当作全部）；旧地址带着分类和周期跳过来。
+  assert.equal((await visit(dir, 'boards?cat=nope')).status, 200);
   const hot = await visit(dir, `trending?since=weekly&cat=${encodeURIComponent('开发者工具与基础设施')}`);
-  assert.deepEqual([...hot.body.matchAll(/<tr><td>(\d+)<\/td><td><a href="\/p\/([^"]+)">/g)].map((m) => [Number(m[1]), m[2]]), [[1, 'php/php-src']]);
-  // 切换日、周、月时带上分类；切换分类时带上日、周、月。
-  assert.match(hot.body, /href="\/trending\?since=daily&amp;cat=%E5%BC%80/);
-  assert.match(hot.body, /href="\/trending\?since=weekly&amp;cat=Skill"/);
-  const none = await visit(dir, `top?cat=${encodeURIComponent('其他')}`);
-  assert.match(none.body, /还没有累计高星榜/);
+  assert.deepEqual([hot.status, hot.headers.location], [303, `/boards?cat=${encodeURIComponent('开发者工具与基础设施')}&since=weekly`]);
+  // 累计高星榜这一期还没有：页面写“还没有累计高星榜”。
+  assert.equal(data.lists.top, null);
 });
 
 test('项目页写明分类；还没归类的写“还没归类”', async () => {
   const dir = seed();
-  assert.match((await visit(dir, 'p/php/php-src')).body, /<p>分类：开发者工具与基础设施、Skill<\/p>/);
-  assert.match((await visit(dir, 'p/anthropics/knowledge-work-plugins')).body, /<p>分类：还没归类<\/p>/);
+  // 页面脚本按 projects[名字].cats 写分类，空的写“还没归类”。
+  const catsOf = async (repo) => dataOf((await visit(dir, `p/${repo}`)).body).projects[repo].cats;
+  assert.deepEqual(await catsOf('php/php-src'), ['开发者工具与基础设施', 'Skill']);
+  assert.deepEqual(await catsOf('anthropics/knowledge-work-plugins'), []);
 });
