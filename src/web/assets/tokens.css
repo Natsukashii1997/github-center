@@ -1,0 +1,115 @@
+/* GitHub 快速中心 · 语义设计变量（T1b，方向「导读」）
+   规则：颜色和阴影只用这里的变量，不写裸色值；字号、间距、圆角以这里为主档，
+   组件里个别微调值（如数字比同行中文大 0.5 到 1px）直接写在 components.css，每个组件只定义一次，实现时照抄。
+   颜色只有一个强调色（陶土色），状态色只用于状态本身。
+   字体全部是 macOS 自带字体，不加载外部字体；只在这台电脑上看。 */
+
+:root {
+  /* 表面 */
+  --c-bg: #EFF1F2;            /* 页面底 */
+  --c-surface: #FFFFFF;       /* 阅读卡、选中行、输入框、登录面板 */
+  --c-sunk: #E5E8EA;          /* 凹陷：分段轨道、使用条件、提示条、骨架 */
+  /* 文字 */
+  --c-ink: #15181B;           /* 标题、项目名、正文 */
+  --c-ink-2: #3C4146;         /* 次要正文、未选中的数字 */
+  --c-ink-3: #62696F;         /* 说明、标签、时间、次数字、第 4 名以后的名次 */
+  --c-ink-4: #7F868C;         /* 不承载信息的字（加号前缀）；图标按钮、输入框描边（对比度不低于 3:1） */
+  --c-on-ink: #EFF1F2;        /* 深色按钮上的字 */
+  /* 线 */
+  --c-line: #DEE2E5;          /* 分隔线 */
+  --c-line-2: #CDD2D6;        /* 描边：分类胶囊、次按钮 */
+  /* 强调：全站唯一 */
+  --c-accent: #B4532A;        /* 当前窗口、选中名次、窗口内的走势柱、已收藏的星标；不用于焦点和错误 */
+  --c-accent-ink: #9A4420;    /* 强调色文字（小字号时用这个，保证对比度） */
+  /* 图表 */
+  --c-bar: #D3D8DC;           /* 窗口外的走势柱 */
+  --c-bar-on: var(--c-accent);
+  /* 状态 */
+  --c-ok: #377050;            /* 数据正常、已复制 */
+  --c-warn: #8C5E14;          /* 可能不完整、并列、使用条件 */
+  --c-bad: #B3263E;           /* 更新失败、登录失败（偏冷的红，和陶土色拉开） */
+  /* 阴影：只给浮起的东西 */
+  --shadow-card: 0 1px 2px rgb(20 30 40 / .05), 0 8px 24px -12px rgb(20 30 40 / .12);
+  --shadow-raised: 0 1px 2px rgb(20 30 40 / .06), 0 4px 12px -6px rgb(20 30 40 / .10);
+  --shadow-thumb: 0 1px 2px rgb(20 30 40 / .10);
+  --focus: 2px solid var(--c-ink-3);   /* 键盘焦点：外框，离元素 2px，跟随元素圆角 */
+
+  /* 字体 */
+  --font-ui: system-ui, -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;   /* 界面、项目名；system-ui 放第一，中文页面里英文短横才不会变宽 */
+  --font-read: "Songti SC", "STSong", serif;                               /* 页面标题、阅读正文 */
+  --font-num: "Iowan Old Style", "New York", Georgia, serif;               /* 名次、星数、日期数字 */
+  --font-code: "SF Mono", ui-monospace, Menlo, monospace;                  /* Skill 名、安装指令 */
+
+  /* 字号 / 行高 */
+  --fs-display: 30px;  --lh-display: 1.2;   /* 页面标题（宋体） */
+  --fs-title: 26px;    --lh-title: 1.2;     /* 阅读卡里的项目名 */
+  --fs-stat: 22px;                          /* 阅读卡统计数字 */
+  --fs-read: 19px;     --lh-read: 1.65;     /* 阅读正文（宋体） */
+  --fs-rank: 18px;                          /* 榜单名次 */
+  --fs-gain: 16px;                          /* 榜单新增数 */
+  --fs-body: 14px;     --lh-body: 1.5;      /* 正文、项目名 */
+  --fs-small: 12.5px;                       /* 一句话简介、说明 */
+  --fs-micro: 11.5px;                       /* 分类标签、总 Star、时间 */
+
+  /* 间距：4 的倍数 */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-11: 44px; --sp-16: 64px;
+
+  /* 圆角：一套固定规则 */
+  --r-xs: 4px;    /* 键位提示 */
+  --r-sm: 6px;    /* 分段控件里的滑块 */
+  --r-md: 8px;    /* 按钮、分段轨道、提示条、输入框 */
+  --r-lg: 10px;   /* 榜单行、使用条件块 */
+  --r-xl: 16px;   /* 阅读卡、登录面板 */
+  --r-pill: 999px;/* 分类胶囊、提示气泡 */
+
+  /* 动效：只动 transform 和 opacity；颜色过渡用 fast */
+  --dur-fast: 140ms;      /* 悬停时颜色、底色、描边 */
+  --dur-base: 240ms;      /* 进场、滑块、选中块移动 */
+  --dur-slow: 280ms;      /* 名次换位、走势柱升起 */
+  --dur-exit: 160ms;      /* 退场 */
+  --stagger: 16ms;        /* 列表错峰 */
+  --stagger-bar: 9ms;     /* 走势柱依次变色 */
+  --ease-out: cubic-bezier(.25, 1, .5, 1);
+  --ease-in: cubic-bezier(.5, 0, .75, 0);
+
+  /* 布局 */
+  --w-page: 1360px;   /* 内容最大宽度 */
+  --w-index: 560px;   /* 左侧榜单宽度 */
+  --w-read: 760px;    /* 单栏阅读页（项目页、日报、收藏）宽度 */
+  --gutter: 40px;     /* 页面左右留白与两栏间距 */
+  --h-top: 56px;      /* 顶栏高度 */
+  --h-row: 76px;      /* 榜单行高 */
+
+  /* 层级 */
+  --z-top: 20; --z-sticky: 10; --z-toast: 60;
+
+  color-scheme: light;
+}
+
+/* 深色：同一套语义，只换取值 */
+:root[data-theme="dark"] {
+  --c-bg: #111417; --c-surface: #181C20; --c-sunk: #1F2428;
+  --c-ink: #E9ECEE; --c-ink-2: #C5CBD0; --c-ink-3: #8F979E; --c-ink-4: #727A81; --c-on-ink: #111417;
+  --c-line: rgb(255 255 255 / .07); --c-line-2: rgb(255 255 255 / .13);
+  --c-accent: #E8865A; --c-accent-ink: #F09D76;
+  --c-bar: #2D3338;
+  --c-ok: #7CC29A; --c-warn: #D7A453; --c-bad: #F07385;
+  --shadow-card: 0 0 0 1px rgb(255 255 255 / .06);
+  --shadow-raised: 0 0 0 1px rgb(255 255 255 / .08);
+  --shadow-thumb: 0 0 0 1px rgb(255 255 255 / .10);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --c-bg: #111417; --c-surface: #181C20; --c-sunk: #1F2428;
+    --c-ink: #E9ECEE; --c-ink-2: #C5CBD0; --c-ink-3: #8F979E; --c-ink-4: #727A81; --c-on-ink: #111417;
+    --c-line: rgb(255 255 255 / .07); --c-line-2: rgb(255 255 255 / .13);
+    --c-accent: #E8865A; --c-accent-ink: #F09D76;
+    --c-bar: #2D3338;
+    --c-ok: #7CC29A; --c-warn: #D7A453; --c-bad: #F07385;
+    --shadow-card: 0 0 0 1px rgb(255 255 255 / .06);
+    --shadow-raised: 0 0 0 1px rgb(255 255 255 / .08);
+    --shadow-thumb: 0 0 0 1px rgb(255 255 255 / .10);
+    color-scheme: dark;
+  }
+}

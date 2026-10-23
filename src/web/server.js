@@ -1,41 +1,26 @@
-// 本机网站：只监听 127.0.0.1；登录后才能看（#5）。页面只读快照和更新记录，访问时不调用任何外部接口。样式从简，视觉由 #13、#14 负责。
-// 首页是涨星榜（近 1/7/30 天），另有新项目榜、官方热门榜、累计高星榜；点开榜单上的项目进入项目页（#6），项目页能复制安装指令（#7）、
-// 收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。
+// 本机网站：只监听 127.0.0.1；登录后才能看（#5）。页面只读快照和更新记录，访问时不调用任何外部接口。
+// 首页是涨星榜（近 1/7/30 天，#13 起按冻结的视觉方案 t1b-r2，见 home.js）；另有新项目榜、官方热门榜、累计高星榜，样式从简，视觉由 #14 负责。
+// 点开榜单上的项目进入项目页（#6），项目页能复制安装指令（#7）、收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
 import { openFavorites } from './favorites.js';
 import { readLatestSnapshot, readStatus, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
 import { findProfile, readProfile, findOnBoards, currentGenerated, skillPlace, skillPurpose, installInstruction, INSTALL_AIS } from '../profiles/index.js';
+import { homeData, homePage } from './home.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
 const beijing = (iso) => new Date(Date.parse(iso) + 8 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
-const label = (w) => `近 ${WINDOWS[w].days} 天`;
 const repo = (name) => `<a href="/p/${esc(name)}">${esc(name)}</a>`;
 const PAGES = [['/', '涨星榜'], ['/new', LISTS.new], ['/trending', LISTS.trending], ['/top', LISTS.top], ['/favorites', '我的收藏']];
 const SEARCH_NOTE = '已知现象：GitHub 搜索会把少数仓库计进总数，但列表里不返回它们，所以极少数项目可能不在这里。';
-
-// 漏失概率写成“约万分之 1.1”这样的说法。
-function chance(p) {
-  if (p >= 0.01) return `约 ${(p * 100).toFixed(1)}%`;
-  const units = [[1e-3, '千分之'], [1e-4, '万分之'], [1e-5, '十万分之'], [1e-6, '百万分之'], [1e-7, '千万分之'], [1e-8, '亿分之']];
-  const [u, name] = units.find(([u]) => p >= u) ?? units.at(-1);
-  return `约${name} ${(p / u).toFixed(1)}`;
-}
 
 // 更新失败时保留上一次的快照，写明它的真实日期和失败原因。
 function failure(board, snapshot, status) {
   const last = status?.boards?.[board];
   if (last?.status !== 'failed' || (snapshot && last.day <= snapshot.statDay)) return '';
   return `<p class="warn">统计日 ${esc(last.day)} 的榜单更新失败：${esc(last.error)}${snapshot ? `。下面仍是统计日 ${esc(snapshot.statDay)} 的榜单。` : ''}</p>\n`;
-}
-
-function incomplete(snapshot) {
-  if (!snapshot.incomplete) return '';
-  const why = [];
-  if (!snapshot.check.passed) why.push(`自检未通过，估计漏掉一个该上榜项目的概率${chance(snapshot.check.missProbability)}（要求小于百万分之一）`);
-  if (snapshot.candidates.failed.length) why.push(`${snapshot.candidates.failed.length} 个候选的官方核数失败`);
-  return `<p class="warn">可能不完整：${why.join('；')}。</p>\n`;
 }
 
 const table = (heads, rows) => `<table>
@@ -46,20 +31,6 @@ ${rows.map((cells) => `<tr>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`).
 </table>`;
 const tabs = (items, current) => `<nav>${items.map(([key, href, text]) => (key === current ? `<strong>${text}</strong>` : `<a href="${href}">${text}</a>`)).join('　')}</nav>`;
 const empty = (name) => `<p>还没有${name}。先运行一次 <code>npm run rank</code>。</p>`;
-
-function stars(window, snapshot, status) {
-  const head = tabs(Object.keys(WINDOWS).map((w) => [w, `/?w=${w}`, label(w)]), window);
-  if (!snapshot) return { title: `涨星榜 · ${label(window)}`, body: `${head}\n${failure(window, null, status)}${empty(`${label(window)}的榜单`)}` };
-  const span = window === 'd1' ? `统计日 ${esc(snapshot.statDay)}（UTC）` : `统计到 ${esc(snapshot.statDay)}（UTC），${esc(snapshot.from)} 至 ${esc(snapshot.statDay)}`;
-  const rows = snapshot.entries.map((e) => [e.rank, repo(e.fullName), `+${num(e.gain)}`, num(e.total)]);
-  return {
-    title: `涨星榜 · ${label(window)}`,
-    body: `${head}
-<p>${span}　更新于 ${beijing(snapshot.generatedAt)}（北京时间）</p>
-${failure(window, snapshot, status)}${incomplete(snapshot)}${table(['名次', '项目', `${window === 'd1' ? '当天' : label(window)}新增 Star`, '当前总 Star'], rows)}
-<p class="note">数字来自 GitHub 官方 Star 历史；前 20 名，末位并列一起列出。${snapshot.check ? '' : '这份榜单生成于每日自检上线之前，没有做完整性自检。'}</p>`,
-  };
-}
 
 function byTotal(list, snapshot, status) {
   if (!snapshot) return { title: LISTS[list], body: `${failure(list, null, status)}${empty(LISTS[list])}` };
@@ -184,10 +155,6 @@ function route(url, dataDir, { account, favorites }) {
   const status = readStatus(dataDir);
   const q = (k, d) => url.searchParams.get(k) ?? d;
   switch (url.pathname) {
-    case '/': {
-      const w = q('w', 'd1');
-      return Object.hasOwn(WINDOWS, w) && stars(w, readLatestSnapshot(dataDir, w), status);
-    }
     case '/new':
     case '/top': {
       const list = url.pathname.slice(1);
@@ -249,6 +216,29 @@ function sameOrigin(req) {
   return !origin || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}`;
 }
 
+// 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上就行；
+// 取消不用查，资料没了也能取消。成功返回 null，否则返回 [状态码, 原因]。
+function changeFavorite(dataDir, favorites, account, form) {
+  const projectId = Number(form.get('project_id'));
+  const skillPath = form.get('skill') ?? '';
+  if (form.get('action') === 'remove') {
+    favorites.remove(account.id, projectId, skillPath);
+    return null;
+  }
+  if (form.get('action') !== 'add') return [400, '不认识的操作'];
+  const known = Number.isSafeInteger(projectId) && projectId > 0;
+  const profile = known ? readProfile(dataDir, projectId) : null;
+  const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) : null;
+  const skill = skillPath && profile?.material?.skills.find((s) => s.path === skillPath);
+  if (skillPath ? !skill : !profile && !listed) return [404, '没有这个项目或 Skill 的资料'];
+  favorites.add(account.id, { projectId, fullName: profile?.fullName ?? listed.name, skillPath, skillName: skill?.name ?? '' });
+  return null;
+}
+
+// 页面样式、图标和脚本（#13 起）：视觉方案里的通用文件，不含任何数据，登录页也要用，所以不用登录就能取。
+const ASSETS = { 'tokens.css': 'text/css', 'components.css': 'text/css', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript' };
+const assetFile = (name) => readFileSync(new URL(`./assets/${name}`, import.meta.url));
+
 // 表单按字节限 10KB；超了就不再收，回复后断开连接。
 function readForm(req) {
   return new Promise((resolve, reject) => {
@@ -274,7 +264,13 @@ export function startServer({ dataDir, port = 5310 }) {
     const send = (status, headers, body) => res.writeHead(status, headers).end(req.method === 'HEAD' ? undefined : body);
     const text = (status, body) => send(status, { 'content-type': 'text/plain; charset=utf-8' }, body);
     const html = (status, body, headers = {}) => send(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...headers }, body);
+    const json = (status, data) => send(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, JSON.stringify(data));
     const tooBig = () => send(413, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }, '表单太大');
+
+    const asset = url.pathname.match(/^\/assets\/([\w.-]+)$/)?.[1];
+    if (asset && Object.hasOwn(ASSETS, asset) && (req.method === 'GET' || req.method === 'HEAD')) {
+      return send(200, { 'content-type': `${ASSETS[asset]}; charset=utf-8`, 'cache-control': 'no-cache' }, assetFile(asset));
+    }
 
     if (url.pathname === '/login' && (req.method === 'GET' || req.method === 'HEAD')) {
       return accounts.session(cookieOf(req)) ? send(303, { location: '/' }) : html(200, loginPage(safeNext(url.searchParams.get('next'))));
@@ -295,32 +291,33 @@ export function startServer({ dataDir, port = 5310 }) {
 
     const account = accounts.session(cookieOf(req));
     if (!account) {
-      if (url.pathname.startsWith('/api/')) return send(401, { 'content-type': 'application/json; charset=utf-8' }, JSON.stringify({ error: '未登录' }));
+      if (url.pathname.startsWith('/api/')) return json(401, { error: '未登录' });
       return send(303, { location: `/login?next=${encodeURIComponent(url.pathname + url.search)}` });
     }
-    // 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上就行；
-    // 取消不用查，资料没了也能取消。
-    if (url.pathname === '/favorites' && req.method === 'POST') {
+    // 收藏：项目页和我的收藏用表单，提交后回到 next；首页的收藏按钮（#13）用接口，回 JSON。
+    if ((url.pathname === '/favorites' || url.pathname === '/api/favorites') && req.method === 'POST') {
       if (!sameOrigin(req)) return text(403, '只接受本站提交的表单');
       const form = await readForm(req).catch(() => null);
       if (!form) return tooBig();
-      const projectId = Number(form.get('project_id'));
-      const skillPath = form.get('skill') ?? '';
-      const next = safeNext(form.get('next') ?? '/favorites');
-      if (form.get('action') === 'remove') {
-        favorites.remove(account.id, projectId, skillPath);
-        return send(303, { location: next });
-      }
-      if (form.get('action') !== 'add') return text(400, '不认识的操作');
-      const known = Number.isSafeInteger(projectId) && projectId > 0;
-      const profile = known ? readProfile(dataDir, projectId) : null;
-      const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) : null;
-      const skill = skillPath && profile?.material?.skills.find((s) => s.path === skillPath);
-      if (skillPath ? !skill : !profile && !listed) return text(404, '没有这个项目或 Skill 的资料');
-      favorites.add(account.id, { projectId, fullName: profile?.fullName ?? listed.name, skillPath, skillName: skill?.name ?? '' });
-      return send(303, { location: next });
+      const failed = changeFavorite(dataDir, favorites, account, form);
+      if (url.pathname === '/api/favorites') return failed ? json(failed[0], { error: failed[1] }) : json(200, { saved: form.get('action') === 'add' });
+      return failed ? text(...failed) : send(303, { location: safeNext(form.get('next') ?? '/favorites') });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
+    // 首页涨星榜（#13）：整页按视觉方案出，不套下面的从简布局。
+    if (url.pathname === '/') {
+      const w = url.searchParams.get('w');
+      if (w !== null && !Object.hasOwn(WINDOWS, w)) return text(404, '没有这个页面');
+      return html(200, homePage(homeData(dataDir, { account, favorites })));
+    }
+    // 安装指令（#7）的文字：首页阅读卡上“复制安装指令”取它（#13）。
+    if (url.pathname === '/api/install') {
+      const profile = readProfile(dataDir, Number(url.searchParams.get('project')));
+      const ai = url.searchParams.get('ai') ?? '';
+      const skillPath = url.searchParams.get('skill') ?? '';
+      if (!profile?.material || !Object.hasOwn(INSTALL_AIS, ai) || (skillPath && !profile.material.skills.some((s) => s.path === skillPath))) return json(404, { error: '没有这个项目或 Skill 的资料' });
+      return text(200, installInstruction({ profile, ai, skillPath }));
+    }
     const page = route(url, dataDir, { account, favorites });
     if (!page) return text(404, '没有这个页面');
     html(200, layout(url.pathname, account, page));
