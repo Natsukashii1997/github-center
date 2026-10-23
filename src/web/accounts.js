@@ -15,16 +15,18 @@ const newPassword = () => randomBytes(12).toString('base64url');
 export function openAccounts(dataDir) {
   mkdirSync(dataDir, { recursive: true });
   const db = new DatabaseSync(join(dataDir, 'center.db'));
+  // 网站和开账号命令会同时打开这个库：用 WAL 让读写互不阻塞，碰上对方正在写就最多等 5 秒，而不是立刻报错。
   db.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA busy_timeout = 5000;
     CREATE TABLE IF NOT EXISTS accounts(id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, role TEXT NOT NULL, salt TEXT NOT NULL, hash TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), expires_at INTEGER NOT NULL);
   `);
   const byName = db.prepare('SELECT * FROM accounts WHERE name = ?');
-  const setPassword = (id) => {
+  const newCredentials = () => {
     const password = newPassword();
     const salt = randomBytes(16).toString('hex');
-    db.prepare('UPDATE accounts SET salt = ?, hash = ? WHERE id = ?').run(salt, hashPassword(password, salt), id);
-    return password;
+    return { password, salt, hash: hashPassword(password, salt) };
   };
   return {
     // 新建账号，返回初始密码（只此一次）。所有者只能有一个。
@@ -34,15 +36,19 @@ export function openAccounts(dataDir) {
       if (byName.get(name)) throw new Error(`已经有账号 ${name}`);
       const owner = db.prepare("SELECT name FROM accounts WHERE role = 'owner'").get();
       if (role === 'owner' && owner) throw new Error(`已经有所有者账号 ${owner.name}；伙伴账号请加 --partner`);
-      const { lastInsertRowid } = db.prepare("INSERT INTO accounts(name, role, salt, hash, created_at) VALUES (?, ?, '', '', ?)").run(name, role, new Date().toISOString());
-      return setPassword(lastInsertRowid);
+      // 账号和密码哈希一条语句写进去，不会留下没有密码的半成品账号。
+      const { password, salt, hash } = newCredentials();
+      db.prepare('INSERT INTO accounts(name, role, salt, hash, created_at) VALUES (?, ?, ?, ?, ?)').run(name, role, salt, hash, new Date().toISOString());
+      return password;
     },
     // 重置密码，返回新密码；这个账号已登录的地方全部退出。
     resetPassword(name) {
       const account = byName.get(name);
       if (!account) throw new Error(`没有账号 ${name}`);
+      const { password, salt, hash } = newCredentials();
       db.prepare('DELETE FROM sessions WHERE account_id = ?').run(account.id);
-      return setPassword(account.id);
+      db.prepare('UPDATE accounts SET salt = ?, hash = ? WHERE id = ?').run(salt, hash, account.id);
+      return password;
     },
     list: () => db.prepare('SELECT name, role, created_at FROM accounts ORDER BY id').all(),
     // 账号密码对就返回新会话令牌，不对返回 null。

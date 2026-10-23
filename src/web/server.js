@@ -134,27 +134,40 @@ ${error ? `<p class="warn">${error}</p>\n` : ''}<form method="post" action="/log
 const COOKIE = 'gc_session';
 const cookieOf = (req) => req.headers.cookie?.split(/;\s*/).map((c) => c.split('=')).find(([k]) => k === COOKIE)?.[1];
 const sessionCookie = (token, maxAge) => `${COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
-// 登录后只跳回本站的路径，不跳到别的网站。
-const safeNext = (next) => (typeof next === 'string' && /^\/(?![/\\])/.test(next) ? next : '/');
+// 登录后只跳回本站的路径，不跳到别的网站：按浏览器的规则解析（会去掉 Tab 和换行、把反斜杠当斜杠）后仍是本站才跳，
+// 并且只用解析出的已编码路径，跳转地址里不会有汉字或控制字符。
+function safeNext(next) {
+  if (typeof next !== 'string' || !next.startsWith('/')) return '/';
+  try {
+    const url = new URL(next, 'http://127.0.0.1');
+    return url.origin === 'http://127.0.0.1' ? url.pathname + url.search : '/';
+  } catch {
+    return '/';
+  }
+}
 // 表单只接受本站提交的（没有 Origin 或 Origin 是本机地址），挡住别的网站代为提交。
 const sameOrigin = (req) => !req.headers.origin || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(req.headers.origin);
 
+// 表单按字节限 10KB；超了就不再收，回复后断开连接。
 function readForm(req) {
   return new Promise((resolve, reject) => {
-    let body = '';
-    req.setEncoding('utf8');
-    req.on('data', (c) => {
-      body += c;
-      if (body.length > 10_000) reject(new Error('表单太大'));
-    });
-    req.on('end', () => resolve(new URLSearchParams(body)));
+    const chunks = [];
+    let size = 0;
+    const onData = (c) => {
+      size += c.length;
+      if (size <= 10_000) return chunks.push(c);
+      req.off('data', onData).pause();
+      reject(new Error('表单太大'));
+    };
+    req.on('data', onData);
+    req.on('end', () => resolve(new URLSearchParams(Buffer.concat(chunks).toString('utf8'))));
     req.on('error', reject);
   });
 }
 
 export function startServer({ dataDir, port = 5310 }) {
   const accounts = openAccounts(dataDir);
-  const server = createServer(async (req, res) => {
+  const handle = async (req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     const send = (status, headers, body) => res.writeHead(status, headers).end(req.method === 'HEAD' ? undefined : body);
     const text = (status, body) => send(status, { 'content-type': 'text/plain; charset=utf-8' }, body);
@@ -174,7 +187,7 @@ export function startServer({ dataDir, port = 5310 }) {
       try {
         form = await readForm(req);
       } catch {
-        return text(413, '表单太大');
+        return send(413, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }, '表单太大');
       }
       const token = accounts.login(form.get('name') ?? '', form.get('password') ?? '');
       if (!token) return html(401, loginPage(safeNext(form.get('next')), '账号或密码不对。'));
@@ -190,7 +203,13 @@ export function startServer({ dataDir, port = 5310 }) {
     const page = route(url, dataDir);
     if (!page) return text(404, '没有这个页面');
     html(200, layout(url.pathname, account, page));
-  });
+  };
+  // 单个请求出错只回 500，不让整个服务退出。
+  const server = createServer((req, res) => handle(req, res).catch((e) => {
+    console.error(`${new Date().toISOString()} ${req.method} ${JSON.stringify(req.url)} 出错：`, e);
+    if (res.headersSent) return res.destroy();
+    res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }).end('服务出错，请稍后再试');
+  }));
   server.on('close', () => accounts.close());
   return new Promise((resolve, reject) => {
     server.once('error', reject);
