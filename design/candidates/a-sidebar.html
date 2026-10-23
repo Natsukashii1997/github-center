@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>候选 A · 侧栏列表</title>
+<link rel="stylesheet" href="tokens.css">
+<script src="data.js"></script>
+<script src="parts.js"></script>
+<style>
+.shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
+
+/* 侧栏 */
+.side { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 22px 14px 16px; background: var(--sidebar); border-right: 1px solid var(--line-soft); }
+.brand { display: flex; align-items: center; gap: 9px; padding: 0 10px 24px; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.side .label { padding: 0 10px 6px; font-size: 11px; color: var(--ink-4); }
+.nav { display: flex; flex-direction: column; gap: 2px; margin-bottom: 18px; }
+.nav a { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: var(--r-tile); font-size: 13.5px; color: var(--ink-3); transition: color 120ms, background-color 120ms; }
+.nav a:hover { color: var(--ink); background: var(--bg-sunk); }
+.nav a.on { color: var(--ink); font-weight: 600; background: var(--bg-muted); }
+[data-theme="dark"] .nav a.on { background: var(--raised); }
+.nav a.on .icon { color: var(--accent); }
+.nav .count { margin-left: auto; font: 500 11px/1 var(--mono); color: var(--ink-4); }
+.side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 12px; padding: 0 6px; }
+.data-card { padding: 12px; border-radius: var(--r-card); background: var(--bg-sunk); border: 1px solid var(--line-soft); font-size: 12px; color: var(--ink-3); line-height: 1.6; }
+.data-card b { color: var(--ink-2); font-weight: 600; }
+.me { display: flex; align-items: center; justify-content: space-between; }
+.me span { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+
+/* 主区 */
+.main { padding: 34px 44px 80px; max-width: 1240px; width: 100%; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+.kicker { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12px; color: var(--ink-3); }
+.kicker .dot { color: var(--ok); }
+.kicker.warn .dot { color: var(--amber); }
+.kicker.bad .dot { color: var(--hot); }
+.head h1 { font-size: 28px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
+.head p { margin-top: 6px; font-size: 13px; color: var(--ink-3); }
+.head p .mono { color: var(--ink-2); }
+.cats { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.notice-slot:not(:empty) { margin-bottom: 16px; }
+.cat-note { margin: -6px 0 16px; font-size: 12.5px; color: var(--ink-4); }
+
+/* 前三名 */
+.podium { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr); gap: 16px; margin-bottom: 16px; }
+.podium .side-stack { display: grid; grid-template-rows: 1fr 1fr; gap: 16px; }
+.card { position: relative; display: flex; flex-direction: column; border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); cursor: pointer; transition: box-shadow 200ms var(--ease), border-color 200ms; }
+.card:hover { box-shadow: var(--shadow-card-hover); border-color: var(--line-strong); }
+.card .no { font: 600 12px/1 var(--mono); letter-spacing: .1em; }
+.card .fav { position: absolute; top: 14px; right: 14px; }
+.lead { padding: 24px 26px 22px; min-height: 300px; }
+.lead .no { margin-bottom: 18px; }
+.lead .owner { font-size: 14px; color: var(--ink-4); }
+.lead h2 { margin: 2px 0 10px; font-size: 30px; line-height: 1.2; font-weight: 700; letter-spacing: -.015em; overflow-wrap: anywhere; }
+.lead .what { max-width: 560px; font-size: 15px; line-height: 1.7; font-weight: 500; color: var(--ink-2); }
+.lead .problem { max-width: 560px; margin-top: 4px; font-size: 13.5px; line-height: 1.7; color: var(--ink-3); }
+.lead .problem span { margin-right: 8px; font-size: 12px; color: var(--accent); }
+.lead .tags { display: flex; gap: 6px; margin-top: 14px; }
+.lead .foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-top: auto; padding-top: 22px; }
+.big { text-align: right; }
+.big b { display: block; font: 700 40px/1 var(--sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.big small { display: block; margin-top: 6px; font-size: 12px; color: var(--ink-4); }
+.mini { padding: 18px 20px; }
+.mini .no { margin-bottom: 10px; }
+.mini .owner { font-size: 12.5px; color: var(--ink-4); }
+.mini h3 { margin: 1px 0 6px; padding-right: 30px; font-size: 17px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; }
+.mini .what { font-size: 13px; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.mini .foot { display: flex; align-items: flex-end; justify-content: space-between; margin-top: auto; padding-top: 12px; }
+.mini .big b { font-size: 26px; }
+
+/* 第 4 名以后 */
+.list { border-radius: var(--r-card); background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); overflow: hidden; }
+.list-head { display: flex; align-items: baseline; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line-soft); }
+.list-head b { font-size: 13.5px; font-weight: 600; }
+.list-head b .mono { margin-left: 4px; font-weight: 500; color: var(--ink-4); }
+.list-head small { font-size: 12px; color: var(--ink-4); }
+.row { display: grid; grid-template-columns: 44px 30px minmax(0, 1fr) 190px 120px 100px 84px 30px; gap: 14px; align-items: center; min-height: 64px; padding: 8px 14px 8px 18px; cursor: pointer; transition: background-color 120ms; }
+.row + .row { border-top: 1px solid var(--line-soft); }
+.row:hover { background: var(--accent-softer); }
+.row .rk { font: 600 15px/1 var(--mono); }
+.row .nm { min-width: 0; }
+.row .nm b { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.row .nm b span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .nm b i { font-style: normal; font-weight: 400; color: var(--ink-4); }
+.row .nm p { margin-top: 2px; font-size: 12.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .cs { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.row .g { text-align: right; font: 650 17px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.row .t { text-align: right; font: 12px/1 var(--mono); color: var(--ink-4); }
+.empty-list { padding: 48px 0; text-align: center; color: var(--ink-4); font-size: 13px; }
+
+/* 进场：列表淡入上移，错峰 */
+.enter { animation: gc-fade-up 240ms var(--ease) both; animation-delay: calc(var(--i, 0) * 22ms); }
+
+/* 项目详情：右侧抽屉 */
+.scrim { position: fixed; inset: 0; z-index: 40; background: var(--scrim); animation: gc-fade-in 200ms ease-out both; }
+.sheet { position: fixed; top: 10px; right: 10px; bottom: 10px; z-index: 41; width: 600px; overflow: auto; padding: 22px 28px 40px; border-radius: var(--r-sheet); background: var(--bg); border: 1px solid var(--line); box-shadow: var(--shadow-pop); animation: a-sheet-in 300ms var(--ease) both; }
+.sheet-bar { position: sticky; top: -22px; z-index: 2; display: flex; justify-content: space-between; align-items: center; margin: -22px -28px 18px; padding: 14px 20px 10px 28px; background: color-mix(in oklab, var(--bg) 88%, transparent); backdrop-filter: blur(8px); }
+.sheet-bar span { font: 500 11px/1 var(--mono); letter-spacing: .12em; color: var(--ink-4); }
+.closing .scrim { animation: gc-fade-out 180ms ease-in both; }
+.closing .sheet { animation: a-sheet-out 200ms ease-in both; }
+@keyframes a-sheet-in { from { transform: translateX(calc(100% + 20px)); } }
+@keyframes a-sheet-out { to { transform: translateX(calc(100% + 20px)); } }
+
+/* 收藏页与占位页 */
+.fav-list .row { grid-template-columns: 30px minmax(0, 1fr) 160px 30px; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 90px 0; border: 1px dashed var(--line-strong); border-radius: var(--r-card); color: var(--ink-3); font-size: 14px; }
+.empty .ring { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--bg-sunk); color: var(--ink-4); }
+.soon { padding: 64px 0; color: var(--ink-4); font-size: 13.5px; }
+
+/* 加载中 */
+.sk-card { height: 300px; border-radius: var(--r-card); }
+.sk-row { height: 64px; border-top: 1px solid var(--line-soft); display: flex; align-items: center; gap: 14px; padding: 0 18px; }
+.sk-row .skeleton { height: 12px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">${logo}GitHub 快速中心</div>
+    <div class="label">浏览</div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <div class="data-card" id="dataCard"></div>
+      <div class="me"><span id="me"></span><span id="theme"></span></div>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+<div id="layer"></div>
+<script>
+const G = window.GC;
+const { icon, fmt, short, spark, series, ranking, WINDOWS, SPAN, CATS, meta, favBtn, split, P } = G;
+const S = { page: 'rank', win: 'd1', cat: null, state: 'normal', open: null };
+const winLabel = () => WINDOWS.find(([k]) => k === S.win)[1];
+const rankColor = (r) => `var(--rank-${r <= 3 ? r : 'rest'})`;
+const no = (r) => `NO.${String(r).padStart(2, '0')}`;
+
+document.querySelector('.brand').innerHTML = G.logo(22) + 'GitHub 快速中心';
+document.getElementById('theme').innerHTML = G.themeSwitch();
+document.getElementById('me').innerHTML = G.avatar('常', 24) + '常浩';
+document.getElementById('dataCard').innerHTML = `<b>每天更新一次</b><br>统计日 <span class="mono">${meta.statDay}</span><br>更新于 <span class="mono">${meta.updatedAt}</span>`;
+
+function nav() {
+  const items = [['rank', 'trend', '涨星榜'], ['other', 'list', '其他榜单'], ['daily', 'paper', '日报'], ['favs', 'bookmark', '我的收藏']];
+  document.getElementById('nav').innerHTML = items.map(([k, i, l]) => `<a href="#" data-page="${k}" class="${S.page === k ? 'on' : ''}">${icon(i)}${l}${k === 'favs' ? `<span class="count">${G.favs.size}</span>` : ''}</a>`).join('');
+}
+
+function header() {
+  return `<div class="head">
+    <div><div class="kicker" id="kicker"></div><h1>涨星榜</h1>
+    <p>统计日 <span class="num">${meta.statLabel}</span>　·　从 <span class="mono">${fmt(meta.candidates)}</span> 个候选里按 GitHub 官方 Star 数据核出前 20，并列同名次</p></div>
+    ${G.seg(WINDOWS, S.win, 'win')}
+  </div>
+  <div class="cats">${[[null, '全部'], ...CATS.map((c) => [c, c])].map(([k, l]) => `<button class="chip${S.cat === k ? ' on' : ''}" data-cat="${k ?? ''}">${l}</button>`).join('')}</div>
+  <div class="notice-slot" id="notice"></div>
+  <div id="board"></div>`;
+}
+
+const tieTag = (r) => (r.tie ? '<span class="tag tie">并列</span>' : '');
+
+function board() {
+  const el = document.getElementById('board');
+  document.getElementById('notice').innerHTML = G.NOTICE[S.state] || '';
+  const k = document.getElementById('kicker');
+  k.className = 'kicker' + (S.state === 'incomplete' ? ' warn' : S.state === 'failed' ? ' bad' : '');
+  k.innerHTML = `<span class="dot"></span>${S.state === 'incomplete' ? '今天的榜单可能不完整' : S.state === 'failed' ? `今天更新失败，显示 ${meta.lastGood} 的结果` : `今天已更新，${meta.updatedAt}`}`;
+  if (S.state === 'loading') {
+    el.innerHTML = `<div class="podium"><div class="skeleton sk-card"></div><div class="side-stack"><div class="skeleton sk-card" style="height:auto"></div><div class="skeleton sk-card" style="height:auto"></div></div></div>
+      <div class="list">${Array.from({ length: 5 }, () => `<div class="sk-row"><span class="skeleton" style="width:24px"></span><span class="skeleton" style="width:38%"></span><span class="skeleton" style="width:12%;margin-left:auto"></span></div>`).join('')}</div>`;
+    return;
+  }
+  const rows = ranking(S.win, S.cat);
+  const last = SPAN[S.win];
+  let i = 0;
+  const enter = () => `class="enter" style="--i:${i++}"`;
+  const lead = (r) => { const [o, n] = split(r.repo); return `<div class="card lead enter" style="--i:${i++}" data-open="${r.repo}">
+      <div class="no" style="color:${rankColor(r.rank)}">${no(r.rank)} ${tieTag(r)}</div>${favBtn(r.repo)}
+      <div class="owner">${o} /</div><h2>${n}</h2><p class="what">${r.what}</p><p class="problem"><span>能解决</span>${r.problem}</p>
+      <div class="tags">${r.cats.map((c) => `<span class="tag">${c}</span>`).join('')}</div>
+      <div class="foot">${spark(series(r.repo), { w: 470, h: 70, last })}<div class="big"><b>+${fmt(r.gain)}</b><small>${winLabel()}新增 Star · 总 ${fmt(r.total)}</small></div></div>
+    </div>`; };
+  const mini = (r) => { const [o, n] = split(r.repo); return `<div class="card mini enter" style="--i:${i++}" data-open="${r.repo}">
+      <div class="no" style="color:${rankColor(r.rank)}">${no(r.rank)} ${tieTag(r)}</div>${favBtn(r.repo)}
+      <div class="owner">${o} /</div><h3>${n}</h3><p class="what">${r.what}</p>
+      <div class="foot">${spark(series(r.repo), { w: 130, h: 34, last })}<div class="big"><b>+${fmt(r.gain)}</b><small>总 ${short(r.total)}</small></div></div>
+    </div>`; };
+  const row = (r) => { const [o, n] = split(r.repo); return `<div class="row enter" style="--i:${i++}" data-open="${r.repo}">
+      <span class="rk" style="color:${rankColor(r.rank)}">${String(r.rank).padStart(2, '0')}</span>${G.avatar(r.repo, 28)}
+      <div class="nm"><b><span><i>${o} / </i>${n}</span>${tieTag(r)}</b><p>${r.what}</p></div>
+      <div class="cs">${r.cats.map((c) => `<span class="tag">${c}</span>`).join('')}</div>
+      ${spark(series(r.repo), { w: 120, h: 28, last })}
+      <span class="g">+${fmt(r.gain)}</span><span class="t">${fmt(r.total)}</span>${favBtn(r.repo)}
+    </div>`; };
+  const top = rows.slice(0, 3), rest = rows.slice(3);
+  let html = '';
+  if (S.cat && rows.length < 20) html += `<p class="cat-note">「${S.cat}」在${winLabel()}核出的结果里有 ${rows.length} 个项目，全部列出。</p>`;
+  if (!rows.length) { el.innerHTML = html + `<div class="list"><div class="empty-list">这个分类今天没有项目进入核数结果</div></div>`; return; }
+  html += `<div class="podium" style="${top.length < 2 ? 'grid-template-columns:1fr' : ''}">${lead(top[0])}${top.length > 1 ? `<div class="side-stack">${top.slice(1).map(mini).join('')}</div>` : ''}</div>`;
+  if (rest.length) html += `<div class="list enter" style="--i:${i++}"><div class="list-head"><b>继续看<span class="mono">No.04-${String(rows.length).padStart(2, '0')}</span></b><small>走势为近 30 天每日新增</small></div>${rest.map(row).join('')}</div>`;
+  el.innerHTML = html;
+}
+
+function favPage() {
+  const keys = [...G.favs];
+  if (!keys.length) return `<div class="head"><div><h1>我的收藏</h1></div></div><div class="empty"><span class="ring">${icon('bookmark')}</span>还没有收藏<button class="btn" data-page="rank">去看涨星榜${icon('arrow')}</button></div>`;
+  return `<div class="head"><div><h1>我的收藏</h1><p>项目和单个 Skill 都在这里，只有你自己看得到</p></div></div>
+    <div class="list fav-list">${keys.map((k, i) => { const [repo, skill] = k.split('#'); return `<div class="row enter" style="--i:${i}" data-open="${repo}">${G.avatar(repo, 28)}<div class="nm"><b><span>${skill ? `<i>${repo} · </i>${skill}` : repo}</span><span class="tag">${skill ? 'Skill' : '项目'}</span></b><p>${skill ? P[repo].skills.find((s) => s.name === skill).desc : P[repo].what}</p></div><span class="t">收藏于 10-23 09:12</span>${favBtn(k)}</div>`; }).join('')}</div>`;
+}
+
+function render() {
+  nav();
+  const m = document.getElementById('main');
+  if (S.page === 'rank') { m.innerHTML = header(); board(); }
+  else if (S.page === 'favs') m.innerHTML = favPage();
+  else m.innerHTML = `<div class="head"><div><h1>${S.page === 'other' ? '其他榜单' : '日报'}</h1></div></div><p class="soon">候选阶段只演示涨星榜、项目页和收藏；选定方向后在高保真阶段补齐这一页。</p>`;
+}
+
+function openSheet(repo) {
+  S.open = repo;
+  const layer = document.getElementById('layer');
+  layer.className = '';
+  layer.innerHTML = `<div class="scrim" data-close></div><aside class="sheet" role="dialog" aria-label="${repo}"><div class="sheet-bar"><span>PROJECT</span><button class="icon-btn" data-close aria-label="关闭">${icon('close')}</button></div>${G.detail(repo, { win: S.win, state: S.state })}</aside>`;
+}
+function closeSheet() {
+  const layer = document.getElementById('layer');
+  if (!S.open) return;
+  S.open = null;
+  if (G.reduced()) { layer.innerHTML = ''; return; }
+  layer.className = 'closing';
+  setTimeout(() => { if (!S.open) layer.innerHTML = ''; }, 200);
+}
+G.bindDetail(document.getElementById('layer'));
+
+document.addEventListener('click', (e) => {
+  const p = e.target.closest('[data-page]');
+  if (p) { e.preventDefault(); S.page = p.dataset.page; render(); return; }
+  const w = e.target.closest('[data-win]');
+  if (w) { S.win = w.dataset.win; G.setSeg(w.closest('.seg'), 'win', S.win); board(); return; }
+  const c = e.target.closest('[data-cat]');
+  if (c) { S.cat = c.dataset.cat || null; document.querySelectorAll('[data-cat]').forEach((x) => x.classList.toggle('on', x === c)); board(); return; }
+  if (e.target.closest('[data-close]')) { closeSheet(); return; }
+  const o = e.target.closest('[data-open]');
+  if (o) openSheet(o.dataset.open);
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('gc:fav', () => { nav(); if (S.page === 'favs') document.getElementById('main').innerHTML = favPage(); });
+G.demoPanel((st) => { S.state = st; if (S.page === 'rank') board(); if (S.open) openSheet(S.open); });
+// 评审用网址参数：?win=d7&state=failed&open=owner/repo
+const Q = new URLSearchParams(location.search);
+if (Q.get('win')) S.win = Q.get('win');
+if (Q.get('state')) S.state = Q.get('state');
+render();
+if (Q.get('open')) openSheet(Q.get('open'));
+</script>
+</body>
+</html>

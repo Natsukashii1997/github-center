@@ -42,3 +42,6 @@ venv/
 node_modules/
 dist/
 coverage/
+
+# Design review screenshots: full-size PNGs stay local; overview JPGs live in docs/design/shots-v2/
+design/shots/
