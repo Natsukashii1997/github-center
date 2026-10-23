@@ -9,7 +9,7 @@ import { openFavorites } from './favorites.js';
 import { WINDOWS, SINCES } from '../ranking/index.js';
 import { readProfile, findOnBoards, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 import { homeData, homePage } from './home.js';
-import { boardsData, boardsPage, projectData, projectPage, dailyData, dailyPage, favoritesData, favoritesPage, loginPage } from './pages.js';
+import { boardsData, boardsPage, projectData, projectMissing, projectPage, dailyData, dailyPage, favoritesData, favoritesPage, loginPage } from './pages.js';
 
 // 登录（#5）：除登录页外，所有页面和接口都要先登录。会话令牌放在 HttpOnly Cookie 里。
 const COOKIE = 'gc_session';
@@ -56,6 +56,8 @@ function changeFavorite(dataDir, favorites, account, form) {
 // 样式、图标和脚本：视觉方案里的通用文件（#13 首页，#14 其余页面）。
 const ASSETS = { 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'boards.js': 'text/javascript', 'project.js': 'text/javascript', 'daily.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript' };
 const assetFile = (name) => readFileSync(new URL(`./assets/${name}`, import.meta.url));
+// 登录页（#14）要用的样式和脚本：不登录也能取（只是设计变量、图标和组件代码，不含任何数据）；其余页面脚本登录后才给。
+const LOGIN_ASSETS = new Set(['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js', 'login.js']);
 
 // 表单按字节限 10KB；超了就不再收，回复后断开连接。
 function readForm(req) {
@@ -86,6 +88,9 @@ export function startServer({ dataDir, port = 5310 }) {
     const tooBig = () => send(413, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }, '表单太大');
 
 
+    const asset = url.pathname.match(/^\/assets\/([\w.-]+)$/)?.[1];
+    const sendAsset = () => send(200, { 'content-type': `${ASSETS[asset]}; charset=utf-8`, 'cache-control': 'no-cache' }, assetFile(asset));
+    if (LOGIN_ASSETS.has(asset) && (req.method === 'GET' || req.method === 'HEAD')) return sendAsset();
     if (url.pathname === '/login' && (req.method === 'GET' || req.method === 'HEAD')) {
       return accounts.session(cookieOf(req)) ? send(303, { location: '/' }) : html(200, loginPage(safeNext(url.searchParams.get('next'))));
     }
@@ -99,7 +104,7 @@ export function startServer({ dataDir, port = 5310 }) {
       const form = await readForm(req).catch(() => null);
       if (!form) return tooBig();
       const token = accounts.login(form.get('name') ?? '', form.get('password') ?? '');
-      if (!token) return html(401, loginPage(safeNext(form.get('next')), '账号或密码不对。'));
+      if (!token) return html(401, loginPage(safeNext(form.get('next')), '用户名或密码不对，请再试一次。', (form.get('name') ?? '').slice(0, 64)));
       return send(303, { location: safeNext(form.get('next')), 'set-cookie': sessionCookie(token, SESSION_DAYS * 86400) });
     }
 
@@ -120,8 +125,7 @@ export function startServer({ dataDir, port = 5310 }) {
       return api ? json(200, { saved: form.get('action') === 'add' }) : send(303, { location: safeNext(form.get('next') ?? '/favorites') });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
-    const asset = url.pathname.match(/^\/assets\/([\w.-]+)$/)?.[1];
-    if (asset && Object.hasOwn(ASSETS, asset)) return send(200, { 'content-type': `${ASSETS[asset]}; charset=utf-8`, 'cache-control': 'no-cache' }, assetFile(asset));
+    if (asset && Object.hasOwn(ASSETS, asset)) return sendAsset();
     // 首页涨星榜（#13）：整页按视觉方案出，不套下面的从简布局。
     if (url.pathname === '/') {
       const w = url.searchParams.get('w');
@@ -153,9 +157,9 @@ export function startServer({ dataDir, port = 5310 }) {
     if (url.pathname === '/favorites') return html(200, favoritesPage(favoritesData(dataDir, ctx)));
     const project = url.pathname.match(/^\/p\/([\w.-]+\/[\w.-]+)$/);
     if (project) {
-      // 只给有资料或正在榜单上的项目出页面。
+      // 只给有资料或正在榜单上的项目出页面；别的回 404，页面照方案写“找不到这个项目”。
       const data = projectData(dataDir, project[1], ctx);
-      return data ? html(200, projectPage(data)) : text(404, '没有这个页面');
+      return data ? html(200, projectPage(data)) : html(404, projectPage(projectMissing(dataDir, project[1], ctx)));
     }
     text(404, '没有这个页面');
   };

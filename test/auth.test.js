@@ -54,7 +54,10 @@ test('登录成功：发会话 Cookie（HttpOnly），跳回原来要去的页�
     const password = testAccount(s.dataDir);
     const bad = await http(s.url + 'login', form({ name: 'tester', password: 'wrong', next: '/top' }));
     assert.equal(bad.status, 401);
-    assert.match(bad.body, /账号或密码不对/);
+    assert.match(bad.body, /用户名或密码不对，请再试一次。/);
+    // 用户名照填回去，密码不回填。
+    assert.match(bad.body, /<input id="user" name="name" value="tester"/);
+    assert.doesNotMatch(bad.body, /value="wrong"/);
     assert.equal(bad.headers['set-cookie'], undefined);
     assert.equal((await http(s.url + 'login', form({ name: 'nobody', password }))).status, 401);
 

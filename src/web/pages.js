@@ -78,7 +78,8 @@ export function projectData(dataDir, fullName, ctx) {
   const g = currentGenerated(profile), m = profile?.material ?? null;
   const d1 = readLatestSnapshot(dataDir, 'd1');
   const page = {
-    repo: card.repo, id, ranks, run: newest[0]?.snapshot.runId ?? null, win: newest[0]?.w ?? 'd1',
+    // 侧栏默认高亮它所在的第一个涨星榜（方案默认近 1 天）；数字取最新一期那次运行，三个窗口都有。
+    repo: card.repo, id, ranks, run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? 'd1',
     hasProfile: Boolean(profile),
     conditions: g ? g.conditions.map(({ kind, text, quote }) => ({ kind, text, quote })) : [],
     dropped: g?.droppedConditions ?? 0,
@@ -90,13 +91,18 @@ export function projectData(dataDir, fullName, ctx) {
   return { ...base(ctx), projects: { [card.repo]: card }, page };
 }
 
+// 找不到这个项目（没资料也不在榜上）：照方案的 missing 状态出页面，服务端回 404。
+export const projectMissing = (dataDir, fullName, ctx) => ({ ...base(ctx), projects: {}, page: { missing: true, repo: fullName, top: siteTop(dataDir) } });
+
 // ── 日报：先出页面壳与三个窗口的前 10（概览与飞书推送由 #11 做）；数据同首页 ──
 export function dailyData(dataDir, ctx) {
   const h = homeData(dataDir, ctx);
   const windows = Object.fromEntries(Object.entries(h.windows).map(([w, b]) => [w, { label: b.label, top: b.top, notes: b.notes, entries: b.entries.slice(0, 10), empty: b.empty }]));
   const used = new Set(Object.values(windows).flatMap((b) => b.entries.map((e) => e.repo)));
   const d1 = readLatestSnapshot(dataDir, 'd1');
-  return { ...base(ctx), windows, projects: Object.fromEntries(Object.entries(h.projects).filter(([k]) => used.has(k))), day: d1?.statDay ?? null, top: windows.d1.top, notes: windows.d1.notes };
+  // 提示条：三个窗口的更新失败、可能不完整都写在页头下（右栏的近 7、30 天也算），标题前写明是哪个窗口。
+  const notes = Object.values(windows).flatMap((b) => b.notes.map((n) => ({ ...n, title: `${b.label}${n.title}` })));
+  return { ...base(ctx), windows, projects: Object.fromEntries(Object.entries(h.projects).filter(([k]) => used.has(k))), day: d1?.statDay ?? null, top: windows.d1.top, notes };
 }
 
 // ── 我的收藏：这个人的全部收藏，新的在前。名字优先用资料里现在的（项目可能改过名）；Skill 已从仓库删掉、项目资料已不在都写明 ──
@@ -150,7 +156,7 @@ export const boardsPage = (data) => shell({ title: '其他榜单', script: 'boar
   <p class="foot">所有数字来自 GitHub 官方数据。</p>
 </div>` });
 
-export const projectPage = (data) => shell({ title: esc(data.page.repo), script: 'project.js', data, body: `<div class="pj1">
+export const projectPage = (data) => shell({ title: data.page.missing ? '找不到这个项目' : esc(data.page.repo), script: 'project.js', data, body: `<div class="pj1">
   <main class="main" id="main"></main>
   <aside class="side" id="side" aria-label="数据与安装"></aside>
 </div>` });
@@ -166,8 +172,8 @@ export const favoritesPage = (data) => shell({ title: '我的收藏', script: 'f
   <div class="grid fgrid" id="grid"></div>
 </main>` });
 
-// 登录（#5）：表单由服务端判定；失败时输入框描边变失败色、提示条写明。next 已由 safeNext 处理成本站路径。
-export const loginPage = (next, error) => shell({ title: '登录', script: 'login.js', bare: true, data: { account: { name: '' }, ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]), cats: CATEGORIES, windows: labels(), projects: {} }, body: `<main class="login-split">
+// 登录（#5）：表单由服务端判定；失败时输入框描边变失败色、提示条写明，用户名照填回去（密码不回填）。next 已由 safeNext 处理成本站路径。
+export const loginPage = (next, error, name = '') => shell({ title: '登录', script: 'login.js', bare: true, data: { account: { name: '' }, ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]), cats: CATEGORIES, windows: labels(), projects: {} }, body: `<main class="login-split">
   <section class="intro" aria-label="这个站是做什么的">
     <a class="brand" href="/login"><span class="mark" aria-hidden="true"></span>GitHub 快速中心</a>
     <p class="claim">每天两分钟，知道 GitHub 上什么在涨、值不值得装。</p>
@@ -183,7 +189,7 @@ export const loginPage = (next, error) => shell({ title: '登录', script: 'logi
       <p class="lede">只在这台电脑上运行，账号由所有者开通。</p>
       <form id="form" method="post" action="/login">
         <input type="hidden" name="next" value="${esc(next)}">
-        <div class="field"${error ? ' data-error' : ''}><label for="user">账号</label><div class="input"><input id="user" name="name" autocomplete="username" autocapitalize="off" spellcheck="false" required autofocus></div></div>
+        <div class="field"${error ? ' data-error' : ''}><label for="user">用户名</label><div class="input"><input id="user" name="name"${name ? ` value="${esc(name)}"` : ''} autocomplete="username" autocapitalize="off" spellcheck="false" required autofocus></div></div>
         <div class="field"${error ? ' data-error' : ''}><label for="pass">密码</label><div class="input"><input id="pass" name="password" type="password" autocomplete="current-password" required><button class="ib" type="button" id="peek" aria-label="显示密码"></button></div></div>
         <div class="err" role="alert"${error ? '' : ' hidden'}>${error ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg><span>${esc(error)}</span>` : ''}</div>
         <button class="btn btn-p btn-w" type="submit">登录</button>

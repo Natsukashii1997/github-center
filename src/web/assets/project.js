@@ -3,12 +3,18 @@
 (() => {
   const { $, $$, esc, I, D, q } = GC;
   const { backOf, avImg, name, cats, readOf, condList, skillList, sources, statStrip, chartOf, wireFavs, wireCopy, wireMore } = GP;
-  const pg = D.page, p = D.projects[pg.repo], run = pg.run ? p.runs[pg.run] : null;
+  const pg = D.page;
   const [href, label, nav] = backOf(q.get('from'));
   GC.topbar(nav);
   GC.setStatus(pg.top);
-  let target = D.ais[0][0], win = pg.win;
   const main = $('#main'), side = $('#side');
+  if (pg.missing) {
+    main.innerHTML = `<a class="back" href="${href}">${I.back}<span>${label}</span></a>${GC.emptyHTML('inbox', '找不到这个项目', '地址里的项目名可能写错了，或者它还没有上过榜。', [href, label.replace('返回', '去看')])}`;
+    side.hidden = true;
+    return;
+  }
+  const p = D.projects[pg.repo], run = pg.run ? p.runs[pg.run] : null;
+  let target = D.ais[0][0], win = pg.win;
   main.innerHTML = `<a class="back" href="${href}">${I.back}<span>${label}</span></a>
     <div class="title">${avImg(p, 112)}<div><h2>${name(p)}</h2><div class="meta">${p.cats.length ? cats(p) : '<span>还没归类</span>'}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}${p.created ? `<span>创建于 ${GC.md(GC.utc(p.created))}</span>` : ''}</div></div></div>
     <div class="ranks">${pg.ranks.length ? pg.ranks.map((r) => `<span>${r.label}第 ${r.rank} 名${r.tie ? '（并列）' : ''}</span>`).join('') : '<span>不在当前三个涨星榜的前 20 名里</span>'}</div>
@@ -28,5 +34,12 @@
   GC.anim(main, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
   GC.growBars(side);
   const hash = decodeURIComponent(location.hash.slice(1));
-  if (hash) { const el = document.getElementById(hash); if (el?.closest('.skill-more')) $('.more', main)?.click(); el?.scrollIntoView({ block: 'center' }); }
+  if (hash) {
+    const el = document.getElementById(hash);
+    if (el?.closest('.skill-more')) $('.more', main)?.click();
+    // 浏览器加载完会再按锚点贴顶滚一次（被顶栏挡住），所以加载完再居中一次。
+    const center = () => el?.scrollIntoView({ block: 'center' });
+    center();
+    if (document.readyState !== 'complete') addEventListener('load', () => requestAnimationFrame(center), { once: true });
+  }
 })();

@@ -252,7 +252,10 @@ test('项目页只给有资料或正在榜单上的项目（榜单上的项目�
   const pending = await projectPage(dataDir, 'p/acme/tiny');
   assert.equal(pending.status, 200);
   assert.deepEqual([pending.page.repo, pending.page.hasProfile, pending.p.what], ['acme/tiny', false, null]);
-  assert.equal((await visit(dataDir, 'p/nobody/nothing')).status, 404);
+  // 找不到：回 404，页面照方案写“找不到这个项目”（页面脚本按 page.missing 画）。
+  const missing = await visit(dataDir, 'p/nobody/nothing');
+  assert.equal(missing.status, 404);
+  assert.deepEqual(dataOf(missing.body).page, { missing: true, repo: 'nobody/nothing', top: { tone: 'ok', text: '10 月 22 日数据 · 16:40 更新' } });
   assert.equal((await visit(dataDir, 'p/acme')).status, 404);
 });
 
