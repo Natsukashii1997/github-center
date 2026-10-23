@@ -1,4 +1,5 @@
 // 文件存储：每次运行的官方原始响应单独存放；快照按榜单（涨星榜的每个窗口各算一个）和统计日只写一次，已存在就不覆盖。
+// 涨星榜每个窗口这一期的全部已核数候选（#10）也只写一次。
 // 另存每天的全站 Star 事件合计（只用来挑候选和自检，近 7/30 天复用）和每个榜单最近一次更新的结果。
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, renameSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
@@ -23,19 +24,25 @@ export function openStore(dataDir, runId) {
       writeFileSync(join(dataDir, path), res.body);
       return { url: res.url, path, sha256: createHash('sha256').update(res.body).digest('hex'), date: res.date };
     },
-    publish(board, snapshot) {
-      const path = snapshotPath(board, snapshot.statDay);
-      mkdirSync(dirname(join(dataDir, path)), { recursive: true });
-      try {
-        writeFileSync(join(dataDir, path), JSON.stringify(snapshot, null, 2) + '\n', { flag: 'wx' });
-        return { status: 'published', path };
-      } catch (e) {
-        if (e.code === 'EEXIST') return { status: 'exists', path };
-        throw e;
-      }
-    },
+    publish: (board, snapshot) => writeOnce(dataDir, snapshotPath(board, snapshot.statDay), JSON.stringify(snapshot, null, 2)),
+    // 涨星榜每个窗口这一期全部已核数的候选（#10 分类榜在里面按分类重新取前 20），和快照一样只写一次。
+    publishCandidates: (window, file) => writeOnce(dataDir, candidatesPath(window, file.statDay), JSON.stringify(file)),
   };
 }
+
+function writeOnce(dataDir, path, text) {
+  mkdirSync(dirname(join(dataDir, path)), { recursive: true });
+  try {
+    writeFileSync(join(dataDir, path), text + '\n', { flag: 'wx' });
+    return { status: 'published', path };
+  } catch (e) {
+    if (e.code === 'EEXIST') return { status: 'exists', path };
+    throw e;
+  }
+}
+
+const candidatesPath = (window, day) => join('candidates', window, `${day}.json`);
+export const readCandidates = (dataDir, window, day) => readJson(join(dataDir, candidatesPath(window, day)));
 
 export function findSnapshot(dataDir, board, day) {
   const path = snapshotPath(board, day);

@@ -3,8 +3,9 @@ import { archiveHour, clickhouseHour, clickhouseDay, trending } from './sources.
 import { githubClient, PER_PAGE } from './github.js';
 import { openStore, findSnapshot, readEvents, saveEvents, recordStatus } from './store.js';
 import { topWithTies } from './rank.js';
-import { selfCheck, lowerThreshold } from './check.js';
+import { selfCheck, lowerThreshold, completenessFloor } from './check.js';
 import { LISTS, buildList } from './lists.js';
+import { fetchMeta } from './meta.js';
 
 const MAX_FAILED_SHARE = 0.05;
 // 同时发出的官方请求数：4 个约每分钟 500 次，低于 GitHub 每分钟 900 次的次级限流。
@@ -173,10 +174,38 @@ async function rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, proj
     const check = selfCheck({ entries, threshold });
     const next = Math.max(lowerThreshold(check), floor);
     if (check.passed || next >= threshold) {
-      return { days, ev, candidates, fromEvents: fromEvents.length, hot: hotItems.length, unavailable, failed, entries, check, requests: { history: gh.stats.history - before.history, project: gh.stats.project - before.project } };
+      return { days, ev, candidates, fromEvents: fromEvents.length, hot: hotItems.length, unavailable, failed, verified, entries, check: { ...check, completenessFloor: completenessFloor(check) }, requests: { history: gh.stats.history - before.history, project: gh.stats.project - before.project } };
     }
     threshold = next;
   }
+}
+
+// 4. 已核数候选的描述、topics 和当前总 Star（#10），同一次运行里每个候选只取一次，各窗口共用。
+function metaFetcher({ gh, store }) {
+  const cache = new Map();
+  return async (verified, label) => {
+    const todo = [...new Map(verified.map((v) => [keyOf(v.candidate), v.candidate]))].filter(([k]) => !cache.has(k));
+    const before = gh.stats.graphql;
+    const { meta } = await fetchMeta({ gh, store, items: todo.map(([, c]) => c), label });
+    todo.forEach(([k], i) => cache.set(k, meta[i]));
+    return { get: (c) => cache.get(keyOf(c)), requests: gh.stats.graphql - before };
+  };
+}
+
+// 这一期全部已核数的候选另存一份（#10）：分类榜在里面按分类重新取前 20，归类按名称、描述和 topics。
+// 改过名的同一项目用新旧名字都进了候选时只留一个；取不到资料的描述、topics、总 Star 记为 null。
+function candidatesFile({ window, day, runId, generatedAt, r, meta }) {
+  const seen = new Set();
+  const items = [];
+  for (const v of [...r.verified].sort((a, b) => b.gain - a.gain || (a.fullName < b.fullName ? -1 : 1))) {
+    const m = meta.get(v.candidate);
+    const id = m?.id ?? v.candidate.id ?? null;
+    if (id && seen.has(id)) continue;
+    if (id) seen.add(id);
+    items.push({ id, fullName: m?.fullName ?? v.fullName, gain: v.gain, total: m?.total ?? null, description: m ? m.description : null, topics: m?.topics ?? null, evidence: { history: v.history.path, meta: m?.evidence ?? null } });
+  }
+  const { threshold, recordRatio, completenessFloor } = r.check;
+  return { window, statDay: day, generatedAt, runId, check: { threshold, recordRatio, completenessFloor }, meta: { found: items.filter((x) => x.evidence.meta).length, missing: items.filter((x) => !x.evidence.meta).length }, items };
 }
 
 // 跑一次出榜：某个已结束统计日的近 1、7、30 天涨星榜前 20（含末位并列），以及新项目榜、官方热门榜、累计高星榜，各自单独发布。
@@ -200,6 +229,7 @@ export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, n
     const gh = githubClient({ fetch, token, sleep });
     const verify = verifier({ gh, store });
     const project = projects({ gh, store });
+    const metaFor = metaFetcher({ gh, store });
     // 同一次运行里官方热门榜的每一页只抓一次：涨星榜找候选和官方热门榜共用。
     const pages = new Map();
     const hotPage = (since) => {
@@ -209,21 +239,25 @@ export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, n
     for (const window of todoWindows) {
       try {
         const r = await rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, hotPage, limit, maxCandidates });
+        const meta = await metaFor(r.verified, window);
+        const generatedAt = now().toISOString();
+        const cands = candidatesFile({ window, day, runId, generatedAt, r, meta });
+        const candidatesSaved = { path: store.publishCandidates(window, cands).path, ...cands.meta };
         const snapshot = {
           window,
           statDay: day,
           from: r.days[0],
           bucket: bucketOf(day),
           boundaryMode: 'observed_utc',
-          generatedAt: now().toISOString(),
+          generatedAt,
           runId,
-          candidates: { total: r.candidates.length, archive: r.fromEvents, trending: r.hot, fallbackHours: r.ev.fallbackHours, backfilledDays: r.ev.backfilledDays, unavailable: r.unavailable, failed: r.failed },
+          candidates: { total: r.candidates.length, verified: r.verified.length, archive: r.fromEvents, trending: r.hot, fallbackHours: r.ev.fallbackHours, backfilledDays: r.ev.backfilledDays, unavailable: r.unavailable, failed: r.failed },
           check: r.check,
           incomplete: !r.check.passed || r.failed.length > 0,
-          requests: r.requests,
+          requests: { ...r.requests, graphql: meta.requests },
           entries: r.entries.map(({ records, ...e }) => e),
         };
-        results.windows[window] = { ...store.publish(window, snapshot), snapshot };
+        results.windows[window] = { ...store.publish(window, snapshot), snapshot, candidates: candidatesSaved };
       } catch (e) {
         results.windows[window] = { status: 'failed', error: e.message };
       }

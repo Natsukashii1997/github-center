@@ -6,6 +6,8 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rankDay, readLatestSnapshot, readStatus } from '../src/ranking/index.js';
+import { readCandidates } from '../src/ranking/store.js';
+import { completenessFloor } from '../src/ranking/check.js';
 import { recordedUpstream } from './helpers/recorded-upstream.js';
 
 const day = '2026-10-22';
@@ -89,8 +91,8 @@ test('候选来自全站事件和官方热门日榜；事件计数只用来找�
   const upstream = recordedUpstream();
   const { snapshot } = await d1({ upstream });
   // 事件数据里 15 个项目（含 php/php-src 用旧名出现的一次），热门日榜 9 个，按项目 id 去重后 23 个。
-  assert.deepEqual(snapshot.candidates, { total: 23, archive: 15, trending: 9, fallbackHours: [], backfilledDays: [], unavailable: [], failed: [] });
-  assert.deepEqual(snapshot.requests, { history: 23, project: 21 });
+  assert.deepEqual(snapshot.candidates, { total: 23, verified: 23, archive: 15, trending: 9, fallbackHours: [], backfilledDays: [], unavailable: [], failed: [] });
+  assert.deepEqual(snapshot.requests, { history: 23, project: 21, graphql: 1 });
   assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://data.gharchive.org/2026-10-22-')).length, 24);
   assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/')).length, 0);
   for (const e of snapshot.entries) assert.deepEqual(Object.keys(e), ['rank', 'projectId', 'fullName', 'gain', 'total', 'evidence']);
@@ -229,7 +231,7 @@ test('自检不通过：先降低候选门槛、补核新进的候选，再排�
   assert.equal(snapshot.candidates.total, 23);
   // 扩大候选时已核过的不再请求。
   assert.equal(snapshot.requests.history, 23);
-  assert.equal(new Set(upstream.calls.map((c) => c.url)).size, upstream.calls.length);
+  assert.equal(new Set(upstream.calls.map((c) => c.url + (c.body ?? ''))).size, upstream.calls.length);
 });
 
 test('候选扩到当天全部有记录的项目仍不通过：标“可能不完整”，写出漏失概率', async () => {
@@ -306,4 +308,45 @@ test('近 7 天合并多天事件：ClickHouse 补的日子没有项目 id，按
   assert.equal(nameOnly.check.recordRatio, withIds.check.recordRatio);
   assert.equal(nameOnly.candidates.total, withIds.candidates.total);
   assert.ok(nameOnly.check.recordRatio > lastDayOnly.check.recordRatio);
+});
+
+test('每期另存全部已核数的候选：按涨星排，带描述、topics、当前总 Star，能追溯到官方原始响应，不含记录次数', async () => {
+  const dataDir = fresh();
+  const { snapshot } = await d1({ dataDir });
+  const file = readCandidates(dataDir, 'd1', day);
+  assert.equal(file.items.length, 23);
+  assert.equal(snapshot.candidates.verified, 23);
+  assert.deepEqual(file.items.map((x) => x.gain), [...file.items.map((x) => x.gain)].sort((a, b) => b - a));
+  const php = file.items[0];
+  assert.deepEqual({ ...php, evidence: undefined }, { id: 1903522, fullName: 'php/php-src', gain: 5200, total: 41490, description: 'The PHP Interpreter', topics: [], evidence: undefined });
+  assert.equal(JSON.parse(readFileSync(join(dataDir, php.evidence.history))).find((w) => w.week === 1792281600).days[4], 5200);
+  assert.ok(JSON.parse(readFileSync(join(dataDir, php.evidence.meta))).data);
+  assert.deepEqual(file.check, { threshold: snapshot.check.threshold, recordRatio: snapshot.check.recordRatio, completenessFloor: snapshot.check.completenessFloor });
+  assert.equal(snapshot.check.completenessFloor, completenessFloor(snapshot.check));
+  assert.ok(!JSON.stringify(file).includes('records') && !JSON.stringify(file).includes('"events"'));
+  // 同一统计日重跑不重写。
+  const before = readFileSync(join(dataDir, 'candidates', 'd1', `${day}.json`));
+  await d1({ dataDir });
+  assert.deepEqual(readFileSync(join(dataDir, 'candidates', 'd1', `${day}.json`)), before);
+});
+
+test('取候选资料失败不影响出榜：候选照存，描述、topics、总 Star 记为 null', async () => {
+  const dataDir = fresh();
+  const r = await d1({ dataDir, upstream: recordedUpstream({ failing: [/api\.github\.com\/graphql$/] }) });
+  assert.equal(r.status, 'published');
+  const file = readCandidates(dataDir, 'd1', day);
+  assert.equal(file.items.length, 23);
+  assert.deepEqual(file.meta, { found: 0, missing: 23 });
+  assert.deepEqual({ total: file.items[0].total, description: file.items[0].description, topics: file.items[0].topics, meta: file.items[0].evidence.meta }, { total: null, description: null, topics: null, meta: null });
+});
+
+test('近 1、7、30 天共用一次运行取到的资料：每个候选只查一次', async () => {
+  const dataDir = fresh();
+  const upstream = recordedUpstream({ clickhouseDayRows: [{ repo_name: 'star-history/star-history', stars: 1 }] });
+  const r = await rankDay({ day, dataDir, fetch: upstream.fetch, token: 't', now, sleep: noSleep, lists: [] });
+  const queries = upstream.calls.filter((c) => c.url === 'https://api.github.com/graphql').map((c) => JSON.parse(c.body).query);
+  const names = queries.flatMap((q) => [...q.matchAll(/repository\(owner: "([^"]+)", name: "([^"]+)"\)/g)].map((m) => `${m[1]}/${m[2]}`.toLowerCase()));
+  assert.equal(new Set(names).size, names.length);
+  assert.equal(queries.length, Object.values(r.windows).reduce((s, w) => s + w.snapshot.requests.graphql, 0));
+  for (const w of ['d7', 'd30']) assert.equal(readCandidates(dataDir, w, day).items.length, r.windows[w].snapshot.candidates.verified);
 });

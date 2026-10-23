@@ -1,7 +1,7 @@
-// 每日自检的算法：记录比例、应有记录次数、漏失概率与降低候选门槛。
+// 每日自检的算法：记录比例、应有记录次数、漏失概率、降低候选门槛与完整性下限（#10）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selfCheck, lowerThreshold, MAX_MISS } from '../src/ranking/check.js';
+import { selfCheck, lowerThreshold, completenessFloor, MAX_MISS } from '../src/ranking/check.js';
 
 const close = (a, b) => assert.ok(Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b)), `${a} ≈ ${b}`);
 
@@ -43,4 +43,24 @@ test('怎么降都不够时降到 1；降低后的门槛总比原来低', () => 
 
 test('没有上榜项目时不算通过', () => {
   assert.equal(selfCheck({ entries: [], threshold: 1 }).passed, false);
+});
+
+// 逐个涨星数试：漏失概率第一次小于百万分之一的那个。
+function bruteFloor(recordRatio, threshold) {
+  for (let g = 1; ; g++) if (selfCheck({ entries: [{ gain: g, records: recordRatio * g }], threshold }).missProbability < MAX_MISS) return g;
+}
+
+test('完整性下限：涨星至少这么多时漏失概率才小于百万分之一，少 1 个就不够', () => {
+  for (const [ratio, threshold] of [[439 / 39696, 1], [4564 / 309070, 2], [15612 / 940370, 5], [0.5, 1], [0.5, 436]]) {
+    const floor = completenessFloor({ recordRatio: ratio, threshold });
+    assert.equal(floor, bruteFloor(ratio, threshold), `比例 ${ratio}、门槛 ${threshold}`);
+  }
+  // 2026-10-22 近 1 天：比例约 1.1%、门槛 1，下限 +1,250，第 20 名 +823 在下限以下。
+  assert.equal(completenessFloor({ recordRatio: 439 / 39696, threshold: 1 }), 1250);
+});
+
+test('完整性下限随候选门槛升高；记录比例为 0 时估计不了，没有下限', () => {
+  const at = (threshold) => completenessFloor({ recordRatio: 0.0148, threshold });
+  assert.ok(at(1) < at(2) && at(2) < at(5));
+  assert.equal(completenessFloor({ recordRatio: 0, threshold: 1 }), null);
 });

@@ -10,6 +10,8 @@ const idByName = new Map(
     return [repo.full_name.toLowerCase(), repo.id];
   }),
 );
+// GraphQL 按名字查仓库的描述、topics、总 Star（#10）：回放 2026-10-23 真实录制的那次响应里的各仓库。
+const recordedMeta = new Map(Object.values(JSON.parse(read('graphql/meta.json')).data).filter(Boolean).map((r) => [r.nameWithOwner.toLowerCase(), r]));
 
 // clickhouseDayRows：按天查询 ClickHouse 时（补更早的日子）每天都返回这些行；不给就返回空。
 // incompleteSearch：GitHub 搜索回报结果不全（incomplete_results）。
@@ -47,6 +49,15 @@ export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours 
       const id = idByName.get(m[1].toLowerCase());
       if (!id) return new Response('{"message":"Not Found"}', { status: 404 });
       return json(m[2] ? `history/${id}.json` : `repos/${id}.json`);
+    }
+    if (url === 'https://api.github.com/graphql') {
+      const data = {};
+      const errors = [];
+      for (const q of JSON.parse(init.body).query.matchAll(/(r\d+): repository\(owner: ("[^"]*"), name: ("[^"]*")\)/g)) {
+        data[q[1]] = recordedMeta.get(`${JSON.parse(q[2])}/${JSON.parse(q[3])}`.toLowerCase()) ?? null;
+        if (!data[q[1]]) errors.push({ type: 'NOT_FOUND', path: [q[1]] });
+      }
+      return new Response(JSON.stringify({ data, ...(errors.length ? { errors } : {}) }), { headers: { 'content-type': 'application/json', date: 'Fri, 23 Oct 2026 15:52:10 GMT', 'x-ratelimit-resource': 'graphql' } });
     }
     if (url.startsWith('https://play.clickhouse.com/') && String(init.body).includes('INTERVAL 1 DAY')) {
       return new Response(clickhouseDayRows.map((r) => JSON.stringify(r)).join('\n'));

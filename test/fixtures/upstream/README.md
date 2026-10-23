@@ -1,4 +1,4 @@
-# 录制的上游数据（#2、#3、#9 离线测试用）
+# 录制的上游数据（#2、#3、#9、#10 离线测试用）
 
 2026-10-23 录制。测试通过 `test/helpers/recorded-upstream.js` 按网址回放，不访问网络。
 
@@ -12,4 +12,5 @@
 | `history/42976210.json`、`repos/42976210.json` | 真实 | star-history/star-history 的官方星数历史与仓库信息。 |
 | `history/<其余 id>.json` | 按真实格式编写 | 每个候选当天（第 1792281600 周、第 4 格，即 2026-10-22）的新增 Star 是设定值：5 名和 6 名同分、20 名和 21 名同分，用来测并列。DietrichGebert/ponytail 只有最近 2 周（模拟新建仓库），用来测更早统计日时它还不存在。 |
 | `repos/<其余 id>.json` | 按真实格式裁剪 | 只保留 `id`、`full_name`、`stargazers_count`。 |
+| `graphql/meta.json` | 真实 | 2026-10-23 23:52 录制：用 `src/ranking/meta.js` 的 GraphQL 查询按名字一次查上面 24 个仓库和 1 个不存在的仓库（`nobody-xyz-404/nope`），响应体原样保存（含 NOT_FOUND）。回放时按名字取各仓库那一段，所以总 Star 是录制时刻的数字，和 `repos/` 的不同。 |
 | `clickhouse-2026-10-22-05.jsonl` | 按真实格式编写 | ClickHouse 公开库按小时统计 Star 事件的返回格式；测试第 5 小时 GH Archive 缺失时用它补。 |

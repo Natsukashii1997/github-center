@@ -1,6 +1,6 @@
 // 跑一次出榜：npm run rank -- [--day YYYY-MM-DD] [--data data] [--limit 300]
 // 不给 --day 时取最近一个已结束的 UTC 日（每日定时任务就这样跑）。token 取环境变量 GITHUB_TOKEN，没有就用本机 gh 登录。
-// 涨星榜三个窗口和新项目榜、官方热门榜、累计高星榜一起出。已发布的不重跑，手动重跑是安全的。
+// 涨星榜三个窗口（另存每个窗口全部已核数的候选，#10）和新项目榜、官方热门榜、累计高星榜一起出。已发布的不重跑，手动重跑是安全的。
 // 有榜单更新失败时退出码为 1；整次运行出错也记进 status.json，网站照样提示。
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
@@ -40,6 +40,8 @@ for (const [window, w] of Object.entries(r.windows)) {
   if (c.unavailable.length) console.log(`官方接口查不到的候选 ${c.unavailable.length} 个：${c.unavailable.join('、')}`);
   if (c.failed.length) console.log(`核数失败 ${c.failed.length} 个：${c.failed.map((f) => `${f.name}（${f.reason}）`).join('；')}`);
   console.log(`自检${s.check.passed ? '通过' : '未通过'}：漏失概率 ${s.check.missProbability.toExponential(2)}，记录比例 ${(s.check.recordRatio * 100).toFixed(2)}%，第 20 名应有记录 ${s.check.expectedRecords.toFixed(1)} 次，候选门槛 ${s.check.threshold}${s.incomplete ? '；标注“可能不完整”' : ''}`);
+  const floor = s.check.completenessFloor;
+  console.log(`已核数候选 ${num(c.verified)} 个另存 ${w.candidates.path}（取到描述和 topics ${num(w.candidates.found)} 个，没取到 ${num(w.candidates.missing)} 个；GraphQL 请求 ${s.requests.graphql} 次）；完整性下限 ${floor === null ? '估计不了' : `+${num(floor)}`}`);
   console.log(`上榜 ${s.entries.length} 个`);
   for (const e of s.entries) console.log(`${String(e.rank).padStart(2)}  +${num(e.gain).padEnd(8)} ${e.fullName}  (总 ${num(e.total)})`);
 }

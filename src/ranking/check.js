@@ -27,6 +27,23 @@ export function selfCheck({ entries, threshold }) {
   return { passed: missProbability < MAX_MISS, missProbability, threshold, recordRatio, expectedRecords };
 }
 
+// 完整性下限（#10）：涨星不少于它的项目，因记录次数不到候选门槛而漏掉的概率小于百万分之一（和自检同一套估计）。
+// 记录比例为 0 时估计不了，没有下限（null）。
+export function completenessFloor({ recordRatio, threshold }) {
+  if (!(recordRatio > 0)) return null;
+  const missed = (gain) => poissonAtMost(recordRatio * gain, threshold - 1) >= MAX_MISS;
+  let hi = 1;
+  while (missed(hi)) hi *= 2;
+  let lo = hi / 2;
+  // 漏失概率随涨星单调下降：在 (lo, hi] 里二分出最小的 hi。
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (missed(mid)) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+
 // 自检不过时该把候选门槛降到多少：漏失概率仍小于百万分之一的最高门槛；怎么降都不够时降到 1（当天有记录的项目全部核数）。
 export function lowerThreshold({ expectedRecords, threshold }) {
   let t = 1;
