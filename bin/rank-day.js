@@ -21,7 +21,8 @@ if (r.status === 'exists') {
   const c = s.candidates;
   console.log(`统计日 ${day}：${r.status === 'published' ? '已发布' : r.status} ${r.path}`);
   console.log(`候选 ${c.total} 个（事件数据前 ${c.archive} 个，官方热门日榜 ${c.trending} 个，合并去重后 ${c.total} 个${c.fallbackHours.length ? `；第 ${c.fallbackHours.join('、')} 小时用 ClickHouse 补` : ''}）`);
-  console.log(`官方核数请求 ${s.requests.history + s.requests.repo} 次（星数历史 ${s.requests.history}，仓库信息 ${s.requests.repo}）；全部上游请求 ${upstream} 次`);
+  console.log(`官方核数请求 ${s.requests.history + s.requests.project} 次（星数历史 ${s.requests.history}，项目信息 ${s.requests.project}）；全部上游请求 ${upstream} 次`);
+  if (c.unavailable.length) console.log(`官方接口查不到的候选 ${c.unavailable.length} 个：${c.unavailable.join('、')}`);
   console.log(`上榜 ${s.entries.length} 个；耗时 ${seconds} 秒`);
   for (const e of s.entries) console.log(`${String(e.rank).padStart(2)}  +${e.gain.toLocaleString('en-US').padEnd(8)} ${e.fullName}  (总 ${e.total.toLocaleString('en-US')})`);
 }
