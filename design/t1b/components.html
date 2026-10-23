@@ -46,7 +46,9 @@
 .btn-g.is-hover { color: var(--c-ink); box-shadow: inset 0 0 0 1px var(--c-ink-4); }
 .ib.is-hover { color: var(--c-ink); background: var(--c-sunk); }
 .row.is-hover .nm .n { text-decoration: underline; text-decoration-color: var(--c-line-2); text-underline-offset: 3px; }
-.input input.is-focus { box-shadow: inset 0 0 0 1px var(--c-accent), 0 0 0 3px var(--c-accent-soft); }
+.is-focus { outline: var(--focus); outline-offset: 2px; }
+.tabs button.is-focus { border-radius: var(--r-md); }
+.input input.is-focus { box-shadow: inset 0 0 0 1px var(--c-ink-2); }
 .toast.static { position: static; transform: none; opacity: 1; display: inline-flex; }
 .top.static { position: static; }
 </style>
@@ -55,16 +57,16 @@
 <main class="kb">
   <header>
     <h1>组件板</h1>
-    <p class="lede">方向「导读」的全部共用组件、状态与设计变量。页面只能组合这里的组件；颜色、字号、间距、圆角、动效只用 tokens.css 里的变量。左下角可以切换浅色、深色。</p>
+    <p class="lede">方向「导读」的全部共用组件、状态与设计变量。页面只能组合这里的组件；颜色和阴影只用 tokens.css 里的变量，字号、间距、圆角、动效以变量为主档，个别微调值写在 components.css。左下角可以切换浅色、深色。</p>
   </header>
 
   <section class="ks" id="color"><h2>颜色</h2><p class="lede">只有一个强调色。状态色只用在状态本身；名次、新增数字都不用彩色区分先后。</p><div id="swatches"></div></section>
 
-  <section class="ks"><h2>字体与字号</h2><p class="lede">全部是 macOS 自带字体。宋体只用于页面标题和阅读正文；数字统一用 Iowan Old Style 的等宽数字。</p><table class="spec" id="type"></table></section>
+  <section class="ks"><h2>字体与字号</h2><p class="lede">全部是 macOS 自带字体。宋体只用于页面标题和阅读正文；数字统一用 Iowan Old Style 的等宽数字。带 -- 的是变量，其余几档是组件里的固定值。Iowan 的数字看着比同字号的中文小，所以同一行里数字比旁边的中文大 0.5 到 1px（例如页头 12.5px 的说明里，数字用 13.5px）。</p><table class="spec" id="type"></table></section>
 
   <section class="ks"><h2>间距、圆角、阴影</h2>
     <div class="cols3">
-      <div><div class="kh">间距（4 的倍数）</div><table class="spec" id="space"></table></div>
+      <div><div class="kh">间距主档（4 的倍数；组件里个别微调值见 components.css）</div><table class="spec" id="space"></table></div>
       <div><div class="kh">圆角（一套固定规则）</div><table class="spec" id="radius"></table></div>
       <div><div class="kh">阴影（只给浮起的东西）</div><div style="display:grid;gap:16px">
         <div><div class="shd" style="box-shadow:var(--shadow-card)"></div><span class="cap">--shadow-card　阅读卡、登录面板</span></div>
@@ -112,9 +114,9 @@
   <section class="ks"><h2>阅读卡</h2><p class="lede">首页右栏和项目页共用。底部操作栏常驻：安装目标、复制整个仓库的安装指令、收藏、在 GitHub 打开。单个 Skill 在列表里单独收藏、单独复制。</p>
     <div class="cols2" style="grid-template-columns:680px 1fr">
       <div><div class="kh">完整：有使用条件、有 Skill</div><article class="card demo-card" id="k-card1"></article></div>
-      <div><div class="kh">简介生成中</div><article class="card" style="height:520px" id="k-card2"></article>
-        <div class="kh">加载中</div><article class="card" style="height:280px" id="k-card3"></article></div>
+      <div><div class="kh">加载中</div><article class="card" style="height:280px" id="k-card3"></article></div>
     </div>
+    <div class="kh">简介生成中（按实际最窄的宽度 600px 展示，即 1280 宽首页的右栏）</div><article class="card" style="width:600px;height:540px" id="k-card2"></article>
   </section>
 
   <section class="ks"><h2>按钮</h2>
@@ -129,6 +131,11 @@
       <div class="field" data-error><label>出错</label><div class="input"><input value="changhao"></div></div>
     </div>
     <div class="err" style="width:400px" id="k-err"></div>
+  </section>
+
+  <section class="ks"><h2>键盘焦点</h2><p class="lede">用键盘移到哪里，哪里就出现一圈 2px 深灰外框，离元素 2px，形状跟着元素自己的圆角。强调色和失败色都不用于焦点。榜单行在正式实现时要能被键盘聚焦（交给 #13）。</p>
+    <div class="row-inline" id="k-focus"></div>
+    <div class="list demo-list" style="margin-top:var(--sp-6)"><ol class="rows" id="k-rows5"></ol></div>
   </section>
 
   <section class="ks"><h2>空状态、提示气泡、头像</h2>
@@ -161,9 +168,9 @@
   // 颜色
   const COLORS = [
     ['表面', [['--c-bg', '页面底'], ['--c-surface', '阅读卡、选中行、输入框'], ['--c-sunk', '凹陷：轨道、使用条件、提示条']]],
-    ['文字', [['--c-ink', '标题、项目名、正文'], ['--c-ink-2', '次要正文'], ['--c-ink-3', '说明、标签、时间、第 4 名以后的名次'], ['--c-ink-4', '加号前缀、占位、未收藏的星标']]],
-    ['线', [['--c-line', '分隔线'], ['--c-line-2', '描边']]],
-    ['强调与图表', [['--c-accent', '当前窗口、选中名次、窗口内的柱子'], ['--c-accent-ink', '强调色的小字'], ['--c-accent-soft', '输入框聚焦的外圈'], ['--c-bar', '窗口外的柱子']]],
+    ['文字', [['--c-ink', '标题、项目名、正文'], ['--c-ink-2', '次要正文'], ['--c-ink-3', '说明、标签、时间、第 4 名以后的名次'], ['--c-ink-4', '加号前缀；图标按钮、输入框描边']]],
+    ['线', [['--c-line', '分隔线'], ['--c-line-2', '描边：分类胶囊、次按钮']]],
+    ['强调与图表', [['--c-accent', '当前窗口、选中名次、窗口内的柱子、已收藏'], ['--c-accent-ink', '强调色的小字'], ['--c-bar', '窗口外的柱子']]],
     ['状态', [['--c-ok', '数据正常、复制成功'], ['--c-warn', '可能不完整、并列、使用条件'], ['--c-bad', '更新失败、登录失败']]],
   ];
   function drawColors() {
@@ -185,6 +192,11 @@
     ['--fs-small', 'var(--font-ui)', 400, '让 AI Agent 帮你做逆向工程，从应用行为一直分析到原生二进制', '一句话简介、说明'],
     ['--fs-micro', 'var(--font-ui)', 400, 'Agent／MCP　开发者工具与基础设施　总 36.9 万', '分类、次数字、时间'],
     ['12.5px', 'var(--font-code)', 400, 'grill-me　reverse-engineer-anything', 'Skill 名（等宽）'],
+    ['21px', 'var(--font-read)', 700, '近 1 天前 10', '日报小节标题'],
+    ['16px', 'var(--font-read)', 400, '让 AI Agent 帮你做逆向工程。手里只有一个没有源码的程序。', '日报条目正文'],
+    ['15px', 'var(--font-ui)', 600, '项目　还没有收藏', '单栏页小节标题、空状态标题'],
+    ['13px', 'var(--font-ui)', 400, '复制安装指令　部分功能需要本机装有 Hopper　用户名或密码不对', '按钮、提示气泡、使用条件、错误提示、顶栏右侧'],
+    ['12px', 'var(--font-ui)', 400, '近 7 天新增　安装到　最高一天　Agent／MCP', '统计项名、图表说明、小按钮、分类胶囊'],
   ];
   $('#type').innerHTML = '<tr><th>变量</th><th>样例</th><th>用途</th></tr>' + TYPE.map(([v, f, w, t, u]) => `<tr><td><code>${v}</code></td><td style="font-family:${f};font-size:${v.startsWith('--') ? `var(${v})` : v};font-weight:${w};font-variant-numeric:lining-nums tabular-nums">${t}</td><td>${u}</td></tr>`).join('');
 
@@ -248,9 +260,18 @@
 
   // 阅读卡
   const kw = P['anthropics/knowledge-work-plugins'];
-  const c1 = $('#k-card1'); c1.innerHTML = GC.cardHTML(kw, { eyebrow: '<span>官方热门日榜第 2 名</span><span>页面标注今日 <span class="num">+303</span></span>', win: 'd7', mode: 'pane' }); GC.wireCard(c1, kw);
+  const c1 = $('#k-card1'); c1.innerHTML = GC.cardHTML(kw, { eyebrow: '<span>官方热门日榜第 2 名</span>', win: 'd7', mode: 'pane' }); GC.wireCard(c1, kw);
   const c2 = $('#k-card2'); c2.innerHTML = GC.cardHTML(P['Gathin23/cleanyourtv'], { eyebrow: '<span>第 2 名 · 近 1 天</span><span class="num">+4,629</span>', win: 'd1', mode: 'pane', generating: true }); GC.wireCard(c2, P['Gathin23/cleanyourtv']);
   $('#k-card3').innerHTML = GC.cardSkeleton();
+
+  // 键盘焦点
+  $('#k-focus').innerHTML = `
+    <button class="btn btn-p is-focus" type="button">${I.copy}<span>复制安装指令</span></button>
+    <button class="btn btn-g is-focus" type="button">${I.star}<span>收藏</span></button>
+    <span class="chips" style="margin-top:0"><button type="button" class="is-focus">Agent／MCP</button></span>
+    <span class="tabs" style="margin-top:0;border-bottom:0"><button type="button" class="is-focus">近 7 天</button></span>
+    <button class="ib is-focus" type="button">${I.star}</button>`;
+  mk('#k-rows5', [top[3]], 'gain', '', (el) => el.firstElementChild.classList.add('is-focus'));
 
   // 按钮
   $('#k-btns').innerHTML = `

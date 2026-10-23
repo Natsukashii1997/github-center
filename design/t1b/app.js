@@ -245,7 +245,7 @@ window.GC = (() => {
     }).join('')}</div>` : '';
     return `<div class="body">
       ${ctx.eyebrow ? `<div class="eyebrow">${ctx.eyebrow}</div>` : ''}
-      <div class="title"><img class="av" alt="" referrerpolicy="no-referrer" src="${avatar(p, 96)}"><div><h2><span class="o">${esc(ownerOf(p))}/</span>${esc(nameOf(p))}</h2><div class="meta">${p.cats.map((c) => `<span>${c}</span>`).join('')}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}<span>创建于 ${md(iso(p.created))}</span></div></div></div>
+      <div class="title"><img class="av" alt="" data-key="${esc(p.repo)}" referrerpolicy="no-referrer" src="${avatar(p, 96)}"><div><h2><span class="o">${esc(ownerOf(p))}/</span>${esc(nameOf(p))}</h2><div class="meta">${p.cats.map((c) => `<span>${c}</span>`).join('')}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}<span>创建于 ${md(iso(p.created))}</span></div></div></div>
       <div class="stats">${stats}<div class="stat"><span class="k">总 Star</span><span class="v">${wan(p.total)}</span></div></div>
       <div class="chart"><div class="chart-k"><span>近 30 天每日新增</span><span>最高一天 <span class="num">${num(max)}</span></span></div>
         <div class="cbars">${p.series.map((v, i) => `<i class="${i >= 30 - span ? 'on' : ''}" style="--h:${(v / max) * 100}%;--m:${v > 0 ? 1 : 0}px" title="${md(dayAt(i))}：${num(v)}"></i>`).join('')}</div>

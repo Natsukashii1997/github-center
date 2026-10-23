@@ -41,7 +41,7 @@
           ? `<div class="seeup">见上：<a href="#${first.id}">${first.label}</a></div>`
           : `<p>${esc(r.what)}。${esc(r.problem)}。</p><div class="tg">${r.cats.map((c) => `<span>${c}</span>`).join('')}<span>总 Star ${GC.wan(r.total)}</span></div>`;
         return `<li class="ditem" id="${w.id}-${r.rank}"><div class="rk"><b>${r.rank}</b></div>
-          <div class="tx"><div class="head"><img class="av" alt="" loading="lazy" referrerpolicy="no-referrer" src="${GC.avatar(r, 48)}"><div class="nm"><a href="${link(r)}"><span class="o">${esc(GC.ownerOf(r))}/</span><span class="n">${esc(GC.nameOf(r))}</span></a></div></div>${body}</div>
+          <div class="tx"><div class="head"><img class="av" alt="" data-key="${esc(r.repo)}" loading="lazy" referrerpolicy="no-referrer" src="${GC.avatar(r, 48)}"><div class="nm"><a href="${link(r)}"><span class="o">${esc(GC.ownerOf(r))}/</span><span class="n">${esc(GC.nameOf(r))}</span></a></div></div>${body}</div>
           <div class="g"><small>+</small>${GC.num(r.gain)}</div></li>`;
       }).join('');
       return { id: w.id, title: `${w.label}前 10`, count: top.length, html: `<section id="${w.id}"><h2>${w.label}前 10</h2><ol class="dlist">${items}</ol></section>` };

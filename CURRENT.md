@@ -33,7 +33,7 @@
 
 进度（2026-10-23 下午，Claude，分支claude/v1）：
 
-- #12视觉：v1、v2均被所有者否决；AIHOT只作气质参考，不复刻，目标至少8分（需求第13条、Issue #12已同步）。v3首页三版（一 走势、二 刻度、三 导读）T1a均DIRECTION_READY，**所有者2026-10-23选定“三 导读”**（选择记录在docs/design/t1a-review.md末尾）。T1b候选包已做完但**尚未审查、未批准**：design/t1b/（tokens.css语义变量、components.css共用组件、app.js组件拼装、icons.js为本机Heroicons v2.2.0子集（MIT，许可在icons-LICENSE.txt）、data.js示例数据；页面index首页、project项目页、boards其他榜单、daily日报、favorites我的收藏、login登录含失败、components组件板），1440与1280、明暗两套、各状态已实测，交互无报错，截图在本机design/shots/t1b/（不提交）。下一步：写T1b审查记录并处置发现→算整套文件清单与sha256→请所有者批准确切版本→回写Issue #12；批准前不写生产界面（#13）。
+- #12视觉：v1、v2均被所有者否决；AIHOT只作气质参考，不复刻，目标至少8分（需求第13条、Issue #12已同步）。v3首页三版（一 走势、二 刻度、三 导读）T1a均DIRECTION_READY，**所有者2026-10-23选定“三 导读”**（选择记录在docs/design/t1a-review.md末尾）。T1b已审查（docs/design/t1b-review.md）：16条发现中9条已改进候选包（英文短横显示成长横、失败色与强调色撞色、输入框与占位字太淡、“并列”字太小、热门榜卡片两个口径并列、组件板补焦点态与窄卡、焦点框被描边盖住、组件板截图不全、头像回退显示“?”），7条不改、不适用或延后并写明理由；复审结论**READY_FOR_USER_APPROVAL**。待批准的确切版本：**t1b-r2，design/t1b/共13个文件，整包sha256 ca5350abb9f8c84a961e12b9fd6612a52d2096f684d294da8654b2892a7ca514**（r1为0c8c033初稿，已取代）。总览截图docs/design/shots-t1b/（5张），全量截图在本机design/shots/t1b/（22张，不提交）。下一步：所有者批准这个确切版本后，把批准记录写进t1b-review.md末尾并冻结；批准前不写生产界面（#13）。
 - #2近1天涨星榜：出榜管线与本机首页已实现（src/ranking/、src/web/、bin/），17条测试通过（npm test）；两轴审查发现已修（缺失不补零、残缺不发布、按项目id去重、下载断开改用ClickHouse）。提交a6d4121、2ecf26e。真实数据已跑一次（统计日2026-10-22，UTC）：候选302个（事件数据前300个＋官方热门日榜9个，去重后302个；第0—8、10小时GH Archive下载超时，用ClickHouse补），官方核数请求392次（星数历史302、项目信息90），全部上游请求427次，耗时411秒，发布前20名；第1名morluto/rea +8,273，已核对可追溯到官方原始响应。运行数据在data/（不提交）。
 - 所有者2026-10-23确认：test/fixtures/upstream/里少量真实录制的公开上游数据（GH Archive片段、官方热门日榜页面、一个项目的官方星数历史）可以保留并提交，用于#2规定的“录制上游数据”离线测试；AGENTS.md“不提交原始响应”指运行产生的原始响应，不含这批测试素材。
 

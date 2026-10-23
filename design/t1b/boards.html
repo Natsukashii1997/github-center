@@ -48,7 +48,7 @@
     if (board === 'trending') {
       const [, , word] = PERIODS.find((x) => x[0] === period);
       const rows = GC.D.trending[period].map((t, i) => ({ ...GC.projects[t.repo], gain: t.gain, rank: i + 1, tie: false }));
-      return { rows, kind: 'gain', label: word, sub: 'Trending 原样排序，数字为官方页面标注。', eyebrow: (r) => `<span>官方热门${PERIODS.find((x) => x[0] === period)[1]}第 ${r.rank} 名</span><span>页面标注${word} <span class="num">+${GC.num(r.gain)}</span></span>` };
+      return { rows, kind: 'gain', label: word, sub: 'Trending 原样排序，数字为官方页面标注。', eyebrow: (r) => `<span>官方热门${PERIODS.find((x) => x[0] === period)[1]}第 ${r.rank} 名</span>` };
     }
     return { rows: GC.rankBy(GC.byCat(cat).map((p) => ({ ...p })), 'total'), kind: 'total', sub: '按总 Star 排，可以按分类筛选。', eyebrow: (r) => `<span>累计高星榜第 ${r.rank} 名</span><span class="num">${GC.num(r.total)} Star</span>` };
   }

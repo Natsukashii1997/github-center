@@ -34,7 +34,7 @@
         <div class="tx"><div class="nm"><code>${esc(f.skill)}</code><span class="from">来自 ${esc(f.repo)}</span></div><div class="ds">${esc(s.desc)}</div></div>
         ${when}<button class="ib" type="button" aria-pressed="true" aria-label="取消收藏">${I['star-fill']}</button></li>`;
     }
-    return `<li class="fitem" data-repo="${esc(f.repo)}" data-id="${esc(f.repo)}"><img class="av" alt="" referrerpolicy="no-referrer" src="${GC.avatar(p, 72)}">
+    return `<li class="fitem" data-repo="${esc(f.repo)}" data-id="${esc(f.repo)}"><img class="av" alt="" data-key="${esc(f.repo)}" referrerpolicy="no-referrer" src="${GC.avatar(p, 72)}">
       <div class="tx"><div class="nm"><span class="o">${esc(GC.ownerOf(p))}/</span><span class="n">${esc(GC.nameOf(p))}</span></div><div class="ds">${esc(p.what)}</div></div>
       ${when}<button class="ib" type="button" aria-pressed="true" aria-label="取消收藏">${I['star-fill']}</button></li>`;
   }
