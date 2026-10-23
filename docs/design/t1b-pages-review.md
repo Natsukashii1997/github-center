@@ -6,6 +6,8 @@
 
 请所有者批准的确切版本：**t1b-pages-r1，整包 sha256 `cca2bfefb31ada88572de236afe96d9e559265268da3215928f8d0696c0870f4`**（清单与算法见“权威包清单”）。这个包依赖冻结的 t1b-r2（`ca5350ab…`，复核未变）：变量、组件样式、图标直接引用 `../t1b/`，不复制。
 
+**所有者已于 2026-10-24 批准 t1b-pages-r1，这一版冻结**（批准记录见文末）。#14 按这一版实现其余 5 页。
+
 ## Gate 1 design-taste review record
 
 ```md
@@ -21,7 +23,7 @@ Design Read: 私人涨星榜的 5 个次级页面，和已落地的首页同一�
 Preserve: 三榜并排各前 20、分类胶囊同筛三榜；项目页常驻侧栏（数字、走势、安装、收藏）、使用条件每条附原文、Skill 超过 8 个折叠；日报近 1 天主条目带走势、近 7/30 天与版本发布在跟随栏；收藏卡上直接复制与取消、三种异常收藏写明；登录页三句话说清来源；名字是真正的链接、焦点外框跟随整行或整卡；全站一个强调色，状态色只用于状态；明暗共用同一套变量；只动 transform 与 opacity，减少动态效果时直接切换。
 Deferred dimensions: 见下文“延后项”
 Recommendation: READY_FOR_USER_APPROVAL
-Next owner: 常浩（批准或退回）；批准后 #14 按这一版实现
+Next owner: primary workflow（所有者已批准；#14 按这一版实现）
 Freshness: CURRENT for t1b-pages-r1 / cca2bfefb31ada88572de236afe96d9e559265268da3215928f8d0696c0870f4
 ```
 
@@ -129,13 +131,13 @@ cd design && find t1b-pages -type f | LC_ALL=C sort | xargs shasum -a 256 | shas
 ## 常浩 visual-direction approval record
 
 ```md
-Decision: pending
+Decision: approved
 Approver: 常浩
 Approved authority package manifest: docs/design/t1b-pages-review.md#权威包清单t1b-pages-r1
 Package version/hash: t1b-pages-r1 / cca2bfefb31ada88572de236afe96d9e559265268da3215928f8d0696c0870f4（依赖 t1b-r2 / ca5350abb9f8c84a961e12b9fd6612a52d2096f684d294da8654b2892a7ca514）
 Package members: 标准页 boards.html、project.html、daily.html、favorites.html、login.html；组件板补充 components.html；版式样式 pages.css；拼装脚本 pages.js；组件脚本副本 app.js；示例数据 data.js；引用 t1b-r2 的 tokens.css、components.css、icons.js
-Decision evidence: 待所有者回复“批准 t1b-pages-r1（cca2bfef）”
-Date: 待定
-Freshness: pending
-Implementation allowed: no（批准后只限按 t1b-pages-r1 实现 #14）
+Decision evidence: 所有者在 Claude 会话中回复“批准 t1b-pages-r1（cca2bfef），冻结，开始 #14 落地。”（审查记录与 6 张总览截图发给其之后）
+Date: 2026-10-24T01:55+08:00
+Freshness: current
+Implementation allowed: yes（只限按 t1b-pages-r1 冻结版本实现 #14；design/t1b-pages/ 或 design/t1b/ 任何改动都会使本批准失效）
 ```
