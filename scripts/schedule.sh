@@ -2,7 +2,8 @@
 # 每日出榜定时任务（本机 launchd）：bash scripts/schedule.sh install | uninstall | status
 # 属于本机常驻配置，安装前须所有者同意。
 # 每天北京时间 10:00 跑一次 npm run rank：统计日按 UTC 划分，北京时间 08:00 才结束，事件文件还要晚 1 小时左右才齐。
-# 只出最近一个已结束的统计日；已发布的窗口不重跑，和手动重跑撞上也安全。电脑在 10:00 睡着时，醒来后补跑。
+# 只出最近一个已结束的统计日；已发布的榜单不重跑，和手动重跑撞上也安全。电脑在 10:00 睡着时，醒来后补跑。
+# 出完榜接着跑 npm run calibrate：严格方案有新结果就出校准报告（只读严格实验目录）。
 set -euo pipefail
 
 LABEL=cn.github-center.rank
@@ -27,7 +28,7 @@ case "${1:-}" in
 <dict>
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
-  <array><string>$NODE</string><string>--use-env-proxy</string><string>$ROOT/bin/rank-day.js</string></array>
+  <array><string>/bin/sh</string><string>-c</string><string>'$NODE' --use-env-proxy bin/rank-day.js; '$NODE' bin/calibrate.js</string></array>
   <key>WorkingDirectory</key><string>$ROOT</string>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>$(dirname "$NODE"):$(dirname "$GH"):/usr/bin:/bin</string>$PROXY</dict>
