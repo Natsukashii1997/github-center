@@ -143,8 +143,8 @@ test('首次上榜：读 README、仓库目录和 Skill 生成项目资料；项
   // 原文里没有的、摘录太短证明不了的，不上页面，只写明丢了几条。
   assert.doesNotMatch(body, /Pro 套餐|Requires a paid Pro plan|>需要付费</);
   assert.match(body, /另有 2 条 AI 整理出的条件在原文里核对不到，没有列出。/);
-  assert.match(body, /<strong>notes<\/strong>　notes 的中文用途<br><span class="note">skills\/notes<\/span>/);
-  assert.match(body, /<strong>pdf<\/strong>　pdf 的中文用途<br><span class="note">skills\/pdf<\/span>/);
+  assert.match(body, /<strong>notes<\/strong>　notes 的中文用途　<form[\s\S]*?<\/form><br><span class="note">skills\/notes<\/span>/);
+  assert.match(body, /<strong>pdf<\/strong>　pdf 的中文用途　<form[\s\S]*?<\/form><br><span class="note">skills\/pdf<\/span>/);
   assert.doesNotMatch(body, /lower|broken|half|example/);
   assert.match(body, /依据：<a href="https:\/\/github\.com\/acme\/agent-kit\/blob\/main\/README\.md">README\.md<\/a>、docs\/install\.md、docs\/faq\.md、docs\/skill\.md、仓库目录和 Skill 文件/);
   assert.doesNotMatch(body, /只读了开头部分/);

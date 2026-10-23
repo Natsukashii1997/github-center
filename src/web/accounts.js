@@ -12,13 +12,18 @@ const hashToken = (token) => createHash('sha256').update(token).digest('hex');
 const hashPassword = (password, salt) => scryptSync(password, salt, 64).toString('hex');
 const newPassword = () => randomBytes(12).toString('base64url');
 
-export function openAccounts(dataDir) {
+// 账号、会话和收藏（#8）都存在 data/center.db。网站和开账号命令会同时打开这个库：
+// 用 WAL 让读写互不阻塞，碰上对方正在写就最多等 5 秒，而不是立刻报错。
+export function openCenterDb(dataDir) {
   mkdirSync(dataDir, { recursive: true });
   const db = new DatabaseSync(join(dataDir, 'center.db'));
-  // 网站和开账号命令会同时打开这个库：用 WAL 让读写互不阻塞，碰上对方正在写就最多等 5 秒，而不是立刻报错。
+  db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
+  return db;
+}
+
+export function openAccounts(dataDir) {
+  const db = openCenterDb(dataDir);
   db.exec(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA busy_timeout = 5000;
     CREATE TABLE IF NOT EXISTS accounts(id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, role TEXT NOT NULL, salt TEXT NOT NULL, hash TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), expires_at INTEGER NOT NULL);
   `);
@@ -61,11 +66,11 @@ export function openAccounts(dataDir) {
       db.prepare('INSERT INTO sessions(token_hash, account_id, expires_at) VALUES (?, ?, ?)').run(hashToken(token), account.id, now + SESSION_DAYS * 86400e3);
       return token;
     },
-    // 有效会话返回账号（名字和身份），过期的顺手删掉。
+    // 有效会话返回账号（id、名字和身份），过期的顺手删掉。
     session(token, now = Date.now()) {
       if (!token) return null;
       db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(now);
-      return db.prepare('SELECT a.name, a.role FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token_hash = ?').get(hashToken(token)) ?? null;
+      return db.prepare('SELECT a.id, a.name, a.role FROM sessions s JOIN accounts a ON a.id = s.account_id WHERE s.token_hash = ?').get(hashToken(token)) ?? null;
     },
     logout: (token) => void db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(hashToken(token ?? '')),
     close: () => db.close(),

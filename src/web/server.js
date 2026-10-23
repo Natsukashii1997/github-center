@@ -1,16 +1,18 @@
 // 本机网站：只监听 127.0.0.1；登录后才能看（#5）。页面只读快照和更新记录，访问时不调用任何外部接口。样式从简，视觉由 #13、#14 负责。
-// 首页是涨星榜（近 1/7/30 天），另有新项目榜、官方热门榜、累计高星榜；点开榜单上的项目进入项目页（#6），项目页能复制安装指令（#7）。
+// 首页是涨星榜（近 1/7/30 天），另有新项目榜、官方热门榜、累计高星榜；点开榜单上的项目进入项目页（#6），项目页能复制安装指令（#7）、
+// 收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。
 import { createServer } from 'node:http';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
+import { openFavorites } from './favorites.js';
 import { readLatestSnapshot, readStatus, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
-import { findProfile, isOnBoards, currentGenerated, skillPlace, skillPurpose, installInstruction, INSTALL_AIS } from '../profiles/index.js';
+import { findProfile, readProfile, isOnBoards, currentGenerated, skillPlace, skillPurpose, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
 const beijing = (iso) => new Date(Date.parse(iso) + 8 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const label = (w) => `近 ${WINDOWS[w].days} 天`;
 const repo = (name) => `<a href="/p/${esc(name)}">${esc(name)}</a>`;
-const PAGES = [['/', '涨星榜'], ['/new', LISTS.new], ['/trending', LISTS.trending], ['/top', LISTS.top]];
+const PAGES = [['/', '涨星榜'], ['/new', LISTS.new], ['/trending', LISTS.trending], ['/top', LISTS.top], ['/favorites', '我的收藏']];
 const SEARCH_NOTE = '已知现象：GitHub 搜索会把少数仓库计进总数，但列表里不返回它们，所以极少数项目可能不在这里。';
 
 // 漏失概率写成“约万分之 1.1”这样的说法。
@@ -113,13 +115,21 @@ function installSection(profile, query) {
 <script>${COPY_SCRIPT}</script>`;
 }
 
-// 项目页（#6）：简介（干什么、能解决什么问题）、项目文档写到的使用条件、仓库里的 Skill、安装指令（#7）、原项目链接。
+// 收藏或取消收藏的按钮（#8）：一个小表单，提交后回到 next。skillPath 为空表示整个项目。
+const favoriteButton = ({ projectId, skillPath = '', saved, label, next }) => `<form method="post" action="/favorites" class="fav">
+<input type="hidden" name="project_id" value="${esc(projectId)}"><input type="hidden" name="skill" value="${esc(skillPath)}">
+<input type="hidden" name="action" value="${saved ? 'remove' : 'add'}"><input type="hidden" name="next" value="${esc(next)}">
+<button>${saved ? '取消收藏' : '收藏'}${label}</button></form>`;
+
+// 项目页（#6）：简介（干什么、能解决什么问题）、项目文档写到的使用条件、仓库里的 Skill、安装指令（#7）、原项目链接、收藏（#8）。
 // 内容都来自存下的项目资料。简介没生成好、或文档更新后还没重新生成好，就写“简介生成中”，不拿猜测或过期的内容顶替。
-function projectPage(fullName, profile, query) {
+// saved 是这个人在这个项目上收藏了哪些（整个项目记为 ''）。还没有资料的项目不能收藏。
+function projectPage(fullName, profile, query, saved) {
   const m = profile?.material;
   const g = currentGenerated(profile);
+  const here = `/p/${fullName}`;
   const list = (items) => `<ul>\n${items.map(([head, text, note]) => `<li><strong>${esc(head)}</strong>　${esc(text)}<br><span class="note">${esc(note)}</span></li>`).join('\n')}\n</ul>`;
-  const parts = [`<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a></p>`, '<h2>简介</h2>'];
+  const parts = [`<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a>${m ? `　${favoriteButton({ projectId: profile.projectId, saved: saved.has(''), label: '这个项目', next: here })}` : ''}</p>`, '<h2>简介</h2>'];
   if (g) {
     parts.push(`<p>${esc(g.what)}</p>`, `<p>能帮你解决：${esc(g.problem)}</p>`, '<h2>使用条件</h2>');
     parts.push(g.conditions.length ? list(g.conditions.map((c) => [c.kind, c.text, `原文：${c.quote}`])) : '<p>在读到的项目文档里没有找到付费、账号、密钥或特定环境的要求。</p>');
@@ -131,7 +141,8 @@ function projectPage(fullName, profile, query) {
   if (m) {
     // 安装指令放在 Skill 列表前面：Skill 多的仓库列表很长。
     parts.push(installSection(profile, query), '<h2>Skill</h2>');
-    parts.push(m.skills.length ? list(m.skills.map((s) => [s.name, skillPurpose(s, g), skillPlace(s.path)])) : '<p>仓库里没有按 SKILL.md 约定写的 Skill。</p>');
+    const skillItem = (s) => `<li id="skill-${esc(s.path)}"><strong>${esc(s.name)}</strong>　${esc(skillPurpose(s, g))}　${favoriteButton({ projectId: profile.projectId, skillPath: s.path, saved: saved.has(s.path), label: '这个 Skill', next: `${here}#skill-${s.path}` })}<br><span class="note">${esc(skillPlace(s.path))}</span></li>`;
+    parts.push(m.skills.length ? `<ul>\n${m.skills.map(skillItem).join('\n')}\n</ul>` : '<p>仓库里没有按 SKILL.md 约定写的 Skill。</p>');
     if (m.treeTruncated || m.skillsTruncated) parts.push('<p class="note">仓库太大，Skill 列表可能不全。</p>');
     const readme = m.readme ? `<a href="${esc(m.readme.htmlUrl)}">${esc(m.readme.path)}</a>` : '仓库里没有 README';
     const docs = m.docs.length ? `、${m.docs.map((d) => esc(d.path)).join('、')}` : '';
@@ -141,13 +152,27 @@ function projectPage(fullName, profile, query) {
   return { title: esc(fullName), body: parts.join('\n') };
 }
 
-function route(url, dataDir) {
+// 我的收藏（#8）：这个人的全部收藏，新的在前；每条都能直达项目页（Skill 直达项目页上那一条），也能直接取消。
+// 名字优先用项目资料里现在的（项目可能改过名），没有资料就用收藏时记下的。
+function favoritesPage(items, dataDir) {
+  if (!items.length) return { title: '我的收藏', body: '<p>还没有收藏。在项目页点“收藏”，就会出现在这里。</p>' };
+  const rows = items.map((f) => {
+    const fullName = readProfile(dataDir, f.projectId)?.fullName ?? f.fullName;
+    const link = f.skillPath ? `<a href="/p/${esc(fullName)}#skill-${esc(f.skillPath)}">${esc(fullName)} 里的 Skill：${esc(f.skillName)}</a>` : `<a href="/p/${esc(fullName)}">${esc(fullName)}</a>（整个项目）`;
+    return `<li>${link}　${favoriteButton({ projectId: f.projectId, skillPath: f.skillPath, saved: true, label: '', next: '/favorites' })}<br><span class="note">收藏于 ${beijing(f.createdAt)}（北京时间）</span></li>`;
+  });
+  return { title: '我的收藏', body: `<p>共 ${items.length} 条，只有你自己看得到。</p>\n<ul>\n${rows.join('\n')}\n</ul>` };
+}
+
+function route(url, dataDir, { account, favorites }) {
   const project = url.pathname.match(/^\/p\/([\w.-]+\/[\w.-]+)$/);
   if (project) {
     // 只给有资料或正在榜单上的项目出页面。
     const profile = findProfile(dataDir, project[1]);
-    return (profile || isOnBoards(dataDir, project[1])) && projectPage(profile?.fullName ?? project[1], profile, url.searchParams);
+    const saved = profile ? favorites.savedIn(account.id, profile.projectId) : new Set();
+    return (profile || isOnBoards(dataDir, project[1])) && projectPage(profile?.fullName ?? project[1], profile, url.searchParams, saved);
   }
+  if (url.pathname === '/favorites') return favoritesPage(favorites.list(account.id), dataDir);
   const status = readStatus(dataDir);
   const q = (k, d) => url.searchParams.get(k) ?? d;
   switch (url.pathname) {
@@ -168,7 +193,7 @@ function route(url, dataDir) {
   return null;
 }
 
-const STYLE = 'body{font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;margin:40px auto;max-width:880px;padding:0 24px;color:#202a30;background:#faf9f6}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #dfe4e1;text-align:left}td:nth-child(3),td:nth-child(4),th:nth-child(3),th:nth-child(4){text-align:right;font-variant-numeric:tabular-nums}a{color:#176b75;text-decoration:none}.note{color:#657176;font-size:12px}.warn{color:#8a4b0f}header form{display:inline}textarea{width:100%;box-sizing:border-box;font:12px/1.5 ui-monospace,Menlo,monospace}';
+const STYLE = 'body{font:14px/1.6 system-ui,-apple-system,"PingFang SC",sans-serif;margin:40px auto;max-width:880px;padding:0 24px;color:#202a30;background:#faf9f6}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #dfe4e1;text-align:left}td:nth-child(3),td:nth-child(4),th:nth-child(3),th:nth-child(4){text-align:right;font-variant-numeric:tabular-nums}a{color:#176b75;text-decoration:none}.note{color:#657176;font-size:12px}.warn{color:#8a4b0f}header form,form.fav{display:inline}textarea{width:100%;box-sizing:border-box;font:12px/1.5 ui-monospace,Menlo,monospace}';
 const document = (title, inner) => `<!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><title>${title}</title>
@@ -208,8 +233,13 @@ function safeNext(next) {
     return '/';
   }
 }
-// 表单只接受本站提交的（没有 Origin 或 Origin 是本机地址），挡住别的网站代为提交。
-const sameOrigin = (req) => !req.headers.origin || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(req.headers.origin);
+// 表单只接受本站这个端口提交的（没有 Origin，或 Origin 正是本站），挡住别的网站，也挡住本机别的端口上的网页代为提交：
+// 会话 Cookie 不分端口，本机其他端口的网页发来的请求浏览器也会带上它（#5 审查记下、#8 收紧）。
+function sameOrigin(req) {
+  const { origin } = req.headers;
+  const port = req.socket.localPort;
+  return !origin || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}`;
+}
 
 // 表单按字节限 10KB；超了就不再收，回复后断开连接。
 function readForm(req) {
@@ -230,11 +260,13 @@ function readForm(req) {
 
 export function startServer({ dataDir, port = 5310 }) {
   const accounts = openAccounts(dataDir);
+  const favorites = openFavorites(dataDir);
   const handle = async (req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     const send = (status, headers, body) => res.writeHead(status, headers).end(req.method === 'HEAD' ? undefined : body);
     const text = (status, body) => send(status, { 'content-type': 'text/plain; charset=utf-8' }, body);
     const html = (status, body, headers = {}) => send(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...headers }, body);
+    const tooBig = () => send(413, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }, '表单太大');
 
     if (url.pathname === '/login' && (req.method === 'GET' || req.method === 'HEAD')) {
       return accounts.session(cookieOf(req)) ? send(303, { location: '/' }) : html(200, loginPage(safeNext(url.searchParams.get('next'))));
@@ -246,12 +278,8 @@ export function startServer({ dataDir, port = 5310 }) {
         accounts.logout(cookieOf(req));
         return send(303, { location: '/login', 'set-cookie': sessionCookie('', 0) });
       }
-      let form;
-      try {
-        form = await readForm(req);
-      } catch {
-        return send(413, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }, '表单太大');
-      }
+      const form = await readForm(req).catch(() => null);
+      if (!form) return tooBig();
       const token = accounts.login(form.get('name') ?? '', form.get('password') ?? '');
       if (!token) return html(401, loginPage(safeNext(form.get('next')), '账号或密码不对。'));
       return send(303, { location: safeNext(form.get('next')), 'set-cookie': sessionCookie(token, SESSION_DAYS * 86400) });
@@ -262,8 +290,27 @@ export function startServer({ dataDir, port = 5310 }) {
       if (url.pathname.startsWith('/api/')) return send(401, { 'content-type': 'application/json; charset=utf-8' }, JSON.stringify({ error: '未登录' }));
       return send(303, { location: `/login?next=${encodeURIComponent(url.pathname + url.search)}` });
     }
+    // 收藏或取消收藏（#8）：只动自己的收藏。收藏时项目和 Skill 必须在存下的项目资料里；取消不用，资料没了也能取消。
+    if (url.pathname === '/favorites' && req.method === 'POST') {
+      if (!sameOrigin(req)) return text(403, '只接受本站提交的表单');
+      const form = await readForm(req).catch(() => null);
+      if (!form) return tooBig();
+      const projectId = Number(form.get('project_id'));
+      const skillPath = form.get('skill') ?? '';
+      const next = safeNext(form.get('next') ?? '/favorites');
+      if (form.get('action') === 'remove') {
+        favorites.remove(account.id, projectId, skillPath);
+        return send(303, { location: next });
+      }
+      if (form.get('action') !== 'add') return text(400, '不认识的操作');
+      const profile = Number.isSafeInteger(projectId) ? readProfile(dataDir, projectId) : null;
+      const skill = skillPath && profile?.material?.skills.find((s) => s.path === skillPath);
+      if (!profile?.material || (skillPath && !skill)) return text(404, '没有这个项目或 Skill 的资料');
+      favorites.add(account.id, { projectId, fullName: profile.fullName, skillPath, skillName: skill?.name ?? '' });
+      return send(303, { location: next });
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
-    const page = route(url, dataDir);
+    const page = route(url, dataDir, { account, favorites });
     if (!page) return text(404, '没有这个页面');
     html(200, layout(url.pathname, account, page));
   };
@@ -273,7 +320,10 @@ export function startServer({ dataDir, port = 5310 }) {
     if (res.headersSent) return res.destroy();
     res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }).end('服务出错，请稍后再试');
   }));
-  server.on('close', () => accounts.close());
+  server.on('close', () => {
+    favorites.close();
+    accounts.close();
+  });
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, '127.0.0.1', () => resolve({ server, url: `http://127.0.0.1:${server.address().port}/` }));

@@ -158,7 +158,7 @@ test('账号库：密码只存哈希；重置密码后旧密码失效、已登�
 
     const now = Date.parse('2026-10-24T00:00:00Z');
     const token = accounts.login('常浩', first, now);
-    assert.deepEqual({ ...accounts.session(token, now) }, { name: '常浩', role: 'owner' });
+    assert.deepEqual({ ...accounts.session(token, now) }, { id: 1, name: '常浩', role: 'owner' });
     assert.equal(accounts.session(token, now + SESSION_DAYS * 86400e3), null);
 
     const live = accounts.login('常浩', first);

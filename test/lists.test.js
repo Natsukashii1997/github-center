@@ -142,7 +142,7 @@ test('新项目榜、累计高星榜页：前 20（含并列），写明范围�
   assert.deepEqual(rows(top.body).slice(0, 2), [[1, 'codecrafters-io/build-your-own-x'], [2, 'sindresorhus/awesome']]);
   assert.match(top.body, /GitHub 搜索会把少数仓库计进总数/);
   // 站内导航能到四类榜单。
-  assert.match(top.body, /<nav><a href="\/">涨星榜<\/a>　<a href="\/new">新项目榜<\/a>　<a href="\/trending">官方热门榜<\/a>　<strong>累计高星榜<\/strong><\/nav>/);
+  assert.match(top.body, /<nav><a href="\/">涨星榜<\/a>　<a href="\/new">新项目榜<\/a>　<a href="\/trending">官方热门榜<\/a>　<strong>累计高星榜<\/strong>　<a href="\/favorites">我的收藏<\/a><\/nav>/);
 });
 
 test('官方热门榜页：日、周、月切换，原样顺序，写明排序规则由 GitHub 决定', async () => {
