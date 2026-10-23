@@ -5,13 +5,13 @@ import { readJson, writeAtomic, readLatestSnapshot } from '../ranking/store.js';
 import { WINDOWS } from '../ranking/stat-day.js';
 import { SINCES } from '../ranking/lists.js';
 
-const dirOf = (dataDir) => join(dataDir, 'profiles');
-export const readProfile = (dataDir, id) => readJson(join(dirOf(dataDir), `${id}.json`));
-export const saveProfile = (dataDir, profile) => writeAtomic(join(dirOf(dataDir), `${profile.projectId}.json`), JSON.stringify(profile, null, 2) + '\n');
+const profilesDir = (dataDir) => join(dataDir, 'profiles');
+export const readProfile = (dataDir, id) => readJson(join(profilesDir(dataDir), `${id}.json`));
+export const saveProfile = (dataDir, profile) => writeAtomic(join(profilesDir(dataDir), `${profile.projectId}.json`), JSON.stringify(profile, null, 2) + '\n');
 
 // 按名字找（不分大小写），找不到返回 null。
 export function findProfile(dataDir, fullName) {
-  const dir = dirOf(dataDir);
+  const dir = profilesDir(dataDir);
   if (!existsSync(dir)) return null;
   const key = fullName.toLowerCase();
   for (const f of readdirSync(dir).filter((f) => f.endsWith('.json'))) {
@@ -39,3 +39,6 @@ export function boardProjects(dataDir) {
   pages(SINCES.slice(1)).forEach(add);
   return out;
 }
+
+// 这个项目（按名字，不分大小写）是否正在某个榜单上。
+export const isOnBoards = (dataDir, fullName) => boardProjects(dataDir).some((p) => p.name.toLowerCase() === fullName.toLowerCase());

@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
 import { readLatestSnapshot, readStatus, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
-import { findProfile, boardProjects } from '../profiles/index.js';
+import { findProfile, isOnBoards } from '../profiles/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
@@ -86,25 +86,28 @@ ${failure('trending', snapshot, status)}${table(['名次', '项目', `${TRENDING
 }
 
 // 项目页（#6）：简介（干什么、能解决什么问题）、项目文档写到的使用条件、仓库里的 Skill、原项目链接。
-// 内容都来自存下的项目资料；简介还没生成好就写“简介生成中”，不拿猜测的内容顶替。
+// 内容都来自存下的项目资料。简介没生成好、或文档更新后还没重新生成好，就写“简介生成中”，不拿猜测或过期的内容顶替。
 function projectPage(fullName, profile) {
-  const g = profile?.generated;
   const m = profile?.material;
+  const g = m && profile.generated?.materialHash === m.hash ? profile.generated : null;
   const list = (items) => `<ul>\n${items.map(([head, text, note]) => `<li><strong>${esc(head)}</strong>　${esc(text)}<br><span class="note">${esc(note)}</span></li>`).join('\n')}\n</ul>`;
   const parts = [`<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a></p>`, '<h2>简介</h2>'];
   if (g) {
     parts.push(`<p>${esc(g.what)}</p>`, `<p>能帮你解决：${esc(g.problem)}</p>`, '<h2>使用条件</h2>');
-    parts.push(g.conditions.length ? list(g.conditions.map((c) => [c.kind, c.text, `原文：${c.quote}`])) : '<p>项目文档里没有写到付费、账号、密钥或特定环境的要求。</p>');
+    parts.push(g.conditions.length ? list(g.conditions.map((c) => [c.kind, c.text, `原文：${c.quote}`])) : '<p>在读到的项目文档里没有找到付费、账号、密钥或特定环境的要求。</p>');
+    if (g.droppedConditions) parts.push(`<p class="note">另有 ${g.droppedConditions} 条 AI 整理出的条件在原文里核对不到，没有列出。</p>`);
+    if (m.readme?.truncated || m.docs.some((d) => d.truncated)) parts.push('<p class="note">有的文档较长，只读了开头部分，后面写到的条件可能没有列出。</p>');
   } else {
     parts.push('<p>简介生成中。</p>');
   }
   if (m) {
-    parts.push(`<h2>Skill</h2>`);
+    parts.push('<h2>Skill</h2>');
     parts.push(m.skills.length ? list(m.skills.map((s) => [s.name, g?.skillPurposes[s.path] ?? s.description, s.path === '.' ? '仓库根目录' : s.path])) : '<p>仓库里没有按 SKILL.md 约定写的 Skill。</p>');
     if (m.treeTruncated || m.skillsTruncated) parts.push('<p class="note">仓库太大，Skill 列表可能不全。</p>');
-    const readme = m.readme ? `<a href="${esc(m.readme.htmlUrl)}">${esc(m.readme.path)}</a>${m.readme.truncated ? '（较长，只读了前 4 万字）' : ''}` : '仓库里没有 README';
-    const made = g ? `；简介和使用条件由 AI 根据项目原文生成于 ${beijing(g.at)}${g.materialHash === m.hash ? '' : '，项目资料已有更新，简介待重新生成'}` : '';
-    parts.push(`<p class="note">依据：${readme}、仓库目录和 Skill 文件，读取于 ${beijing(m.fetchedAt)}（北京时间）${made}。</p>`);
+    const readme = m.readme ? `<a href="${esc(m.readme.htmlUrl)}">${esc(m.readme.path)}</a>` : '仓库里没有 README';
+    const docs = m.docs.length ? `、${m.docs.map((d) => esc(d.path)).join('、')}` : '';
+    const made = g ? `；简介和使用条件由 AI 根据项目原文生成于 ${beijing(g.at)}` : '';
+    parts.push(`<p class="note">依据：${readme}${docs}、仓库目录和 Skill 文件，读取于 ${beijing(m.fetchedAt)}（北京时间）${made}。</p>`);
   }
   return { title: esc(fullName), body: parts.join('\n') };
 }
@@ -114,8 +117,7 @@ function route(url, dataDir) {
   if (project) {
     // 只给有资料或正在榜单上的项目出页面。
     const profile = findProfile(dataDir, project[1]);
-    const listed = profile || boardProjects(dataDir).some((p) => p.name.toLowerCase() === project[1].toLowerCase());
-    return listed && projectPage(profile?.fullName ?? project[1], profile);
+    return (profile || isOnBoards(dataDir, project[1])) && projectPage(profile?.fullName ?? project[1], profile);
   }
   const status = readStatus(dataDir);
   const q = (k, d) => url.searchParams.get(k) ?? d;
