@@ -9,7 +9,6 @@ import { homeData, windowStatus, project as projectCard, embed } from './home.js
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const md = (day) => `${Number(day.slice(5, 7))} 月 ${Number(day.slice(8, 10))} 日`;
-const hhmm = (iso) => new Date(Date.parse(iso) + 8 * 3600e3).toISOString().slice(11, 16);
 const SEARCH_NOTE = '已知现象：GitHub 搜索会把少数仓库计进总数，但列表里不返回它们，所以极少数项目可能不在这里。';
 const labels = () => Object.fromEntries(Object.entries(WINDOWS).map(([id, { days }]) => [id, { label: `近 ${days} 天` }]));
 // 每页都带的：账号、安装目标、分类、窗口名（gc.js 要）。
@@ -18,6 +17,20 @@ const base = (ctx) => ({ account: { name: ctx.account.name }, ais: Object.entrie
 function siteTop(dataDir) {
   const s = readLatestSnapshot(dataDir, 'd1');
   return windowStatus(s, newerFailure(readStatus(dataDir), 'd1', s)).top;
+}
+
+// 各榜最新快照里每个项目的总 Star（更新时的数字）：按项目 id 和名字都能查；收藏页和不在涨星榜上的项目页用。
+function listTotals(dataDir) {
+  const byId = new Map(), byName = new Map();
+  const note = (e) => {
+    if (e.total == null) return;
+    if (e.projectId && !byId.has(e.projectId)) byId.set(e.projectId, e.total);
+    if (!byName.has(e.fullName.toLowerCase())) byName.set(e.fullName.toLowerCase(), e.total);
+  };
+  for (const b of [...Object.keys(WINDOWS), 'new', 'top']) readLatestSnapshot(dataDir, b)?.entries.forEach(note);
+  const trending = readLatestSnapshot(dataDir, 'trending');
+  for (const s of SINCES) trending?.pages[s]?.entries.forEach(note);
+  return { of: (id, name) => (id && byId.get(id)) ?? byName.get(name.toLowerCase()) ?? null };
 }
 
 // 一个项目在紧凑行、网格卡上要的资料：简介、分类、Skill、收藏状态。数字由各页按快照另给；头像没有 owner id 时页面按用户名取。
@@ -49,12 +62,9 @@ export function boardsData(dataDir, ctx) {
     const f = newerFailure(status, l, snaps[l]);
     return f ? [{ tone: 'bad', icon: 'error', title: `${LISTS[l]}更新失败`, text: `${md(f.day)}的更新失败：${f.error}。${snaps[l] ? `下面仍是 ${md(snaps[l].statDay)}的${LISTS[l]}。` : ''}` }] : [];
   });
-  const have = Object.values(snaps).filter(Boolean);
-  const day = have.map((s) => s.statDay).sort().at(-1) ?? null;
-  const at = have.map((s) => s.generatedAt).sort().at(-1);
-  const top = !day ? { tone: notes.length ? 'bad' : 'warn', text: notes.length ? '更新失败 · 还没有数据' : '还没有数据' }
-    : notes.length ? { tone: 'bad', text: `更新失败 · 显示 ${md(day)}数据` } : { tone: 'ok', text: `${md(day)}数据 · ${hhmm(at)} 更新` };
-  return { ...base(ctx), top, notes, day, lists, projects, searchNote: SEARCH_NOTE };
+  const day = Object.values(snaps).filter(Boolean).map((s) => s.statDay).sort().at(-1) ?? null;
+  // 顶栏和其他页一致（全站状态）；三个榜各自的失败写在上面的提示条里。
+  return { ...base(ctx), top: siteTop(dataDir), notes, day, lists, projects, searchNote: SEARCH_NOTE };
 }
 
 // ── 项目页：只给有资料或正在榜单上的项目；找不到返回 null（404） ──
@@ -85,7 +95,9 @@ export function projectData(dataDir, fullName, ctx) {
     dropped: g?.droppedConditions ?? 0,
     truncatedDocs: Boolean(m && (m.readme?.truncated || m.docs.some((d) => d.truncated))),
     skillsTruncated: Boolean(m && (m.treeTruncated || m.skillsTruncated)),
-    sources: m ? { readme: m.readme ? { path: m.readme.path, url: m.readme.htmlUrl } : null, docs: m.docs.map((d) => d.path), fetchedAt: m.fetchedAt, generatedAt: g?.at ?? null } : null,
+    sources: m ? { readme: m.readme ? { path: m.readme.path, url: /^https:\/\//.test(m.readme.htmlUrl ?? '') ? m.readme.htmlUrl : `https://github.com/${name}` } : null, docs: m.docs.map((d) => d.path), fetchedAt: m.fetchedAt, generatedAt: g?.at ?? null } : null,
+    // 不在涨星榜上（没有那次运行的数字）时，总 Star 取它所在榜单快照里的数。
+    total: newest.length ? null : listTotals(dataDir).of(id, name),
     top: windowStatus(d1, newerFailure(status, 'd1', d1)).top,
   };
   return { ...base(ctx), projects: { [card.repo]: card }, page };
@@ -110,18 +122,14 @@ export function favoritesData(dataDir, ctx) {
   const find = readCategories(dataDir).get;
   const listed = boardProjects(dataDir);
   // 总 Star：各榜最新快照里这个项目的数字（更新时的数字），都没有就“暂缺”。
-  const totals = new Map();
-  const note = (e) => { if (e.projectId && e.total != null && !totals.has(e.projectId)) totals.set(e.projectId, e.total); };
-  for (const b of [...Object.keys(WINDOWS), 'new', 'top']) readLatestSnapshot(dataDir, b)?.entries.forEach(note);
-  const trending = readLatestSnapshot(dataDir, 'trending');
-  for (const s of SINCES) trending?.pages[s]?.entries.forEach(note);
+  const totals = listTotals(dataDir);
   const projects = {};
   const items = ctx.favorites.list(ctx.account.id).map((f) => {
     const profile = readProfile(dataDir, f.projectId);
     const repo = profile?.fullName ?? f.fullName;
     projects[repo] ??= brief(dataDir, { id: f.projectId, fullName: repo }, ctx, find, profile);
     const skill = f.skillPath ? { path: f.skillPath, name: f.skillName || f.skillPath.split('/').pop(), desc: projects[repo].skills.find((s) => s.path === f.skillPath)?.desc ?? '', missing: !profile?.material?.skills.some((s) => s.path === f.skillPath) } : null;
-    return { repo, id: f.projectId, savedName: f.fullName, renamed: Boolean(profile && profile.fullName !== f.fullName), skill, at: f.createdAt, hasProfile: Boolean(profile), openable: Boolean(profile || listed.some((p) => p.id === f.projectId)), total: totals.get(f.projectId) ?? null };
+    return { repo, id: f.projectId, savedName: f.fullName, renamed: Boolean(profile && profile.fullName !== f.fullName), skill, at: f.createdAt, hasProfile: Boolean(profile), openable: Boolean(profile || listed.some((p) => p.id === f.projectId)), total: totals.of(f.projectId, repo) };
   });
   return { ...base(ctx), top: siteTop(dataDir), items, projects };
 }
@@ -173,7 +181,7 @@ export const favoritesPage = (data) => shell({ title: '我的收藏', script: 'f
 </main>` });
 
 // 登录（#5）：表单由服务端判定；失败时输入框描边变失败色、提示条写明，用户名照填回去（密码不回填）。next 已由 safeNext 处理成本站路径。
-export const loginPage = (next, error, name = '') => shell({ title: '登录', script: 'login.js', bare: true, data: { account: { name: '' }, ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]), cats: CATEGORIES, windows: labels(), projects: {} }, body: `<main class="login-split">
+export const loginPage = (next, error, name = '') => shell({ title: '登录', script: 'login.js', bare: true, data: { ...base({ account: { name: '' } }), projects: {} }, body: `<main class="login-split">
   <section class="intro" aria-label="这个站是做什么的">
     <a class="brand" href="/login"><span class="mark" aria-hidden="true"></span>GitHub 快速中心</a>
     <p class="claim">每天两分钟，知道 GitHub 上什么在涨、值不值得装。</p>

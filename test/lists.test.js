@@ -160,6 +160,9 @@ test('官方热门榜页：日、周、月切换，原样顺序，写明排序�
   assert.deepEqual([daily.entries[0].gain, daily.entries[0].total], [287, 41378]);
   // 日、周、月三页都嵌进页面，在页面里切换；排序规则的说明由页面脚本写在榜下。
   assert.deepEqual(Object.keys(data.lists.trending.pages), ['daily', 'weekly', 'monthly']);
+  // 只在官方热门榜上的项目：项目页侧栏的总 Star 取榜单快照里的数（没有涨星榜那次运行的数字）。
+  const pj = dataOf((await visit(dataDir, 'p/php/php-src')).body);
+  assert.deepEqual([pj.page.run, pj.page.total, pj.projects['php/php-src'].id > 0], [null, 41378, true]);
   assert.equal((await visit(dataDir, 'boards?since=monthly')).status, 200);
   assert.equal((await visit(dataDir, 'boards?since=yearly')).status, 404);
   assert.equal((await visit(dataDir, 'trending?since=yearly')).status, 404);
@@ -171,6 +174,7 @@ test('榜单更新失败时仍显示上一次的结果并提示', async () => {
   writeFileSync(join(dataDir, 'status.json'), JSON.stringify({ boards: { top: { day: '2026-10-23', at: '2026-10-24T02:10:00.000Z', status: 'failed', error: 'GitHub 搜索结果不全' } } }));
   const { data } = await boards(dataDir);
   assert.deepEqual(data.notes, [{ tone: 'bad', icon: 'error', title: '累计高星榜更新失败', text: '10 月 23 日的更新失败：GitHub 搜索结果不全。下面仍是 10 月 22 日的累计高星榜。' }]);
-  assert.deepEqual(data.top, { tone: 'bad', text: '更新失败 · 显示 10 月 22 日数据' });
+  // 顶栏和其他页一致，显示全站（近 1 天）状态；这里还没有近 1 天快照。榜单自己的失败写在提示条里。
+  assert.deepEqual(data.top, { tone: 'warn', text: '还没有数据' });
   assert.equal(data.lists.top.entries.length, 20);
 });

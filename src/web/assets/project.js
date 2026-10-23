@@ -13,7 +13,8 @@
     side.hidden = true;
     return;
   }
-  const p = D.projects[pg.repo], run = pg.run ? p.runs[pg.run] : null;
+  // 不在涨星榜上时没有那次运行的数字，只有榜单快照里的总 Star。
+  const p = D.projects[pg.repo], run = pg.run ? p.runs[pg.run] : pg.total != null ? { total: pg.total } : null;
   let target = D.ais[0][0], win = pg.win;
   main.innerHTML = `<a class="back" href="${href}">${I.back}<span>${label}</span></a>
     <div class="title">${avImg(p, 112)}<div><h2>${name(p)}</h2><div class="meta">${p.cats.length ? cats(p) : '<span>还没归类</span>'}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}${p.created ? `<span>创建于 ${GC.md(GC.utc(p.created))}</span>` : ''}</div></div></div>
@@ -22,7 +23,7 @@
   side.innerHTML = `${statStrip(run, win)}${chartOf(run, win)}
     <div><span class="k">安装到</span><div data-target></div></div>
     <button class="btn btn-p btn-w" type="button" data-copy${p.installable ? '' : ' disabled title="项目资料还没读到，暂时不能生成安装指令"'}>${I.copy}<span>复制安装指令</span></button>
-    <div class="acts"><button class="btn btn-g" type="button" data-fav data-fav-text data-fav-id="${esc(p.repo)}">${I.star}<span>收藏</span></button><a class="btn btn-g btn-i" href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener" title="在 GitHub 打开" aria-label="在 GitHub 打开">${I.external}</a></div>`;
+    <div class="acts"><button class="btn btn-g" type="button" data-fav data-fav-text data-fav-id="${esc(p.repo)}"${p.id ? '' : ' disabled title="这个项目还没核出 GitHub 编号，暂时不能收藏"'}>${I.star}<span>收藏</span></button><a class="btn btn-g btn-i" href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener" title="在 GitHub 打开" aria-label="在 GitHub 打开">${I.external}</a></div>`;
   GC.seg($('[data-target]', side), D.ais, target, (t) => { target = t; }, 160);
   const copy = $('[data-copy]', side);
   copy.addEventListener('click', () => GC.copyInstall(copy, p, target));
