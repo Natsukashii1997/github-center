@@ -1,6 +1,7 @@
 // 本机网站：只监听 127.0.0.1；登录后才能看（#5）。页面只读快照和更新记录，访问时不调用任何外部接口。
 // 首页是涨星榜（近 1/7/30 天，#13 起按冻结的视觉方案 t1b-r2，见 home.js）；另有新项目榜、官方热门榜、累计高星榜，样式从简，视觉由 #14 负责。
 // 点开榜单上的项目进入项目页（#6），项目页能复制安装指令（#7）、收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。
+// 三个榜单都能按分类筛选，在榜内过滤（#10，?cat=），项目页写明项目的分类。
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
@@ -8,6 +9,7 @@ import { openFavorites } from './favorites.js';
 import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
 import { findProfile, readProfile, findOnBoards, currentGenerated, skillPlace, skillPurpose, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 import { homeData, homePage } from './home.js';
+import { CATEGORIES, readCategories, listInCategory } from '../categories/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
@@ -32,28 +34,49 @@ ${rows.map((cells) => `<tr>${cells.map((c) => `<td>${c}</td>`).join('')}</tr>`).
 const tabs = (items, current) => `<nav>${items.map(([key, href, text]) => (key === current ? `<strong>${text}</strong>` : `<a href="${href}">${text}</a>`)).join('　')}</nav>`;
 const empty = (name) => `<p>还没有${name}。先运行一次 <code>npm run rank</code>。</p>`;
 
-function byTotal(list, snapshot, status) {
-  if (!snapshot) return { title: LISTS[list], body: `${failure(list, null, status)}${empty(LISTS[list])}` };
+// 分类筛选（#10）：一排分类链接，带上本页其他参数；榜内过滤后写明没归类的个数。
+function categoryFilter(path, params, cat) {
+  const href = (c) => {
+    const u = new URLSearchParams(params);
+    if (c) u.set('cat', c); else u.delete('cat');
+    return esc(`${path}${u.size ? `?${u}` : ''}`);
+  };
+  return tabs([['', href(null), '全部'], ...CATEGORIES.map((c) => [c, href(c), esc(c)])], cat ?? '');
+}
+function filtered({ entries, find, cat, byTotal: byStars }) {
+  if (!cat) return { entries, notes: '' };
+  const r = listInCategory({ entries, find, category: cat, byTotal: byStars });
+  const notes = [r.entries.length ? '' : `<p>「${esc(cat)}」在本榜没有项目。</p>`, r.unclassified ? `<p class="note">本榜还有 ${r.unclassified} 个项目没归类，归好后按分类列出。</p>` : ''].join('');
+  return { entries: r.entries, notes };
+}
+const catsOf = (find, e) => esc((find({ id: e.projectId, fullName: e.fullName })?.categories ?? []).join('、'));
+
+function byTotal(list, snapshot, status, { params, cat, find }) {
+  const head = categoryFilter(`/${list}`, params, cat);
+  if (!snapshot) return { title: LISTS[list], body: `${head}\n${failure(list, null, status)}${empty(LISTS[list])}` };
   const scope = list === 'new' ? `近 30 天内（${esc(snapshot.from)} 至 ${esc(snapshot.statDay)}，UTC）创建的项目，含 fork，按总 Star 排` : '全站项目按总 Star 排';
-  const rows = snapshot.entries.map((e) => [e.rank, repo(e.fullName), num(e.total), ...(list === 'new' ? [esc(e.createdAt.slice(0, 10))] : [])]);
+  const shown = filtered({ entries: snapshot.entries, find, cat, byTotal: true });
+  const rows = shown.entries.map((e) => [e.rank, repo(e.fullName), num(e.total), ...(list === 'new' ? [esc(e.createdAt.slice(0, 10))] : []), catsOf(find, e)]);
   return {
     title: LISTS[list],
-    body: `<p>统计日 ${esc(snapshot.statDay)}（UTC）　更新于 ${beijing(snapshot.generatedAt)}（北京时间）</p>
-${failure(list, snapshot, status)}${table(['名次', '项目', '总 Star', ...(list === 'new' ? ['创建日期'] : [])], rows)}
+    body: `${head}
+<p>统计日 ${esc(snapshot.statDay)}（UTC）　更新于 ${beijing(snapshot.generatedAt)}（北京时间）</p>
+${failure(list, snapshot, status)}${shown.notes}${table(['名次', '项目', '总 Star', ...(list === 'new' ? ['创建日期'] : []), '分类'], rows)}
 <p class="note">${scope}；前 20 名，末位并列一起列出。总 Star 来自 GitHub 官方搜索，是更新时的数字。${SEARCH_NOTE}</p>`,
   };
 }
 
-function trendingPage(since, snapshot, status) {
-  const head = tabs(SINCES.map((s) => [s, `/trending?since=${s}`, TRENDING_PAGES[s].name]), since);
+function trendingPage(since, snapshot, status, { params, cat, find }) {
+  const head = `${tabs(SINCES.map((s) => [s, esc(`/trending?since=${s}${cat ? `&cat=${encodeURIComponent(cat)}` : ''}`), TRENDING_PAGES[s].name]), since)}\n${categoryFilter('/trending', params, cat)}`;
   if (!snapshot) return { title: LISTS.trending, body: `${head}\n${failure('trending', null, status)}${empty(LISTS.trending)}` };
   const page = snapshot.pages[since];
-  const rows = page.entries.slice(0, 20).map((e) => [e.rank, repo(e.fullName), e.periodStars == null ? '—' : `+${num(e.periodStars)}`, num(e.total)]);
+  const shown = filtered({ entries: page.entries.slice(0, 20), find, cat, byTotal: false });
+  const rows = shown.entries.map((e) => [e.rank, repo(e.fullName), e.periodStars == null ? '—' : `+${num(e.periodStars)}`, num(e.total), catsOf(find, e)]);
   return {
     title: `${LISTS.trending} · ${TRENDING_PAGES[since].name}`,
     body: `${head}
 <p>抓取于 ${beijing(page.fetchedAt ?? snapshot.generatedAt)}（北京时间）</p>
-${failure('trending', snapshot, status)}${table(['名次', '项目', `${TRENDING_PAGES[since].period}新增 Star（GitHub 页面上的数字）`, '总 Star'], rows)}
+${failure('trending', snapshot, status)}${shown.notes}${table(['名次', '项目', `${TRENDING_PAGES[since].period}新增 Star（GitHub 页面上的数字）`, '总 Star', '分类'], rows)}
 <p class="note">GitHub 官方 Trending 的原样排序，全部语言；排序规则由 GitHub 决定，不是纯涨星。官方页面共 ${page.entries.length} 个${page.entries.length > 20 ? '，这里列前 20 个' : ''}。</p>`,
   };
 }
@@ -95,12 +118,16 @@ const favoriteButton = ({ projectId, skillPath = '', saved, what, next }) => `<f
 // 项目页（#6）：简介（干什么、能解决什么问题）、项目文档写到的使用条件、仓库里的 Skill、安装指令（#7）、原项目链接、收藏（#8）。
 // 内容都来自存下的项目资料。简介没生成好、或文档更新后还没重新生成好，就写“简介生成中”，不拿猜测或过期的内容顶替。
 // projectId 为空（只从官方热门榜知道名字、还没有资料）时不能收藏；saved 是这个人在这个项目上收藏了哪些（整个项目记为 ''）。
-function projectPage(fullName, profile, query, { projectId, saved }) {
+function projectPage(fullName, profile, query, { projectId, saved, cats }) {
   const m = profile?.material;
   const g = currentGenerated(profile);
   const here = `/p/${fullName}`;
   const list = (items) => `<ul>\n${items.map(([head, text, note]) => `<li><strong>${esc(head)}</strong>　${esc(text)}<br><span class="note">${esc(note)}</span></li>`).join('\n')}\n</ul>`;
-  const parts = [`<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a>${projectId ? `　${favoriteButton({ projectId, saved: saved.has(''), what: '这个项目', next: here })}` : ''}</p>`, '<h2>简介</h2>'];
+  const parts = [
+    `<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a>${projectId ? `　${favoriteButton({ projectId, saved: saved.has(''), what: '这个项目', next: here })}` : ''}</p>`,
+    `<p>分类：${cats?.categories.length ? esc(cats.categories.join('、')) : '还没归类'}</p>`,
+    '<h2>简介</h2>',
+  ];
   if (g) {
     parts.push(`<p>${esc(g.what)}</p>`, `<p>能帮你解决：${esc(g.problem)}</p>`, '<h2>使用条件</h2>');
     parts.push(g.conditions.length ? list(g.conditions.map((c) => [c.kind, c.text, `原文：${c.quote}`])) : '<p>在读到的项目文档里没有找到付费、账号、密钥或特定环境的要求。</p>');
@@ -149,20 +176,22 @@ function route(url, dataDir, { account, favorites }) {
     if (!profile && !listed) return null;
     const projectId = profile?.projectId ?? listed.id;
     const saved = projectId ? favorites.savedIn(account.id, projectId) : new Set();
-    return projectPage(profile?.fullName ?? listed.name, profile, url.searchParams, { projectId, saved });
+    const name = profile?.fullName ?? listed.name;
+    return projectPage(name, profile, url.searchParams, { projectId, saved, cats: readCategories(dataDir).get({ id: projectId, fullName: name }) });
   }
   if (url.pathname === '/favorites') return favoritesPage(favorites.list(account.id), dataDir);
   const status = readStatus(dataDir);
   const q = (k, d) => url.searchParams.get(k) ?? d;
+  const filter = { params: url.searchParams, cat: CATEGORIES.includes(q('cat')) ? q('cat') : null, find: readCategories(dataDir).get };
   switch (url.pathname) {
     case '/new':
     case '/top': {
       const list = url.pathname.slice(1);
-      return byTotal(list, readLatestSnapshot(dataDir, list), status);
+      return byTotal(list, readLatestSnapshot(dataDir, list), status, filter);
     }
     case '/trending': {
       const since = q('since', 'daily');
-      return SINCES.includes(since) && trendingPage(since, readLatestSnapshot(dataDir, 'trending'), status);
+      return SINCES.includes(since) && trendingPage(since, readLatestSnapshot(dataDir, 'trending'), status, filter);
     }
   }
   return null;

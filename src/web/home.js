@@ -2,9 +2,11 @@
 // 整理成一份数据嵌进页面，页面脚本（assets/home.js）用方案里的共用组件画出来，切换窗口不再请求服务端。
 // 名次、新增和总 Star 只取快照。卡片上的数字和 30 天走势取这一期榜单那次运行存下的官方原始响应：三个窗口的快照可能出自
 // 不同次运行（某个窗口失败后重跑），同一张卡上的数字和柱子来自同一份响应才对得上。缺数据的那天留空位，不补零。
+// 分类（#10）：每个窗口另给 9 个分类榜（在这一期全部已核数的候选里按分类重新取前 20），行上和卡片用的项目分类一起嵌进去。
 import { join } from 'node:path';
 import { readLatestSnapshot, readStatus, newerFailure, WINDOWS } from '../ranking/index.js';
-import { readJson } from '../ranking/store.js';
+import { readJson, readCandidates } from '../ranking/store.js';
+import { CATEGORIES, readCategories, gainersInCategory } from '../categories/index.js';
 import { bucketOf, windowDays } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';
 import { readProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
@@ -12,6 +14,7 @@ import { readProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../pro
 const SERIES_DAYS = 30;
 const label = (w) => `近 ${WINDOWS[w].days} 天`;
 const md = (day) => `${Number(day.slice(5, 7))} 月 ${Number(day.slice(8, 10))} 日`;
+const num = (n) => n.toLocaleString('en-US');
 const hhmm = (iso) => new Date(Date.parse(iso) + 8 * 3600e3).toISOString().slice(11, 16);
 
 // 漏失概率写成“约万分之 1.1”这样的说法。
@@ -64,10 +67,35 @@ function windowStatus(snapshot, failed) {
   return { top, notes };
 }
 
-function board(w, snapshot, status) {
+const rowsOf = (entries, snapshot) => {
+  const ranks = entries.map((e) => e.rank);
+  return entries.map((e) => ({ repo: e.fullName, rank: e.rank, tie: ranks.filter((r) => r === e.rank).length > 1, gain: e.gain, run: snapshot.runId }));
+};
+
+// 候选当成榜单条目用（卡片按它这次运行存下的官方星数历史取数字）。
+const candidateEntry = (c) => ({ projectId: c.id, fullName: c.fullName, gain: c.gain, total: c.total, evidence: { history: { path: c.evidence.history } } });
+
+// 一个窗口的 9 个分类榜（#10）。提示条：完整性下限以下的从第几名起（所有者 2026-10-23 决定照样列出、用提示条写明）、
+// 不足 20 个、还有够得上名单却没归类的项目。这一期出榜时还没另存候选的，分类榜如实说明还没有。
+function categoryBoards(w, snapshot, candidates, find) {
+  return Object.fromEntries(CATEGORIES.map((cat) => {
+    if (!candidates) return [cat, { entries: [], notes: [], empty: { title: '这一期还没有分类榜', text: '这一期出榜时还没另存全部已核数的候选，分类筛选从下一期起可用。' } }];
+    const r = gainersInCategory({ candidates, find, category: cat });
+    const notes = [];
+    const below = r.entries.find((e) => e.belowFloor);
+    if (below) {
+      const from = below.rank === 1 ? '整份名单的涨星都' : `第 ${below.rank} 名起涨星`;
+      notes.push({ tone: 'warn', icon: 'warn', title: '可能有漏', text: r.floor === null ? '这一期估计不了完整性下限，整份名单都可能漏了项目。' : `${from}低于完整性下限 +${num(r.floor)}：涨星比下限少的项目，事件数据可能没记到，名单可能不全。` });
+    }
+    if (r.entries.length && r.entries.length < 20) notes.push({ icon: 'tag', title: '不足 20 个', text: `「${cat}」在${label(w)}只核出 ${r.entries.length} 个项目，全部列出。` });
+    if (r.unclassified) notes.push({ icon: 'sparkle', title: '还没归类', text: `还有 ${r.unclassified} 个涨星够得上这份名单的项目没归类，归好后补进来。` });
+    return [cat, { entries: rowsOf(r.entries, snapshot), notes, empty: r.entries.length ? null : { title: '这个分类当期没有核出项目', text: '换个时间窗口，或者看看别的分类。' }, raw: r.entries }];
+  }));
+}
+
+function board(w, snapshot, status, candidates, find) {
   const { top, notes } = windowStatus(snapshot, newerFailure(status, w, snapshot));
   if (!snapshot) return { label: label(w), top, notes, entries: [], empty: { title: `还没有${label(w)}的榜单`, text: '每天统计日结束后自动生成。' } };
-  const ranks = snapshot.entries.map((e) => e.rank);
   return {
     label: label(w),
     top,
@@ -77,14 +105,15 @@ function board(w, snapshot, status) {
       candidates: snapshot.candidates.total,
       checks: snapshot.requests.history + snapshot.requests.project,
     },
-    entries: snapshot.entries.map((e) => ({ repo: e.fullName, rank: e.rank, tie: ranks.filter((r) => r === e.rank).length > 1, gain: e.gain, run: snapshot.runId })),
+    entries: rowsOf(snapshot.entries, snapshot),
     empty: snapshot.entries.length ? null : { title: '这一期没有核出项目', text: '换个时间窗口看看。' },
+    byCat: categoryBoards(w, snapshot, candidates, find),
   };
 }
 
 // 一个上榜项目在卡片上要的全部内容。onBoards：它出现在哪些窗口的快照里，最新生成的在前；语言、创建日期取最新存下的项目信息，
 // 数字按运行分开放（runs），卡片按这一期榜单的运行取。
-function project(dataDir, onBoards, { account, favorites }) {
+function project(dataDir, onBoards, { account, favorites }, find) {
   const { entry } = onBoards[0];
   const projectRaw = onBoards.find((b) => b.entry.evidence?.project)?.entry.evidence.project;
   const info = projectRaw ? readJson(join(dataDir, projectRaw.path)) : null;
@@ -103,6 +132,7 @@ function project(dataDir, onBoards, { account, favorites }) {
     what: g?.what ?? null,
     problem: g?.problem ?? null,
     conditions: g ? g.conditions.map((c) => c.text) : [],
+    cats: find({ id: entry.projectId, fullName: entry.fullName })?.categories ?? [],
     installable: Boolean(profile?.material),
     skills: (profile?.material?.skills ?? []).map((s) => ({ name: s.name, path: s.path, desc: skillPurpose(s, g) })),
     saved: saved.has(''),
@@ -112,20 +142,28 @@ function project(dataDir, onBoards, { account, favorites }) {
 
 export function homeData(dataDir, ctx) {
   const status = readStatus(dataDir);
+  const find = readCategories(dataDir).get;
   const snapshots = Object.fromEntries(Object.keys(WINDOWS).map((w) => [w, readLatestSnapshot(dataDir, w)]));
+  const windows = Object.fromEntries(Object.entries(snapshots).map(([w, s]) => [w, board(w, s, status, s && readCandidates(dataDir, w, s.statDay), find)]));
+  // 卡片要的项目：总榜上的，加上分类榜上的（同一窗口里总榜上已有的不重复记）。
   const seen = new Map();
+  const add = (w, snapshot, entry) => {
+    if (!seen.has(entry.fullName)) seen.set(entry.fullName, []);
+    const list = seen.get(entry.fullName);
+    if (!list.some((b) => b.w === w)) list.push({ w, snapshot, entry });
+  };
   for (const [w, snapshot] of Object.entries(snapshots)) {
-    for (const entry of snapshot?.entries ?? []) {
-      if (!seen.has(entry.fullName)) seen.set(entry.fullName, []);
-      seen.get(entry.fullName).push({ w, snapshot, entry });
-    }
+    for (const entry of snapshot?.entries ?? []) add(w, snapshot, entry);
+    for (const b of Object.values(windows[w].byCat ?? {})) for (const c of b.raw ?? []) add(w, snapshot, candidateEntry(c));
   }
+  for (const b of Object.values(windows).flatMap((x) => Object.values(x.byCat ?? {}))) delete b.raw;
   for (const list of seen.values()) list.sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
   return {
     account: { name: ctx.account.name },
     ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]),
-    windows: Object.fromEntries(Object.entries(snapshots).map(([w, s]) => [w, board(w, s, status)])),
-    projects: Object.fromEntries([...seen].map(([name, list]) => [name, project(dataDir, list, ctx)])),
+    cats: CATEGORIES,
+    windows,
+    projects: Object.fromEntries([...seen].map(([name, list]) => [name, project(dataDir, list, ctx, find)])),
   };
 }
 
@@ -147,6 +185,7 @@ export const homePage = (data) => `<!doctype html>
   <section class="index">
     <div class="phead"><h1>涨星榜</h1><p class="lede" id="lede"></p></div>
     <div id="wins" role="group" aria-label="时间窗口"></div>
+    <div id="cats" role="group" aria-label="分类"></div>
     <div id="notes"></div>
     <div class="list"><span class="sel-mark" id="selmark"></span><ol class="rows" id="rows" role="listbox" aria-label="涨星榜"></ol></div>
     <p class="foot">所有数字来自 GitHub 官方数据。</p>

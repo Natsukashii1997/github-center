@@ -3,6 +3,7 @@
 window.GC = (() => {
   const D = JSON.parse(document.getElementById('gc-data').textContent), I = window.ICONS;
   const WINDOWS = Object.entries(D.windows).map(([id, w]) => ({ id, label: w.label }));
+  const CATS = D.cats;
   const SPAN = { d1: 1, d7: 7, d30: 30 };
   const AI = Object.fromEntries(D.ais);
   const $ = (s, r = document) => r.querySelector(s);
@@ -143,7 +144,7 @@ window.GC = (() => {
     el.innerHTML = list.map((n) => `<div class="note"${n.tone ? ` data-tone="${n.tone}"` : ''}>${I[n.icon]}<b>${esc(n.title)}</b><p>${esc(n.text)}</p></div>`).join('');
   }
 
-  // ── 下划线标签 / 分段控件 ──
+  // ── 下划线标签 / 分类胶囊 / 分段控件 ──
   function tabs(el, items, cur, onPick) {
     el.classList.add('tabs');
     el.innerHTML = items.map(([id, t]) => `<button type="button" data-id="${id}">${t}</button>`).join('') + '<span class="tabs-line"></span>';
@@ -153,6 +154,14 @@ window.GC = (() => {
       bs.forEach((b, k) => b.setAttribute('aria-pressed', k === i));
       $('.tabs-line', el).style.transform = `translateX(${i * bs[0].offsetWidth}px)`;
     };
+    place(cur);
+    return place;
+  }
+  function chips(el, cur, onPick) {
+    el.classList.add('chips');
+    el.innerHTML = [null, ...CATS].map((c) => `<button type="button" data-cat="${c || ''}">${c || '全部'}</button>`).join('');
+    $$('button', el).forEach((b) => b.addEventListener('click', () => onPick(b.dataset.cat || null)));
+    const place = (c) => $$('button', el).forEach((b) => b.setAttribute('aria-pressed', (b.dataset.cat || null) === c));
     place(cur);
     return place;
   }
@@ -171,7 +180,7 @@ window.GC = (() => {
   }
 
   // ── 榜单行 ──
-  // r：快照里的一条（名次、并列、窗口新增）并上项目资料。分类标签（#10）还没有，先留空。
+  // r：快照里的一条（名次、并列、窗口新增）并上项目资料；第三行是项目的分类（#10），还没归类的留空。
   function rowCreate(r, onPick) {
     const p = D.projects[r.repo];
     const li = document.createElement('li');
@@ -191,12 +200,13 @@ window.GC = (() => {
     return li;
   }
   function rowUpdate(li, r) {
-    const run = D.projects[r.repo].runs[r.run];
+    const p = D.projects[r.repo], run = p.runs[r.run];
     $('.rk b', li).textContent = r.rank;
     $('.rk i', li).hidden = !r.tie;
     li.toggleAttribute('data-top', r.rank <= 3);
+    $('.tg', li).innerHTML = p.cats.map((c) => `<span>${esc(c)}</span>`).join('');
     swap($('.g', li), `<small>+</small>${num(r.gain)}`);
-    $('.t', li).innerHTML = `总 <span class="num">${wan(run.total)}</span>`;
+    $('.t', li).innerHTML = `总 <span class="num">${run.total == null ? '暂缺' : wan(run.total)}</span>`;
   }
 
   // 选中块：跟着选中行滑动。选中的行是榜单在 Tab 顺序里的那一站，其余行用方向键到达。
@@ -226,7 +236,7 @@ window.GC = (() => {
     return `<div class="body">
       ${ctx.eyebrow ? `<div class="eyebrow">${ctx.eyebrow}</div>` : ''}
       <div class="title"><img class="av" alt="" data-key="${esc(p.repo)}" referrerpolicy="no-referrer" src="${avatar(p, 96)}"><div><h2><span class="o">${esc(ownerOf(p))}/</span>${esc(nameOf(p))}</h2><div class="meta">${meta}</div></div></div>
-      <div class="stats">${stats}<div class="stat"><span class="k">总 Star</span><span class="v">${wan(run.total)}</span></div></div>
+      <div class="stats">${stats}<div class="stat"><span class="k">总 Star</span><span class="v">${run.total == null ? '暂缺' : wan(run.total)}</span></div></div>
       ${chart}
       ${read}
       ${p.conditions.length ? `<div class="cond"><b>使用条件</b>${p.conditions.map(esc).join('；')}</div>` : ''}
@@ -290,5 +300,5 @@ window.GC = (() => {
   }, true);
 
   const q = new URLSearchParams(location.search);
-  return { D, I, WINDOWS, SPAN, AI, $, $$, esc, num, wan, md, mdShort, reduced, anim, reconcile, swap, toast, favs, favSkills, toggleFav, setFavBtn, copyInstall, topbar, setStatus, notes, tabs, seg, rowCreate, rowUpdate, placeSel, cardHTML, wireCard, growBars, sweepBars, emptyHTML, avatar, ownerOf, nameOf, pageOf, q };
+  return { D, I, WINDOWS, CATS, SPAN, AI, $, $$, esc, num, wan, md, mdShort, reduced, anim, reconcile, swap, toast, favs, favSkills, toggleFav, setFavBtn, copyInstall, topbar, setStatus, notes, tabs, chips, seg, rowCreate, rowUpdate, placeSel, cardHTML, wireCard, growBars, sweepBars, emptyHTML, avatar, ownerOf, nameOf, pageOf, q };
 })();
