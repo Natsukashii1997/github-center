@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>其他榜单 · 版三 卡片网格 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="single-wide">
+  <div class="phead"><h1>其他榜单</h1><p class="lede" id="lede"></p></div>
+  <div id="boards" role="group" aria-label="榜单" style="--tab-w:112px"></div>
+  <div class="sub"><div id="period" role="group" aria-label="热门榜周期"></div><span id="subtext"></span></div>
+  <div id="cats" role="group" aria-label="分类"></div>
+  <div id="notes"></div>
+  <div class="grid" id="grid"></div>
+  <p class="foot">所有数字来自 GitHub 官方数据。</p>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版三「卡片网格」：每个项目一张卡，三列；名次是角上的小字，卡里直接收藏、复制安装；点卡进项目页。
+(() => {
+  const { $, $$, esc, num, wan, I } = GC;
+  const { P, gridCard, wireFavs, wireOpen, wireCopy, enter, project } = GP;
+  const BOARDS = [['new', '新项目榜'], ['trending', '官方热门榜'], ['top', '累计高星榜']];
+  const PER = [['daily', '日榜', '今日'], ['weekly', '周榜', '本周'], ['monthly', '月榜', '本月']];
+  let board = GC.q.get('board') || 'new', period = 'daily', cat = null;
+  GC.topbar('其他榜单');
+  $('#lede').innerHTML = `统计日 ${GC.md(GC.dayAt(29))}（UTC）。每个榜前 20 名，末位并列一起列出。`;
+  const placeBoard = GC.tabs($('#boards'), BOARDS, board, (id) => { if (id !== board) { board = id; render(); } });
+  GC.seg($('#period'), PER.map(([id, t]) => [id, t]), period, (id) => { period = id; render(); }, 64);
+  const placeCat = GC.chips($('#cats'), cat, (c) => { if (c !== cat) { cat = c; render(); } });
+  function build() {
+    const B = GC.D.boards;
+    if (board === 'new') return { rows: B.new, sub: '近 30 天内创建的项目，按总 Star 排。', number: (r) => num(r.total), label: (r) => `总 Star · 创建于 <span class="num">${GC.mdShort(GC.iso(r.created))}</span>` };
+    if (board === 'trending') { const word = PER.find((x) => x[0] === period)[2]; return { rows: B.trending[period], sub: 'Trending 原样排序，数字为官方页面标注。', number: (r) => `<small>+</small>${num(r.gain)}`, label: (r) => `${word}新增 · 总 <span class="num">${wan(r.total)}</span>` }; }
+    return { rows: B.top, sub: '全站按总 Star 排。', number: (r) => wan(r.total), label: () => '总 Star' };
+  }
+  function render() {
+    placeBoard(board); placeCat(cat);
+    const cur = build();
+    const rows = cur.rows.filter((r) => !cat || P(r.repo).cats.includes(cat));
+    $('#period').hidden = board !== 'trending';
+    GC.swap($('#subtext'), cur.sub);
+    $('#notes').innerHTML = cat && rows.length && rows.length < 20 ? `<div class="note">${I.tag}<b>不足 20 个</b><p>「${esc(cat)}」在本榜只有 ${rows.length} 个项目，全部列出。</p></div>` : '';
+    const grid = $('#grid');
+    grid.innerHTML = rows.length ? rows.map((r, i) => gridCard(P(r.repo), { rank: cat ? i + 1 : r.rank, number: cur.number(r), label: cur.label(r), href: project(r.repo, 'boards') })).join('') : GC.emptyHTML('inbox', '这个分类在本榜没有项目', '换个分类看看。');
+    wireOpen(grid); wireFavs(grid); wireCopy(grid);
+    enter(grid, '.gcard');
+  }
+  render();
+})();
+</script>
+</body>
+</html>

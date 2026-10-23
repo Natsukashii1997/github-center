@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>其他榜单 · 版一 三榜同屏 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="wide">
+  <div class="phead"><h1>其他榜单</h1><p class="lede" id="lede"></p></div>
+  <div id="cats" role="group" aria-label="分类"></div>
+  <div class="three" id="three"></div>
+  <p class="foot">所有数字来自 GitHub 官方数据。</p>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版一「三榜同屏」：三个榜单并排，各列前 20，一眼扫完；点项目进项目页，没有阅读卡。分类胶囊同时筛三个榜。
+(() => {
+  const { $, $$, esc, num, wan, I } = GC;
+  const { P, compactRow, wireOpen, enter, project } = GP;
+  const PER = [['daily', '日榜', '今日'], ['weekly', '周榜', '本周'], ['monthly', '月榜', '本月']];
+  let cat = null, period = 'daily';
+  GC.topbar('其他榜单');
+  $('#lede').innerHTML = `统计日 ${GC.md(GC.dayAt(29))}（UTC）。三个榜各前 20 名，末位并列一起列出；点项目进项目页。`;
+  const placeCat = GC.chips($('#cats'), cat, (c) => { if (c !== cat) { cat = c; render(); } });
+  const byCat = (rows) => rows.filter((r) => !cat || P(r.repo).cats.includes(cat));
+
+  function col(id, title, sub, rows, number, subn, extra = '') {
+    const short = cat && rows.length && rows.length < 20 ? `<div class="note">${I.tag}<b>不足 20 个</b><p>「${esc(cat)}」在本榜只有 ${rows.length} 个项目，全部列出。</p></div>` : '';
+    const empty = rows.length ? '' : GC.emptyHTML('inbox', '这个分类在本榜没有项目', '换个分类看看。');
+    return `<section class="col" id="${id}"><div class="col-h"><h2>${title}</h2><p class="sub">${sub}</p></div>${extra}${short}${empty}<ol class="crows">${rows.map((r, i) => compactRow(r, { rank: cat ? i + 1 : r.rank, number: number(r), sub: subn(r), href: project(r.repo, 'boards') })).join('')}</ol></section>`;
+  }
+  function render() {
+    placeCat(cat);
+    const B = GC.D.boards, word = PER.find((x) => x[0] === period)[2];
+    $('#three').innerHTML = [
+      col('new', '新项目榜', '近 30 天创建 · 按总 Star', byCat(B.new), (r) => num(r.total), (r) => `创建于 <span class="num">${GC.mdShort(GC.iso(r.created))}</span>`),
+      col('trending', '官方热门榜', 'GitHub Trending 原样顺序', byCat(B.trending[period]), (r) => `<small>+</small>${num(r.gain)}`, () => `${word}新增`, '<div id="period" role="group" aria-label="热门榜周期"></div>'),
+      col('top', '累计高星榜', '全站按总 Star', byCat(B.top), (r) => wan(r.total), () => '总 Star'),
+    ].join('');
+    GC.seg($('#period'), PER.map(([id, t]) => [id, t]), period, (id) => { period = id; render(); }, 56);
+    wireOpen($('#three'));
+    enter($('#three'), '.crow');
+  }
+  render();
+})();
+</script>
+</body>
+</html>

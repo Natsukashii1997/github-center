@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · 版三 深色门厅 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<main class="login-dark">
+  <div class="bar"><a class="brand" href="login-3.html"><span class="mark" aria-hidden="true"></span>GitHub 快速中心</a><span>只在这台电脑上运行 · 不开放注册</span></div>
+  <div class="mid">
+    <div class="login">
+      <h1>登录</h1>
+      <p class="lede">登录后查看每天的涨星榜和日报。</p>
+      <form id="form" novalidate>
+        <div class="field"><label for="user">用户名</label><div class="input"><input id="user" name="user" autocomplete="username" autocapitalize="off" spellcheck="false"></div></div>
+        <div class="field"><label for="pass">密码</label><div class="input"><input id="pass" name="pass" type="password" autocomplete="current-password"><button class="ib" type="button" id="peek" aria-label="显示密码"></button></div></div>
+        <div class="err" role="alert" hidden></div>
+        <button class="btn btn-p btn-w" type="submit">登录</button>
+      </form>
+      <p class="fine">账号由所有者开通。忘了密码请联系所有者重置。</p>
+    </div>
+  </div>
+</main>
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版三「深色门厅」：登录页固定用深色（同一套变量的深色取值），顶上一条和站内顶栏同高的细栏；登录后页面跟随系统明暗。
+GP.wireLogin(document.getElementById('form'));
+</script>
+</body>
+</html>

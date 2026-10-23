@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的收藏 · 版三 索引加阅读卡 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="split">
+  <section class="index">
+    <div class="phead"><h1>我的收藏</h1><p class="lede" id="lede"></p></div>
+    <div class="list"><span class="sel-mark" id="selmark"></span><ol class="rows" id="rows" role="listbox" aria-label="我的收藏"></ol></div>
+    <p class="foot">只有你自己看得到。</p>
+  </section>
+  <aside class="reader"><article class="card" id="card" aria-live="polite"></article></aside>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版三「索引加阅读卡」：和涨星榜首页同一个结构。左边是收藏的索引（项目、Skill 分两段），右边是选中那条的阅读卡，
+// 收藏的 Skill 选中时卡片滚到那一条；上下方向键切换；取消收藏后条目右移淡出。
+(() => {
+  const { $, $$, esc, I } = GC;
+  const { favItems, when, avImg, name, ds, cats } = GP;
+  GC.topbar('我的收藏');
+  let items = favItems(), sel = null, shown = null;
+  const rowsEl = $('#rows'), card = $('#card'), mark = $('#selmark');
+  const keyOf = (f) => (f.skill ? `${f.repo}#${f.skill.name}` : f.repo);
+  function rowHTML(f) {
+    const p = f.p;
+    const lead = f.skill ? `<span class="skill-ic">${I.puzzle}</span>` : avImg(p, 56);
+    const main = f.skill ? `<div class="nm"><code>${esc(f.skill.name)}</code></div><div class="ds">来自 ${esc(f.repo)} · ${esc(f.skill.desc)}</div>` : `<div class="nm" title="${esc(p.repo)}">${name(p)}</div><div class="ds" title="${esc(ds(p))}">${esc(ds(p))}</div>`;
+    return `${lead}<div class="tx">${main}</div><span class="when">${when(f.at)}</span><button class="ib" type="button" data-fav="${esc(keyOf(f))}" aria-pressed="true" aria-label="取消收藏">${I['star-fill']}</button>`;
+  }
+  function select(key) { sel = key; GC.placeSel(rowsEl, mark, sel); showCard(); }
+  function showCard() {
+    const f = items.find((x) => keyOf(x) === sel);
+    if (!f) { card.innerHTML = GC.emptyHTML('star', '还没有收藏', '在榜单或项目页点星标，就会收在这里。', ['../../t1b/index.html', '去看涨星榜']); shown = null; return; }
+    if (shown !== f.repo) {
+      card.innerHTML = GC.cardHTML(f.p, { eyebrow: `<span>${when(f.at)}</span>`, win: 'd1', mode: 'pane' });
+      GC.wireCard(card, f.p);
+      GC.anim($('.body', card), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+      GC.growBars(card);
+      shown = f.repo;
+    } else $('.eyebrow', card).innerHTML = `<span>${when(f.at)}</span>`;
+    if (f.skill) $(`[data-skill-fav="${CSS.escape(f.skill.name)}"]`, card)?.closest('.skill')?.scrollIntoView({ block: 'center', behavior: GC.reduced() ? 'auto' : 'smooth' });
+    else $('.body', card).scrollTo({ top: 0, behavior: GC.reduced() ? 'auto' : 'smooth' });
+  }
+  function render() {
+    const repos = items.filter((f) => f.type === 'repo'), skills = items.filter((f) => f.type === 'skill');
+    $('#lede').textContent = items.length ? `${repos.length} 个项目，${skills.length} 个 Skill。按收藏时间从新到旧排。` : '还没有收藏。';
+    rowsEl.innerHTML = [['项目', repos], ['Skill', skills]].filter(([, l]) => l.length).map(([t, l]) => `<li class="sec-lbl" aria-hidden="true">${t} · ${l.length}</li>${l.map((f) => `<li class="row frow" role="option" tabindex="-1" data-key="${esc(keyOf(f))}">${rowHTML(f)}</li>`).join('')}`).join('');
+    $$('.frow', rowsEl).forEach((li) => li.addEventListener('click', () => select(li.dataset.key)));
+    $$('[data-fav]', rowsEl).forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = b.dataset.fav, li = b.closest('li');
+      (id.includes('#') ? GC.favSkills : GC.favs).delete(id);
+      GC.toast(`已取消收藏 ${id.replace('#', ' 的 Skill ')}`, 'star');
+      GC.anim(li, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(8px)' }], { duration: 160, easing: 'cubic-bezier(.5, 0, .75, 0)', fill: 'forwards' });
+      setTimeout(() => { items = items.filter((f) => keyOf(f) !== id); if (sel === id) sel = null; render(); }, GC.reduced() ? 0 : 160);
+    }));
+    if (!items.some((f) => keyOf(f) === sel)) sel = items[0] ? keyOf(items[0]) : null;
+    GC.placeSel(rowsEl, mark, sel);
+    showCard();
+  }
+  rowsEl.addEventListener('keydown', (e) => {
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    e.preventDefault();
+    const i = items.findIndex((f) => keyOf(f) === sel);
+    const n = items[Math.max(0, Math.min(items.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    select(keyOf(n));
+    rowsEl.querySelector(`[data-key="${CSS.escape(keyOf(n))}"]`)?.focus({ preventScroll: true });
+  });
+  render();
+})();
+</script>
+</body>
+</html>

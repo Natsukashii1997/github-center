@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日报 · 版一 三栏并排 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="wide" id="page"></div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版一「三栏并排」：概览在上，近 1、7、30 天三个前 10 并排各一列，同一屏对照；版本发布在下。
+(() => {
+  const { $, esc, I } = GC;
+  const { ditem, dailySections, relRow, project } = GP;
+  GC.topbar('日报');
+  const day = GC.md(GC.dayAt(29));
+  const sections = dailySections();
+  $('#page').innerHTML = `<div class="phead"><h1>${day}日报</h1><p class="lede">统计日 ${day}（UTC），10 月 23 日 16:52 生成。飞书里收到的就是这一份。</p></div>
+    <p class="overview-wide">${esc(GC.D.daily.overview)}</p>
+    <div class="tri">${sections.map(({ w, items }) => `<section id="${w.id}"><h2>${w.label}前 10</h2><ol class="dlist">${items.map(({ r, first, id }) => ditem(r, { id, first, href: project(r.repo, 'daily') })).join('')}</ol></section>`).join('')}</div>
+    <section class="rels" id="rel"><h2>版本发布</h2><p class="lede">榜上项目在统计日前 7 天内发布的版本，每个项目取最近一次。只写有记录的事，不猜为什么涨。</p>${GC.D.daily.releases.map((r) => relRow(r, 'daily')).join('')}</section>
+    <p class="foot">数字来自 GitHub 官方数据；项目介绍由 AI 根据项目文档写成。</p>`;
+  GC.anim($('#page'), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+})();
+</script>
+</body>
+</html>

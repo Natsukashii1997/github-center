@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · 版一 左右分栏 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<main class="login-split">
+  <section class="intro">
+    <a class="brand" href="login-1.html"><span class="mark" aria-hidden="true"></span>GitHub 快速中心</a>
+    <h1>每天两分钟，知道 GitHub 上什么在涨、值不值得装。</h1>
+    <ol class="how">
+      <li><span class="n">1</span><div><b>全站找候选</b>从 GitHub 全站的 Star 事件里找出当天涨得多的项目。</div></li>
+      <li><span class="n">2</span><div><b>官方核数</b>每个候选都用 GitHub 官方星数历史核一遍，榜单只认官方数字。</div></li>
+      <li><span class="n">3</span><div><b>看完就装</b>简介、使用条件、Skill 都整理好，一键复制安装指令给你的 AI。</div></li>
+    </ol>
+  </section>
+  <section class="pane">
+    <div class="login">
+      <h1>登录</h1>
+      <p class="lede">只在这台电脑上运行，账号由所有者开通。</p>
+      <form id="form" novalidate>
+        <div class="field"><label for="user">用户名</label><div class="input"><input id="user" name="user" autocomplete="username" autocapitalize="off" spellcheck="false"></div></div>
+        <div class="field"><label for="pass">密码</label><div class="input"><input id="pass" name="pass" type="password" autocomplete="current-password"><button class="ib" type="button" id="peek" aria-label="显示密码"></button></div></div>
+        <div class="err" role="alert" hidden></div>
+        <button class="btn btn-p btn-w" type="submit">登录</button>
+      </form>
+      <p class="fine">暂不开放注册。忘了密码请联系所有者重置。</p>
+    </div>
+  </section>
+</main>
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版一「左右分栏」：左边三句话说清这个站是干什么的、数字从哪来；右边登录。
+GP.wireLogin(document.getElementById('form'));
+</script>
+</body>
+</html>

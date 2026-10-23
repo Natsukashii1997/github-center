@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日报 · 版三 主次结构 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="mr">
+  <main class="main" id="main"></main>
+  <aside class="rail" id="rail" aria-label="近 7 天、近 30 天与版本发布"></aside>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版三「主次结构」：日报讲的是“今天”。近 1 天前 10 是主角，每条带简介和近 30 天走势；近 7 天、近 30 天和版本发布收在右侧一直跟着的栏里，只列名字和数字。
+(() => {
+  const { $, esc, num, I } = GC;
+  const { P, ditem, compactRow, spark, dailySections, relRow, project } = GP;
+  GC.topbar('日报');
+  const day = GC.md(GC.dayAt(29));
+  const [d1, d7, d30] = dailySections();
+  $('#main').innerHTML = `<div class="phead"><h1>${day}日报</h1><p class="lede">统计日 ${day}（UTC），10 月 23 日 16:52 生成。飞书里收到的就是这一份。</p></div>
+    <p class="overview-wide">${esc(GC.D.daily.overview)}</p>
+    <section id="d1"><h2>近 1 天前 10</h2><ol class="dlist">${d1.items.map(({ r, id }) => ditem(r, { id, href: project(r.repo, 'daily'), extra: spark(P(r.repo), 1) })).join('')}</ol></section>
+    <p class="foot">数字来自 GitHub 官方数据；项目介绍由 AI 根据项目文档写成。</p>`;
+  const rail = (s) => `<section id="${s.w.id}"><h2>${s.w.label}前 10</h2><ol class="crows">${s.items.map(({ r }) => compactRow(r, { number: `<small>+</small>${num(r.gain)}`, href: project(r.repo, 'daily') })).join('')}</ol></section>`;
+  $('#rail').innerHTML = `${rail(d7)}${rail(d30)}<section id="rel"><h2>版本发布</h2>${GC.D.daily.releases.map((r) => relRow(r, 'daily')).join('')}</section>`;
+  GP.wireOpen($('#rail'));
+  GC.anim($('#main'), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+})();
+</script>
+</body>
+</html>

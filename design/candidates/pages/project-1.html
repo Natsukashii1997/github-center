@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目 · 版一 正文加侧栏 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="pj1">
+  <main class="main" id="main"></main>
+  <aside class="side" id="side" aria-label="数据与安装"></aside>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版一「正文加侧栏」：左边读（简介、使用条件带原文、Skill），右边一直跟着的侧栏放数字、走势和安装、收藏；读到哪都能装。
+(() => {
+  const { $, $$, esc, num, I } = GC;
+  const { pick, backOf, avImg, name, cats, readOf, condList, skillList, sources, ranksOf, statStrip, chartOf, wireFavs, wireCopy } = GP;
+  const p = pick();
+  const [href, label, nav] = backOf(GC.q.get('from'));
+  GC.topbar(nav);
+  document.title = `${p.repo} · GitHub 快速中心`;
+  let target = 'claude', win = 'd1';
+  const ranks = ranksOf(p.repo);
+  const main = $('#main'), side = $('#side');
+  main.innerHTML = `<a class="back" href="${href}">${I.back}<span>${label}</span></a>
+    <div class="title">${avImg(p, 112)}<div><h2>${name(p)}</h2><div class="meta">${cats(p)}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}${p.created ? `<span>创建于 ${GC.md(GC.iso(p.created))}</span>` : ''}</div></div></div>
+    <div class="ranks">${ranks.length ? ranks.map(([w, r]) => `<span>${w.label}第 ${r.rank} 名${r.tie ? '（并列）' : ''}</span>`).join('') : '<span>不在当前三个涨星榜的前 20 名里</span>'}</div>
+    ${readOf(p)}${condList(p)}${skillList(p)}${sources(p)}`;
+  side.innerHTML = `${statStrip(p, win, true)}${chartOf(p, win)}
+    <div><span class="k">安装到</span><div data-target></div></div>
+    <button class="btn btn-p btn-w" type="button" data-copy>${I.copy}<span>复制安装指令</span></button>
+    <div class="acts"><button class="btn btn-g" type="button" data-fav>${I.star}<span>收藏</span></button><a class="btn btn-g btn-i" href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener" title="在 GitHub 打开" aria-label="在 GitHub 打开">${I.external}</a></div>`;
+  GC.seg($('[data-target]', side), Object.entries(GP.AI), target, (t) => { target = t; }, 160);
+  $('[data-copy]', side).addEventListener('click', (e) => GC.copyInstall(e.currentTarget, p.repo, target));
+  const fav = $('[data-fav]', side);
+  GC.setFavBtn(fav, GC.favs.has(p.repo), true);
+  fav.addEventListener('click', () => GC.toggleFav(p.repo, fav, true));
+  $$('button.stat', side).forEach((b) => b.addEventListener('click', () => { win = b.dataset.win; GC.sweepBars(side, win); }));
+  wireFavs(main); wireCopy(main, () => target);
+  GC.anim($('.main'), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+  GC.growBars(side);
+})();
+</script>
+</body>
+</html>

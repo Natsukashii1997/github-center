@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目 · 版三 安装优先 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<main class="single pj3" id="main"></main>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版三「安装优先」：来项目页就是为了装。页头两句话说清是什么；接着就是安装面板：选装到哪、装整个项目还是某个 Skill，
+// 指令原文就在眼前，一键复制；使用条件做成装前核对清单；数字和走势放最后。
+(() => {
+  const { $, $$, esc, num, I } = GC;
+  const { pick, backOf, avImg, name, cats, condList, sources, ranksOf, statStrip, chartOf } = GP;
+  const p = pick();
+  const [href, label, nav] = backOf(GC.q.get('from'));
+  GC.topbar(nav);
+  document.title = `${p.repo} · GitHub 快速中心`;
+  let target = 'claude', scope = '', win = 'd1';
+  const ranks = ranksOf(p.repo);
+  const main = $('#main');
+  const scopes = [{ id: '', code: '整个项目', desc: p.hasProfile ? '按项目文档安装和配置' : '项目资料还没读到，暂时不能生成安装指令' }, ...p.skills.map((s) => ({ id: s.name, code: s.name, desc: s.desc }))];
+  main.innerHTML = `<a class="back" href="${href}">${I.back}<span>${label}</span></a>
+    <div class="hero">${avImg(p, 128)}<div><h1>${name(p)}</h1>${p.what == null ? `<div class="gen">${I.sparkle}<span>简介生成中，通常几分钟内完成；下面的数字已是官方数据。</span></div>` : `<p>${esc(p.what)} ${esc(p.problem)}</p>`}<div class="meta">${cats(p)}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}${ranks.map(([w, r]) => `<span>${w.label}第 ${r.rank} 名</span>`).join('')}<a href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener">在 GitHub 打开</a></div></div></div>
+    <section class="inst" aria-label="安装">
+      <div class="h"><h2>安装</h2><span class="k">安装到</span><div data-target></div></div>
+      <ul class="scope" role="radiogroup" aria-label="装什么">${scopes.map((s) => `<li role="radio" aria-checked="${s.id === scope}" data-scope="${esc(s.id)}"><span class="radio"></span>${s.id ? `<code>${esc(s.code)}</code>` : `<b>${s.code}</b>`}<span>${esc(s.desc)}</span></li>`).join('')}</ul>
+      <pre id="text"></pre>
+      <div class="f"><button class="btn btn-p" type="button" data-copy${p.hasProfile ? '' : ' disabled'}>${I.copy}<span>复制安装指令</span></button><span class="k" id="copyk">${p.hasProfile ? '复制后粘贴给你的 AI，它会按项目文档安装' : '项目资料读到后才能生成'}</span><span class="sp"></span><button class="btn btn-g" type="button" data-fav>${I.star}<span>收藏</span></button></div>
+    </section>
+    ${condList(p).replace('class="conds"', 'class="conds check"').replace('使用条件', '装前核对：使用条件')}
+    <section class="data"><div class="sec-k">数据</div>${statStrip(p, win, true)}${chartOf(p, win)}</section>
+    ${sources(p)}`;
+  const text = $('#text');
+  const refresh = () => { text.textContent = p.hasProfile ? GC.installText(p.repo, target, scope || undefined) : '（项目资料还没读到）'; };
+  GC.seg($('[data-target]', main), Object.entries(GP.AI), target, (t) => { target = t; refresh(); }, 100);
+  $$('.scope li', main).forEach((li) => li.addEventListener('click', () => { scope = li.dataset.scope; $$('.scope li', main).forEach((x) => x.setAttribute('aria-checked', x === li)); refresh(); GC.anim(text, [{ opacity: .4 }, { opacity: 1 }], { duration: 200 }); }));
+  $('[data-copy]', main).addEventListener('click', (e) => GC.copyInstall(e.currentTarget, p.repo, target, scope || undefined));
+  const fav = $('[data-fav]', main);
+  GC.setFavBtn(fav, GC.favs.has(p.repo), true);
+  fav.addEventListener('click', () => GC.toggleFav(p.repo, fav, true));
+  $$('button.stat', main).forEach((b) => b.addEventListener('click', () => { win = b.dataset.win; GC.sweepBars(main, win); }));
+  refresh();
+  GC.anim(main, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+  GC.growBars(main);
+})();
+</script>
+</body>
+</html>

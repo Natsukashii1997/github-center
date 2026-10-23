@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的收藏 · 版二 按仓库归组 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<main class="single">
+  <div class="phead"><h1>我的收藏</h1><p class="lede" id="lede"></p></div>
+  <div id="content"></div>
+</main>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版二「按仓库归组」：Skill 属于它的仓库。每个仓库一组：组头是项目，组里是收藏的 Skill；按最近一次收藏排序；组头和每条都能单独取消。
+(() => {
+  const { $, $$, esc, I } = GC;
+  const { favItems, when, avImg, name, ds, cats, project } = GP;
+  GC.topbar('我的收藏');
+  let items = favItems();
+  const content = $('#content');
+  function render() {
+    const repos = items.filter((f) => f.type === 'repo').length, skills = items.length - repos;
+    $('#lede').textContent = items.length ? `${repos} 个项目，${skills} 个 Skill，按最近一次收藏排；只有你自己看得到。` : '只有你自己看得到。';
+    if (!items.length) { content.innerHTML = `<div class="sec">${GC.emptyHTML('star', '还没有收藏', '在榜单或项目页点星标，就会收在这里。', ['../../t1b/index.html', '去看涨星榜'])}</div>`; return; }
+    const groups = new Map();
+    for (const f of items) { if (!groups.has(f.repo)) groups.set(f.repo, { p: f.p, repo: null, skills: [], at: f.at }); const g = groups.get(f.repo); if (f.type === 'repo') g.repo = f; else g.skills.push(f); if (f.at > g.at) g.at = f.at; }
+    const list = [...groups.values()].sort((a, b) => (a.at < b.at ? 1 : -1));
+    content.innerHTML = list.map((g) => `<section class="fgroup" data-key="${esc(g.p.repo)}">
+      <div class="gh" data-href="${project(g.p.repo, 'favorites')}">${avImg(g.p, 80)}<div class="tx"><div class="nm" title="${esc(g.p.repo)}">${name(g.p)}</div><div class="ds" title="${esc(ds(g.p))}">${esc(ds(g.p))}</div><div class="tg">${cats(g.p)}</div></div><span class="when">${g.repo ? when(g.repo.at) : `收藏了 ${g.skills.length} 个 Skill`}</span><button class="ib" type="button" data-fav="${esc(g.p.repo)}" aria-pressed="${Boolean(g.repo)}" aria-label="${g.repo ? '取消收藏' : '收藏整个项目'}">${g.repo ? I['star-fill'] : I.star}</button></div>
+      ${g.skills.length ? `<ul class="gs">${g.skills.map((f) => `<li data-id="${esc(`${f.repo}#${f.skill.name}`)}"><span class="skill-ic">${I.puzzle}</span><code>${esc(f.skill.name)}</code><span>${esc(f.skill.desc)}</span><span class="when">${when(f.at)}</span><button class="btn btn-g btn-s" type="button" data-copy-skill="${esc(f.skill.name)}">${I.copy}<span>复制安装</span></button><button class="ib" type="button" data-fav="${esc(`${f.repo}#${f.skill.name}`)}" aria-pressed="true" aria-label="取消收藏">${I['star-fill']}</button></li>`).join('')}</ul>` : ''}
+    </section>`).join('');
+    GP.wireOpen(content); GP.wireCopy(content);
+    $$('[data-fav]', content).forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = b.dataset.fav, isSkill = id.includes('#'), set = isSkill ? GC.favSkills : GC.favs;
+      if (!set.has(id)) { // 组头：收藏整个项目
+        set.add(id); items.unshift({ type: 'repo', repo: id, at: '2026-10-24T00:30', p: GC.projects[id], skill: null }); GC.setFavBtn(b, true); GC.toast(`已收藏 ${id}`, 'star-fill'); render(); return;
+      }
+      set.delete(id);
+      GC.toast(`已取消收藏 ${id.replace('#', ' 的 Skill ')}`, 'star');
+      const row = isSkill ? b.closest('li') : b.closest('.gh');
+      GC.anim(row, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(8px)' }], { duration: 160, easing: 'cubic-bezier(.5, 0, .75, 0)', fill: 'forwards' });
+      setTimeout(() => { items = items.filter((f) => (f.type === 'skill' ? `${f.repo}#${f.skill.name}` : f.repo) !== id); render(); }, GC.reduced() ? 0 : 160);
+    }));
+    GP.enter(content, '.fgroup');
+  }
+  render();
+})();
+</script>
+</body>
+</html>

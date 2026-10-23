@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · 版二 极简 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<main class="login-min">
+  <div class="login">
+    <span class="mark" aria-hidden="true"></span>
+    <h1>GitHub 快速中心</h1>
+    <form id="form" novalidate>
+      <div class="field"><label for="user">用户名</label><div class="input"><input id="user" name="user" placeholder="用户名" autocomplete="username" autocapitalize="off" spellcheck="false"></div></div>
+      <div class="field"><label for="pass">密码</label><div class="input"><input id="pass" name="pass" type="password" placeholder="密码" autocomplete="current-password"><button class="ib" type="button" id="peek" aria-label="显示密码"></button></div></div>
+      <div class="err" role="alert" hidden></div>
+      <button class="btn btn-p btn-w" type="submit">登录</button>
+    </form>
+    <p class="fine">私人站点，不开放注册。</p>
+  </div>
+</main>
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版二「极简」：没有面板、没有说明，只有站名、两个输入框和一个按钮；这是私人工具，门口不用多说。
+GP.wireLogin(document.getElementById('form'));
+</script>
+</body>
+</html>

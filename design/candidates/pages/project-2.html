@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目 · 版二 文档式长页 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="doc">
+  <aside class="toc"><nav id="toc" aria-label="项目页目录"><span class="toc-line" id="tocline"></span></nav></aside>
+  <article class="art" id="art"></article>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 版二「文档式长页」：项目页是这个项目的完整档案，像日报一样左边目录、右边正文，分成概览、数据、使用条件（带原文）、Skill、依据五段；
+// 操作放在标题下的一条工具栏里。
+(() => {
+  const { $, $$, esc, num, I } = GC;
+  const { pick, backOf, avImg, name, cats, readOf, condList, skillList, sources, ranksOf, statStrip, chartOf, wireFavs, wireCopy } = GP;
+  const p = pick();
+  const [href, label, nav] = backOf(GC.q.get('from'));
+  GC.topbar(nav);
+  document.title = `${p.repo} · GitHub 快速中心`;
+  let target = 'claude', win = 'd1';
+  const ranks = ranksOf(p.repo);
+  const art = $('#art'), toc = $('#toc');
+  art.innerHTML = `<a class="back" href="${href}">${I.back}<span>${label}</span></a>
+    <div class="title">${avImg(p, 112)}<div><h2>${name(p)}</h2><div class="meta">${cats(p)}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}${p.created ? `<span>创建于 ${GC.md(GC.iso(p.created))}</span>` : ''}</div></div></div>
+    <div class="ranks">${ranks.length ? ranks.map(([w, r]) => `<span>${w.label}<b>第 ${r.rank} 名${r.tie ? '（并列）' : ''}</b></span>`).join('') : '<span>不在当前三个涨星榜的前 20 名里</span>'}</div>
+    <div class="toolbar"><span class="k">安装到</span><div data-target></div><button class="btn btn-p" type="button" data-copy>${I.copy}<span>复制安装指令</span></button><span class="sp"></span><button class="btn btn-g" type="button" data-fav>${I.star}<span>收藏</span></button><a class="btn btn-g btn-i" href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener" title="在 GitHub 打开" aria-label="在 GitHub 打开">${I.external}</a></div>
+    <section id="overview"><h2>概览</h2>${readOf(p)}</section>
+    <section id="data"><h2>近 30 天</h2>${statStrip(p, win, true)}${chartOf(p, win)}</section>
+    <section id="cond"><h2>使用条件</h2>${p.what == null ? '<p class="src">简介生成好后，这里列出项目文档里写到的付费、账号、密钥和环境要求，每条附原文。</p>' : condList(p).replace('<span class="sec-k">', '<span class="sec-k vh">')}</section>
+    <section id="skills"><h2>Skill</h2>${skillList(p).replace(/<div class="sec-k">[^<]*<\/div>/, '') || '<p class="src">项目资料还没读到。</p>'}</section>
+    <section id="src"><h2>依据</h2>${sources(p)}</section>`;
+  GC.seg($('[data-target]', art), Object.entries(GP.AI), target, (t) => { target = t; }, 100);
+  $('[data-copy]', art).addEventListener('click', (e) => GC.copyInstall(e.currentTarget, p.repo, target));
+  const fav = $('[data-fav]', art);
+  GC.setFavBtn(fav, GC.favs.has(p.repo), true);
+  fav.addEventListener('click', () => GC.toggleFav(p.repo, fav, true));
+  $$('button.stat', art).forEach((b) => b.addEventListener('click', () => { win = b.dataset.win; GC.sweepBars(art, win); }));
+  wireFavs($('#skills')); wireCopy($('#skills'), () => target);
+  // 目录跟随阅读位置（与日报同一做法）
+  const items = [['overview', '概览'], ['data', '近 30 天'], ['cond', '使用条件'], ['skills', 'Skill'], ['src', '依据']];
+  toc.innerHTML = '<span class="toc-line" id="tocline"></span>' + items.map(([id, t]) => `<a href="#${id}" data-id="${id}"><span>${t}</span></a>`).join('');
+  const links = $$('a', toc), line = $('#tocline', toc);
+  const mark = (id) => links.forEach((a, i) => { const on = a.dataset.id === id; a.toggleAttribute('aria-current', on); if (on) line.style.transform = `translateY(${i * 32}px)`; });
+  mark('overview');
+  const io = new IntersectionObserver((es) => { const v = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]; if (v) mark(v.target.id); }, { rootMargin: '-80px 0px -70% 0px' });
+  links.forEach((a) => io.observe(document.getElementById(a.dataset.id)));
+  GC.anim(art, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+  GC.growBars(art);
+})();
+</script>
+</body>
+</html>
