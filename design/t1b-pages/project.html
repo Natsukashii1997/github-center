@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目 · GitHub 快速中心</title>
+<link rel="stylesheet" href="../t1b/tokens.css">
+<link rel="stylesheet" href="../t1b/components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="pj1">
+  <main class="main" id="main"></main>
+  <aside class="side" id="side" aria-label="数据与安装"></aside>
+</div>
+
+<script src="../t1b/icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 正文加侧栏：左边读（简介、使用条件带原文、Skill 列表，超过 8 个折叠），右边一直跟着的侧栏放数字、走势和安装、收藏；读到哪都能装。
+// 状态：?state=loading（骨架）、generating（简介生成中）、noprofile（资料还没读到）、missing（找不到这个项目）、partial / failed（顶栏状态）。
+(() => {
+  const { $, $$, esc, I } = GC;
+  const { pick, backOf, avImg, name, cats, readOf, condList, skillList, sources, ranksOf, statStrip, chartOf, mainSkeleton, sideSkeleton, wireFavs, wireCopy, wireMore, state, status } = GP;
+  const st = state();
+  const [href, label, nav] = backOf(GC.q.get('from'));
+  GC.topbar(nav);
+  GC.setStatus(status(st));
+  const main = $('#main'), side = $('#side');
+  const back = `<a class="back" href="${href}">${I.back}<span>${label}</span></a>`;
+  const p0 = st === 'missing' ? null : pick();
+  if (!p0) {
+    document.title = '找不到这个项目 · GitHub 快速中心';
+    main.innerHTML = back + GC.emptyHTML('inbox', '找不到这个项目', '地址里的项目名可能写错了，或者它还没有上过榜。', [href, label.replace('返回', '去看')]);
+    side.hidden = true;
+    return;
+  }
+  document.title = `${p0.repo} · GitHub 快速中心`;
+  if (st === 'loading') { main.innerHTML = back + mainSkeleton(); side.classList.add('is-sk'); side.setAttribute('aria-busy', 'true'); side.innerHTML = sideSkeleton(); return; }
+  const p = st === 'generating' ? { ...p0, what: null, problem: null }
+    : st === 'noprofile' ? { ...p0, hasProfile: false, what: null, problem: null, skills: [], conditions: [], sources: null } : p0;
+  let target = 'claude', win = 'd1';
+  const ranks = ranksOf(p.repo);
+  main.innerHTML = `${back}
+    <div class="title">${avImg(p, 112)}<div><h2>${name(p)}</h2><div class="meta">${cats(p)}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}${p.created ? `<span>创建于 ${GC.md(GC.iso(p.created))}</span>` : ''}</div></div></div>
+    <div class="ranks">${ranks.length ? ranks.map(([w, r]) => `<span>${w.label}第 ${r.rank} 名${r.tie ? '（并列）' : ''}</span>`).join('') : '<span>不在当前三个涨星榜的前 20 名里</span>'}</div>
+    ${readOf(p)}${condList(p)}${skillList(p)}${sources(p)}`;
+  side.innerHTML = `${statStrip(p, win, true)}${chartOf(p, win)}
+    <div><span class="k">安装到</span><div data-target></div></div>
+    <button class="btn btn-p btn-w" type="button" data-copy>${I.copy}<span>复制安装指令</span></button>
+    <div class="acts"><button class="btn btn-g" type="button" data-fav>${I.star}<span>收藏</span></button><a class="btn btn-g btn-i" href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener" title="在 GitHub 打开" aria-label="在 GitHub 打开">${I.external}</a></div>`;
+  GC.seg($('[data-target]', side), Object.entries(GP.AI), target, (t) => { target = t; }, 160);
+  $('[data-copy]', side).addEventListener('click', (e) => GC.copyInstall(e.currentTarget, p.repo, target));
+  const fav = $('[data-fav]', side);
+  GC.setFavBtn(fav, GC.favs.has(p.repo), true);
+  fav.addEventListener('click', () => GC.toggleFav(p.repo, fav, true));
+  $$('button.stat', side).forEach((b) => b.addEventListener('click', () => { win = b.dataset.win; GC.sweepBars(side, win); }));
+  wireFavs(main); wireCopy(main, () => target); wireMore(main);
+  GC.anim(main, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+  GC.growBars(side);
+  // 从收藏页直达某条 Skill：在折叠区里的先展开
+  const hash = decodeURIComponent(location.hash.slice(1));
+  if (hash) { const el = document.getElementById(hash); if (el?.closest('.skill-more')) $('.more', main)?.click(); el?.scrollIntoView({ block: 'center' }); }
+})();
+</script>
+</body>
+</html>

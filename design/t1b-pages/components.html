@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件板补充 · 其余 5 页 · GitHub 快速中心</title>
+<link rel="stylesheet" href="../t1b/tokens.css">
+<link rel="stylesheet" href="../t1b/components.css">
+<link rel="stylesheet" href="pages.css">
+<style>
+/* 只属于组件板的排版，不进正式样式 */
+.kb { max-width: 1240px; margin: 0 auto; padding: var(--sp-10) var(--gutter) 120px; }
+.kb > header h1 { margin: 0; font-family: var(--font-read); font-size: var(--fs-display); font-weight: 700; }
+.ks { margin-top: 56px; }
+.ks > h2 { margin: 0 0 var(--sp-1); font-size: 18px; font-weight: 600; }
+.ks > .lede { margin: 0 0 var(--sp-5); }
+.kh { margin: 28px 0 10px; font-size: 12px; color: var(--c-ink-3); letter-spacing: .04em; }
+.frame { padding: var(--sp-6); border-radius: var(--r-xl); background: var(--c-bg); box-shadow: inset 0 0 0 1px var(--c-line); }
+.frame.tight { padding: 0; overflow: hidden; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); }
+.cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-6); }
+.row-inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); }
+.cap { display: block; margin-top: var(--sp-2); font-size: 12px; color: var(--c-ink-4); }
+.sw { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3); }
+.sw div { padding: 10px; border-radius: var(--r-lg); background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-line); font-size: 12px; }
+.sw i { display: block; height: 44px; margin-bottom: var(--sp-2); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--c-line); }
+.sw b { display: block; font: 500 12px var(--font-code); color: var(--c-ink); }
+.sw span { display: block; color: var(--c-ink-3); }
+.sw code { font: 11.5px var(--font-code); color: var(--c-ink-4); }
+.spec { width: 100%; border-collapse: collapse; font-size: 13px; }
+.spec th { text-align: left; font-weight: 500; color: var(--c-ink-3); font-size: 12px; padding: 0 var(--sp-3) var(--sp-2) 0; border-bottom: 1px solid var(--c-line); }
+.spec td { padding: 12px var(--sp-3) 12px 0; border-bottom: 1px solid var(--c-line); vertical-align: middle; }
+.spec code { font: 12px var(--font-code); color: var(--c-ink-2); }
+.bar-sp { display: inline-block; height: 12px; background: var(--c-accent); border-radius: 2px; vertical-align: middle; }
+.rad { width: 64px; height: 44px; background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-line-2); }
+.shd { height: 64px; border-radius: var(--r-lg); background: var(--c-surface); }
+.icons { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-3); }
+.icons div { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-lg); background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-line); font: 12px var(--font-code); color: var(--c-ink-3); }
+.icons svg { width: 20px; height: 20px; color: var(--c-ink); }
+.demo-list { width: var(--w-index); }
+.demo-card { width: 680px; height: 820px; }
+.mini { width: 420px; }
+.mini .cbars { height: 56px; }
+/* 静态展示悬停与聚焦（只在组件板） */
+.chips button.is-hover { color: var(--c-ink); box-shadow: inset 0 0 0 1px var(--c-ink-4); }
+.btn-p.is-hover { background: var(--c-ink-2); }
+.btn-g.is-hover { color: var(--c-ink); box-shadow: inset 0 0 0 1px var(--c-ink-4); }
+.ib.is-hover { color: var(--c-ink); background: var(--c-sunk); }
+.row.is-hover .nm .n { text-decoration: underline; text-decoration-color: var(--c-line-2); text-underline-offset: 3px; }
+.is-focus { outline: var(--focus); outline-offset: 2px; }
+.tabs button.is-focus { border-radius: var(--r-md); }
+.input input.is-focus { box-shadow: inset 0 0 0 1px var(--c-ink-2); }
+.toast.static { position: static; transform: none; opacity: 1; display: inline-flex; }
+.top.static { position: static; }
+/* 只属于这块补充板的排版 */
+.side.static { position: static; width: 380px; }
+.intro.static { border-right: 0; padding: var(--sp-8) var(--sp-6); width: 560px; }
+.k-three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-6); }
+.k-three .col { min-width: 0; }
+.k-rail { width: 340px; }
+.k-rail .crow { height: 40px; grid-template-columns: 22px 20px minmax(0, 1fr) auto; }
+.k-rail .crow .av { width: 20px; height: 20px; }
+.k-rail .crow .g { font-size: 13px; }
+.k-rail h2 { margin: 0; padding-bottom: 8px; border-bottom: 1px solid var(--c-line); font-size: 13px; font-weight: 600; color: var(--c-ink-2); }
+.k-rail .rel { grid-template-columns: 44px minmax(0, 1fr); padding: 8px 0; font-size: 12.5px; }
+.k-rail .rel .out { display: none; }
+.k-main { width: 760px; }
+.k-main h2 { margin: 0; font-family: var(--font-read); font-size: 21px; font-weight: 700; letter-spacing: .02em; }
+.k-main .ditem { grid-template-columns: 30px minmax(0, 1fr) 150px; }
+.k-main .ditem .spark, .k-main .ditem .spark-none { margin-top: 10px; height: 22px; }
+.k-empties { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-6); }
+.k-empties .card { min-height: 220px; }
+.spec td.hd { font-weight: 500; color: var(--c-ink); white-space: nowrap; }
+</style>
+</head>
+<body>
+<main class="kb">
+  <header>
+    <h1>组件板补充：其余 5 页</h1>
+    <p class="lede">其他榜单、项目页、日报、我的收藏、登录这 5 页新增的组件、状态与组合。顶栏、胶囊、分段控件、提示条、榜单行、阅读卡、按钮、表单、空状态、提示气泡、骨架、图标都沿用冻结的 <a href="../t1b/components.html" style="text-decoration:underline">t1b-r2 组件板</a>，这里不重复。颜色、字体、间距、圆角全部取自 tokens.css；新容器只在 pages.css 里定义一次。地址加 <code>?theme=dark</code> 看深色。</p>
+  </header>
+
+  <section class="ks" id="crow"><h2>紧凑行</h2><p class="lede">三榜同屏与日报跟随栏用。名次只给前三名加深；名字是真正的链接，键盘 Tab 能到，点整行也进项目页；一句话简介只占一行，放不下就截断（悬停看全文）。行高 52px，跟随栏里 40px。</p>
+    <div class="cols3">
+      <div><div class="kh">普通、前三名、悬停</div><ol class="crows" id="k-crow1"></ol></div>
+      <div><div class="kh">边界：超长名字与最长简介、简介生成中、五到七位数</div><ol class="crows" id="k-crow2"></ol></div>
+      <div><div class="kh">加载中</div><ol class="crows" id="k-crow3"></ol></div>
+    </div>
+  </section>
+
+  <section class="ks" id="three"><h2>三榜同屏的列</h2><p class="lede">列头是榜名和口径，官方热门榜多一行周期分段控件。分类胶囊同时筛三个榜：筛后名次从 1 重排，不足 20 个的列加提示条，没有项目的列给空状态。</p>
+    <div class="frame"><div class="k-three" id="k-three"></div></div>
+  </section>
+
+  <section class="ks" id="gcard"><h2>网格卡</h2><p class="lede">我的收藏用。项目卡和 Skill 卡同一骨架：头部（头像或 Skill 图标、名字链接）、一句话、分类、底栏（总 Star 与收藏时间，复制安装，收藏）。三种异常收藏用提示色一行写明：Skill 已不在仓库里（不给复制按钮）、项目资料没读到、项目已改名（点进去是新页面）。</p>
+    <div class="grid" id="k-cards"></div>
+  </section>
+
+  <section class="ks" id="side"><h2>项目页侧栏</h2><p class="lede">一直跟着的卡片：四个统计数（三个窗口是按钮，点哪个走势高亮哪个）、近 30 天走势、安装目标、复制安装指令、收藏与在 GitHub 打开。没有官方星数历史的项目走势写“暂缺”。</p>
+    <div class="cols3">
+      <div><div class="kh">完整</div><aside class="side static" id="k-side1"></aside></div>
+      <div><div class="kh">没有走势</div><aside class="side static" id="k-side2"></aside></div>
+      <div><div class="kh">加载中</div><aside class="side static is-sk" id="k-side3"></aside></div>
+    </div>
+  </section>
+
+  <section class="ks" id="cond"><h2>名次胶囊、使用条件、依据</h2><p class="lede">名次胶囊写这个项目在三个涨星榜的位置，不在前 20 就写明。使用条件每条三段：类别（提示色小字）、整理后的一句话、原文摘录（#6 验收要求每条附原文）；没有条件也要写一句。依据行在页面最后，写读了哪些文件、读取日期和数字来源。</p>
+    <div class="cols2">
+      <div><div class="kh">有条件</div><div class="pj1" style="display:block;padding:0;max-width:none" id="k-cond1"></div></div>
+      <div><div class="kh">没有条件；不在榜上</div><div class="pj1" style="display:block;padding:0;max-width:none" id="k-cond2"></div></div>
+    </div>
+  </section>
+
+  <section class="ks" id="fold"><h2>Skill 列表折叠</h2><p class="lede">超过 8 个先列 8 个，其余收在“展开其余 N 个”后面；展开时后面的行错峰进场，按钮变“收起”。从收藏页直达某条 Skill 时，在折叠区里的会先展开再滚到那一条。</p>
+    <div class="cols2">
+      <div><div class="kh">收起（默认）</div><div id="k-fold1"></div></div>
+      <div><div class="kh">展开后</div><div id="k-fold2"></div></div>
+    </div>
+  </section>
+
+  <section class="ks" id="daily"><h2>日报主条目与跟随栏</h2><p class="lede">主条目：名次、头像与名字链接、两句简介、分类与总 Star、近 30 天迷你走势（窗口内高亮）、右侧新增数。跟随栏：近 7 天、近 30 天各前 10 的紧凑行，版本发布只列日期、项目和版本号。</p>
+    <div class="row-inline" style="align-items:flex-start">
+      <div class="k-main"><div class="kh" style="margin-top:0">主条目：有走势、暂无走势</div><ol class="dlist" id="k-ditem"></ol></div>
+      <div class="k-rail"><div class="kh" style="margin-top:0">跟随栏</div><div id="k-rail"></div></div>
+    </div>
+  </section>
+
+  <section class="ks" id="intro"><h2>登录页说明列</h2><p class="lede">左栏三句话说清这个站干什么、数字从哪来；右栏是冻结组件板里的登录表单。</p>
+    <div class="frame tight" style="display:inline-block"><section class="intro static" id="k-intro"></section></div>
+  </section>
+
+  <section class="ks" id="states"><h2>页面状态</h2><p class="lede">每页的状态用地址参数切换，审查和截图都用这些地址。提示条位置：其他榜单在页头与分类胶囊之间，日报在页头与概览之间；项目页、我的收藏只在顶栏显示状态。</p>
+    <table class="spec" id="k-states"></table>
+    <div class="kh">空状态</div>
+    <div class="k-empties" id="k-empties"></div>
+  </section>
+
+  <section class="ks" id="focus"><h2>键盘焦点</h2><p class="lede">紧凑行和网格卡的焦点落在名字链接上，外框画在整行或整卡上，跟随各自的圆角；按钮和统计数按钮按冻结方案画 2px 外框。</p>
+    <div class="row-inline" style="align-items:flex-start" id="k-focus"></div>
+  </section>
+
+  <section class="ks" id="motion"><h2>动效</h2><p class="lede">只动 transform 和 opacity，时长与缓动取自 tokens.css；系统开启“减少动态效果”时全部直接切换。</p>
+    <table class="spec" id="k-motion"></table>
+  </section>
+</main>
+
+<script src="../t1b/icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+(() => {
+  const { $, $$, esc, num, wan, I, D } = GC;
+  const { P, compactRow, crowSkeleton, gridCard, gcardSkeleton, statStrip, chartOf, sideSkeleton, condList, sources, skillList, ranksOf, ditem, spark, relRow, project, wireMore } = GP;
+  const B = D.boards, href = '#';
+  // 紧凑行
+  $('#k-crow1').innerHTML = B.new.slice(0, 5).map((r, i) => compactRow(r, { number: num(r.total), sub: `创建于 <span class="num">${GC.mdShort(GC.iso(r.created))}</span>`, href })).join('');
+  $('#k-crow1 .crow:nth-child(5)').classList.add('is-hover');
+  const longest = Object.values(D.projects).reduce((a, p) => ((p.what || '').length > (a.what || '').length ? p : a));
+  const longName = Object.values(D.projects).reduce((a, p) => (p.repo.length > a.repo.length ? p : a));
+  const gen = { ...P(B.top[3].repo), what: null };
+  D.projects['_gen'] = { ...gen, repo: gen.repo };
+  $('#k-crow2').innerHTML = [
+    compactRow({ repo: longName.repo, rank: 4 }, { number: wan(longName.total ?? 12345), sub: '总 Star', href }),
+    compactRow({ repo: longest.repo, rank: 5 }, { number: `<small>+</small>${num(1865)}`, sub: '今日新增', href }),
+    compactRow({ repo: B.top[0].repo, rank: 1 }, { number: wan(B.top[0].total), sub: '总 Star', href }),
+    compactRow({ repo: B.new[0].repo, rank: 20 }, { number: num(71759), sub: `创建于 <span class="num">9/30</span>`, href }),
+  ].join('');
+  // 第二行演示“简介生成中”
+  const row2 = $('#k-crow2 .crow:nth-child(2) .ds'); row2.textContent = '简介生成中'; row2.title = '简介生成中';
+  $('#k-crow3').innerHTML = crowSkeleton(4);
+  // 三栏
+  const head = (t, s) => `<div class="col-h"><h2>${t}</h2><p class="sub">${s}</p></div>`;
+  $('#k-three').innerHTML = `<section class="col">${head('新项目榜', '近 30 天创建 · 按总 Star')}<ol class="crows">${B.new.slice(0, 3).map((r) => compactRow(r, { number: num(r.total), sub: `创建于 <span class="num">${GC.mdShort(GC.iso(r.created))}</span>`, href })).join('')}</ol></section>
+    <section class="col">${head('官方热门榜', 'GitHub Trending 原样顺序')}<div id="k-seg"></div><div class="note">${I.tag}<b>不足 20 个</b><p>「Skill」在本榜只有 3 个项目，全部列出。</p></div><ol class="crows">${B.trending.daily.slice(0, 3).map((r, i) => compactRow(r, { rank: i + 1, number: `<small>+</small>${num(r.gain)}`, sub: '今日新增', href })).join('')}</ol></section>
+    <section class="col">${head('累计高星榜', '全站按总 Star')}${GC.emptyHTML('inbox', '这个分类在本榜没有项目', '换个分类看看。')}</section>`;
+  GC.seg($('#k-seg'), [['daily', '日榜'], ['weekly', '周榜'], ['monthly', '月榜']], 'daily', () => {}, 56);
+  // 网格卡
+  const rea = P('morluto/rea'), peach = P('peach-mitao/peach'), hermes = P('NousResearch/hermes-agent'), photo = P('storytold/photocraft');
+  const sk = P('cloudflare/security-audit-skill');
+  $('#k-cards').innerHTML = [
+    gridCard(peach, { href, at: '2026-10-21T09:12', label: `总 Star ${wan(peach.total)}` }),
+    gridCard(sk, { href, at: '2026-10-20T14:05', skill: sk.skills[0] }),
+    gridCard(rea, { href, at: '2026-10-23T08:40', label: `总 Star ${wan(rea.total)}` }),
+    gridCard(rea, { href, at: '2026-10-18T11:20', skill: { name: 'rea-legacy-notes', desc: '', missing: true }, warn: '这个 Skill 已不在仓库里，可能改名或删除了；可以取消收藏。', noCopy: true }),
+    gridCard(hermes, { href, at: '2026-10-17T19:05', warn: '项目资料还没读到，简介和 Skill 列表会在每天出榜后补上。', label: `总 Star ${hermes.total == null ? '暂缺' : wan(hermes.total)}` }),
+    gridCard(photo, { href, at: '2026-10-16T08:12', warn: '项目已改名为 storytold/photocraft-studio，点进去看的是新名字的页面。', label: `总 Star ${wan(photo.total)}` }),
+    gcardSkeleton(1),
+  ].join('');
+  $$('#k-cards .gcard')[2].classList.add('is-hover');
+  // 侧栏
+  const sideHTML = (p) => `${statStrip(p, 'd1', true)}${chartOf(p, 'd1')}<div><span class="k">安装到</span><div class="seg" style="--seg-w:160px"><span class="seg-thumb"></span><button type="button" aria-pressed="true">Claude Code</button><button type="button" aria-pressed="false">Codex</button></div></div><button class="btn btn-p btn-w" type="button">${I.copy}<span>复制安装指令</span></button><div class="acts"><button class="btn btn-g" type="button">${I.star}<span>收藏</span></button><a class="btn btn-g btn-i" href="#" aria-label="在 GitHub 打开">${I.external}</a></div>`;
+  $('#k-side1').innerHTML = sideHTML(P('mattpocock/skills'));
+  $('#k-side2').innerHTML = sideHTML(P('storytold/pdfcraft'));
+  $('#k-side3').innerHTML = sideSkeleton();
+  // 名次、使用条件、依据
+  const ranks = (repo) => { const rs = ranksOf(repo); return `<div class="ranks" style="margin-top:0">${rs.length ? rs.map(([w, r]) => `<span>${w.label}第 ${r.rank} 名${r.tie ? '（并列）' : ''}</span>`).join('') : '<span>不在当前三个涨星榜的前 20 名里</span>'}</div>`; };
+  $('#k-cond1').innerHTML = ranks(peach.repo) + condList(peach) + sources(peach);
+  $('#k-cond2').innerHTML = ranks('nodejs/node') + condList(P('mattpocock/skills')) + sources(P('mattpocock/skills'));
+  // 折叠
+  $('#k-fold1').innerHTML = skillList(peach);
+  $('#k-fold2').innerHTML = skillList(peach);
+  wireMore($('#k-fold1')); wireMore($('#k-fold2'));
+  $('#k-fold2 .more').click();
+  // 日报
+  const d1 = D.gainers.d1;
+  $('#k-ditem').innerHTML = ditem(d1[0], { id: 'kd1', href, extra: spark(P(d1[0].repo), 1) }) + ditem({ repo: 'storytold/pdfcraft', rank: 2, gain: 1398 }, { id: 'kd2', href, extra: spark(P('storytold/pdfcraft'), 1) });
+  $('#k-rail').innerHTML = `<section><h2>近 7 天前 10</h2><ol class="crows">${D.gainers.d7.slice(0, 3).map((r) => compactRow(r, { number: `<small>+</small>${num(r.gain)}`, href })).join('')}</ol></section><section style="margin-top:24px"><h2>版本发布</h2>${D.daily.releases.map((r) => relRow(r, 'daily')).join('')}</section>`;
+  // 登录说明列
+  $('#k-intro').innerHTML = `<a class="brand" href="#"><span class="mark" aria-hidden="true"></span>GitHub 快速中心</a><p class="claim">每天两分钟，知道 GitHub 上什么在涨、值不值得装。</p><ol class="how"><li><span class="n">1</span><div><b>全站找候选</b>从 GitHub 全站的 Star 事件里找出当天涨得多的项目。</div></li><li><span class="n">2</span><div><b>官方核数</b>每个候选都用 GitHub 官方星数历史核一遍，榜单只认官方数字。</div></li><li><span class="n">3</span><div><b>看完就装</b>简介、使用条件、Skill 都整理好，一键复制安装指令给你的 AI。</div></li></ol>`;
+  // 页面状态表
+  const rows = [
+    ['其他榜单', 'boards.html', 'loading 三栏骨架；partial 可能不完整（提示条）；failed 更新失败（提示条，列表是上次成功的数据）；分类筛后不足 20 个、没有项目各列自己提示'],
+    ['项目页', 'project.html?repo=…', 'loading 正文与侧栏骨架；generating 简介生成中（数字照常）；noprofile 资料还没读到（只有名次、数字、依据）；missing 找不到这个项目；partial / failed 只在顶栏'],
+    ['日报', 'daily.html', 'loading 骨架；empty 今天的日报还没生成；partial / failed 提示条，内容是上次成功的日报'],
+    ['我的收藏', 'favorites.html', 'loading 骨架卡；empty 还没有收藏；edge 追加三种异常收藏；按种类筛到空时另有一句'],
+    ['登录', 'login.html', 'failed 登录失败（输入框红描边、提示条、表单轻摆）；提交后按钮“登录中”并禁用；没填完先提示“请填写用户名和密码”'],
+  ];
+  $('#k-states').innerHTML = `<tr><th>页面</th><th>地址</th><th>状态（?state=）</th></tr>${rows.map(([a, b, c]) => `<tr><td class="hd">${a}</td><td><code>${b}</code></td><td>${c}</td></tr>`).join('')}`;
+  $('#k-empties').innerHTML = [
+    GC.emptyHTML('inbox', '这个分类在本榜没有项目', '换个分类看看。'),
+    GC.emptyHTML('star', '还没有收藏', '在榜单或项目页点星标，就会收在这里。', ['#', '去看涨星榜']),
+    GC.emptyHTML('inbox', '今天的日报还没生成', '出榜和补资料跑完就会出现在这里，也会发到飞书。', ['#', '先看涨星榜']),
+    GC.emptyHTML('inbox', '找不到这个项目', '地址里的项目名可能写错了，或者它还没有上过榜。', ['#', '去看涨星榜']),
+  ].map((h) => `<div class="card">${h}</div>`).join('');
+  // 焦点
+  $('#k-focus').innerHTML = `<ol class="crows" style="width:360px;margin:0">${compactRow(B.new[1], { number: num(B.new[1].total), sub: '总 Star', href })}</ol><div class="grid" style="grid-template-columns:360px;margin:0">${gridCard(peach, { href, at: '2026-10-21T09:12', label: `总 Star ${wan(peach.total)}` })}</div><div><button class="btn btn-g btn-s more is-focus" type="button"><span>展开其余 30 个</span></button></div><div class="stats" style="grid-template-columns:1fr;margin:0;border:0;width:140px"><button class="stat is-focus" type="button" aria-pressed="true" data-on style="border:0;padding-left:0"><span class="k">近 1 天新增</span><span class="v">+1,068</span></button></div>`;
+  $('#k-focus .crow').classList.add('is-focus'); $('#k-focus .gcard').classList.add('is-focus');
+  // 动效表
+  const motion = [
+    ['紧凑行、网格卡、日报条目进场', '淡入并上移 6px，240ms，每行错 16ms（最多错 14 档）', 'opacity、transform'],
+    ['Skill 列表展开', '其余行同上错峰进场；收起直接藏', 'opacity、transform'],
+    ['取消收藏', '卡片右移 8px 淡出，160ms，然后从网格里拿掉', 'opacity、transform'],
+    ['项目页侧栏走势', '进场时柱子从底部升起（260ms，每根错 6ms）；点统计数换窗口时窗口内的柱子从右往左依次换色（每根错 9ms）', 'transform、background-color（140ms）'],
+    ['复制安装指令', '按钮变“已复制”，勾号缩放弹出 260ms，提示气泡淡入上移；2 秒后还原', 'transform、opacity'],
+    ['收藏', '星标轻弹（冻结方案），按钮描边与文字变强调色', 'transform、color'],
+    ['登录失败', '表单左右轻摆 280ms，输入框描边变失败色', 'transform、box-shadow（140ms）'],
+    ['悬停', '行与卡底色、名字下划线、按钮描边：140ms', 'background-color、box-shadow'],
+  ];
+  $('#k-motion').innerHTML = `<tr><th>哪里</th><th>怎么动</th><th>动什么</th></tr>${motion.map((r) => `<tr>${r.map((c, i) => `<td${i === 0 ? ' class="hd"' : ''}>${c}</td>`).join('')}</tr>`).join('')}`;
+})();
+</script>
+</body>
+</html>

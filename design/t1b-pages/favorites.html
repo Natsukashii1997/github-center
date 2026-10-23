@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的收藏 · GitHub 快速中心</title>
+<link rel="stylesheet" href="../t1b/tokens.css">
+<link rel="stylesheet" href="../t1b/components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<main class="single-wide">
+  <div class="phead"><h1>我的收藏</h1><p class="lede" id="lede"></p></div>
+  <div id="kinds" role="group" aria-label="种类"></div>
+  <div class="grid fgrid" id="grid"></div>
+</main>
+
+<script src="../t1b/icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 卡片网格：收藏是我的工具箱。项目和 Skill 都是一张卡，卡上直接复制安装、取消收藏；胶囊按种类筛。Skill 卡直达项目页上那一条。
+// 状态：?state=loading（骨架卡）、empty（还没有收藏）、edge（追加三种异常收藏：Skill 已不在、资料没读到、项目已改名）、partial / failed（顶栏状态）。
+(() => {
+  const { $, $$, esc, I } = GC;
+  const { gridCard, gcardSkeleton, favItems, edgeItems, wireOpen, wireCopy, enter, project, state, status } = GP;
+  const st = state();
+  GC.topbar('我的收藏');
+  GC.setStatus(status(st));
+  let kind = null, items = st === 'empty' ? [] : st === 'edge' ? [...favItems(), ...edgeItems()] : favItems();
+  items.sort((a, b) => (a.at < b.at ? 1 : -1));
+  const el = $('#kinds');
+  el.classList.add('chips');
+  el.innerHTML = [[null, '全部'], ['repo', '项目'], ['skill', 'Skill']].map(([k, t]) => `<button type="button" data-k="${k || ''}">${t}</button>`).join('');
+  $$('button', el).forEach((b) => b.addEventListener('click', () => { kind = b.dataset.k || null; render(); }));
+  const card = (f) => {
+    const href = project(f.renamed || f.repo, 'favorites');
+    if (f.skill) return gridCard(f.p, { href: f.skill.missing ? href : `${href}#skill-${encodeURIComponent(f.skill.name)}`, at: f.at, skill: f.skill, warn: f.skill.missing ? '这个 Skill 已不在仓库里，可能改名或删除了；可以取消收藏。' : '', noCopy: f.skill.missing });
+    const warn = f.renamed ? `项目已改名为 ${f.renamed}，点进去看的是新名字的页面。` : f.p.hasProfile === false ? '项目资料还没读到，简介和 Skill 列表会在每天出榜后补上。' : '';
+    return gridCard(f.p, { href, at: f.at, warn, label: `总 Star ${f.p.total == null ? '暂缺' : GC.wan(f.p.total)}` });
+  };
+  function render() {
+    $$('button', el).forEach((b) => b.setAttribute('aria-pressed', (b.dataset.k || null) === kind));
+    const grid = $('#grid');
+    if (st === 'loading') { $('#lede').textContent = '只有你自己看得到。'; grid.setAttribute('aria-busy', 'true'); grid.innerHTML = gcardSkeleton(6); return; }
+    const shown = items.filter((f) => !kind || f.type === kind);
+    const repos = items.filter((f) => f.type === 'repo').length, skills = items.length - repos;
+    $('#lede').textContent = items.length ? `${repos} 个项目，${skills} 个 Skill。按收藏时间从新到旧排；只有你自己看得到。` : '只有你自己看得到。';
+    grid.innerHTML = shown.length ? shown.map(card).join('')
+      : items.length ? GC.emptyHTML('inbox', kind === 'repo' ? '还没有收藏项目' : '还没有收藏 Skill', '换个种类看看，或者去项目页收藏。')
+        : GC.emptyHTML('star', '还没有收藏', '在榜单或项目页点星标，就会收在这里。', ['../t1b/index.html', '去看涨星榜']);
+    wireOpen(grid); wireCopy(grid);
+    // 取消收藏：卡片右移淡出后从网格里拿掉
+    $$('[data-fav]', grid).forEach((b) => b.addEventListener('click', (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const id = b.dataset.fav, c = b.closest('.gcard');
+      (id.includes('#') ? GC.favSkills : GC.favs).delete(id);
+      GC.toast(`已取消收藏 ${id.replace('#', ' 的 Skill ')}`, 'star');
+      GC.anim(c, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(8px)' }], { duration: 160, easing: 'cubic-bezier(.5, 0, .75, 0)', fill: 'forwards' });
+      setTimeout(() => { items = items.filter((f) => (f.skill ? `${f.repo}#${f.skill.name}` : f.repo) !== id); render(); }, GC.reduced() ? 0 : 160);
+    }));
+    enter(grid, '.gcard');
+  }
+  render();
+})();
+</script>
+</body>
+</html>

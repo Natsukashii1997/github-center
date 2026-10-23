@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日报 · GitHub 快速中心</title>
+<link rel="stylesheet" href="../t1b/tokens.css">
+<link rel="stylesheet" href="../t1b/components.css">
+<link rel="stylesheet" href="pages.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="mr">
+  <main class="main" id="main"></main>
+  <aside class="rail" id="rail" aria-label="近 7 天、近 30 天与版本发布"></aside>
+</div>
+
+<script src="../t1b/icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script src="pages.js"></script>
+<script>
+// 主次结构：日报讲的是“今天”。近 1 天前 10 是主角，每条带简介和近 30 天走势；近 7 天、近 30 天和版本发布收在右侧一直跟着的栏里，只列名字和数字。
+// 状态：?state=loading（骨架）、empty（今天的日报还没生成）、partial / failed（提示条，显示上次成功的数据）。
+(() => {
+  const { $, esc, num, I } = GC;
+  const { P, ditem, ditemSkeleton, compactRow, crowSkeleton, spark, dailySections, relRow, project, state, status } = GP;
+  const st = state();
+  GC.topbar('日报');
+  GC.setStatus(status(st));
+  const main = $('#main'), rail = $('#rail');
+  const day = GC.md(GC.dayAt(29));
+  const head = `<div class="phead"><h1>${day}日报</h1><p class="lede">统计日 ${day}（UTC），10 月 23 日 16:52 生成。飞书里收到的就是这一份。</p></div>`;
+  const railHead = (t) => `<h2>${t}</h2>`;
+  if (st === 'loading') {
+    main.innerHTML = `${head}<div class="overview-wide" aria-busy="true"><span class="sk" style="width:100%;height:14px"></span><span class="sk" style="width:92%;height:14px;margin-top:12px"></span><span class="sk" style="width:60%;height:14px;margin-top:12px"></span></div>
+      <section><h2>近 1 天前 10</h2><ol class="dlist">${ditemSkeleton(4)}</ol></section>`;
+    rail.innerHTML = `<section aria-busy="true">${railHead('近 7 天前 10')}<ol class="crows">${crowSkeleton(5)}</ol></section><section aria-busy="true">${railHead('近 30 天前 10')}<ol class="crows">${crowSkeleton(5)}</ol></section>`;
+    return;
+  }
+  if (st === 'empty') {
+    main.innerHTML = `<div class="phead"><h1>日报</h1><p class="lede">每天出榜后自动生成，通常在北京时间 10:30 前后。</p></div>${GC.emptyHTML('inbox', '今天的日报还没生成', '出榜和补资料跑完就会出现在这里，也会发到飞书。', ['../t1b/index.html', '先看涨星榜'])}`;
+    rail.hidden = true;
+    return;
+  }
+  const [d1, d7, d30] = dailySections();
+  main.innerHTML = `${head}<div id="notes"></div>
+    <p class="overview-wide">${esc(GC.D.daily.overview)}</p>
+    <section id="d1"><h2>近 1 天前 10</h2><ol class="dlist">${d1.items.map(({ r, id }) => ditem(r, { id, href: project(r.repo, 'daily'), extra: spark(P(r.repo), 1) })).join('')}</ol></section>
+    <p class="foot">数字来自 GitHub 官方数据；项目介绍由 AI 根据项目文档写成。概览与版本发布在这份样稿里是示例文案。</p>`;
+  GC.notes($('#notes'), status(st));
+  const sec = (s) => `<section id="${s.w.id}">${railHead(`${s.w.label}前 10`)}<ol class="crows">${s.items.map(({ r }) => compactRow(r, { number: `<small>+</small>${num(r.gain)}`, href: project(r.repo, 'daily') })).join('')}</ol></section>`;
+  rail.innerHTML = `${sec(d7)}${sec(d30)}<section id="rel">${railHead('版本发布')}${GC.D.daily.releases.map((r) => relRow(r, 'daily')).join('')}<p class="foot">只列上榜项目这一天发的正式版本。</p></section>`;
+  GP.wireOpen(rail);
+  GC.anim(main, [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+})();
+</script>
+</body>
+</html>
