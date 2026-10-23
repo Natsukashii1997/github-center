@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>登录 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+</head>
+<body>
+<main class="login-wrap">
+  <div class="login">
+    <a class="brand" href="login.html"><span class="mark" aria-hidden="true"></span>GitHub 快速中心</a>
+    <h1>登录</h1>
+    <p class="lede">登录后查看每天的涨星榜和日报。</p>
+    <form id="form" novalidate>
+      <div class="field" id="f-user"><label for="user">用户名</label><div class="input"><input id="user" name="user" autocomplete="username" autocapitalize="off" spellcheck="false"></div></div>
+      <div class="field" id="f-pass"><label for="pass">密码</label><div class="input"><input id="pass" name="pass" type="password" autocomplete="current-password"><button class="ib" type="button" id="peek" aria-label="显示密码"></button></div></div>
+      <div class="err" id="err" role="alert" hidden></div>
+      <button class="btn btn-p btn-w" type="submit" id="submit">登录</button>
+    </form>
+    <p class="fine">账号由所有者开通，暂不开放注册。忘了密码请联系所有者重置。</p>
+  </div>
+</main>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, I } = GC;
+  const form = $('#form'), err = $('#err'), btn = $('#submit'), peek = $('#peek'), pass = $('#pass');
+  peek.innerHTML = I.eye;
+  peek.addEventListener('click', () => {
+    const show = pass.type === 'password';
+    pass.type = show ? 'text' : 'password';
+    peek.innerHTML = show ? I['eye-off'] : I.eye;
+    peek.setAttribute('aria-label', show ? '隐藏密码' : '显示密码');
+  });
+  function fail(msg) {
+    err.innerHTML = `${I.error}<span>${msg}</span>`;
+    err.hidden = false;
+    $('#f-user').toggleAttribute('data-error', true);
+    $('#f-pass').toggleAttribute('data-error', true);
+    GC.anim(form, [{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(4px)' }, { transform: 'translateX(0)' }], { duration: 280 });
+  }
+  function reset() { err.hidden = true; $('#f-user').removeAttribute('data-error'); $('#f-pass').removeAttribute('data-error'); btn.disabled = false; btn.textContent = '登录'; }
+  form.addEventListener('input', () => { if (!err.hidden) reset(); });
+  // 候选页没有真实账号：提交后一律演示“登录失败”
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!$('#user').value || !pass.value) { fail('请填写用户名和密码。'); return; }
+    btn.disabled = true; btn.textContent = '登录中';
+    setTimeout(() => { btn.disabled = false; btn.textContent = '登录'; fail('用户名或密码不对，请再试一次。'); }, 600);
+  });
+  GC.demo([['ok', '正常'], ['failed', '登录失败'], ['loading', '登录中']], (s) => {
+    reset();
+    if (s === 'failed') { $('#user').value = 'changhao'; pass.value = 'xxxxxxxx'; fail('用户名或密码不对，请再试一次。'); }
+    if (s === 'loading') { $('#user').value = 'changhao'; pass.value = 'xxxxxxxx'; btn.disabled = true; btn.textContent = '登录中'; }
+  });
+})();
+</script>
+</body>
+</html>

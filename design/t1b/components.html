@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件板 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+/* 只属于组件板的排版，不进正式样式 */
+.kb { max-width: 1240px; margin: 0 auto; padding: var(--sp-10) var(--gutter) 120px; }
+.kb > header h1 { margin: 0; font-family: var(--font-read); font-size: var(--fs-display); font-weight: 700; }
+.ks { margin-top: 56px; }
+.ks > h2 { margin: 0 0 var(--sp-1); font-size: 18px; font-weight: 600; }
+.ks > .lede { margin: 0 0 var(--sp-5); }
+.kh { margin: 28px 0 10px; font-size: 12px; color: var(--c-ink-3); letter-spacing: .04em; }
+.frame { padding: var(--sp-6); border-radius: var(--r-xl); background: var(--c-bg); box-shadow: inset 0 0 0 1px var(--c-line); }
+.frame.tight { padding: 0; overflow: hidden; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); }
+.cols3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-6); }
+.row-inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); }
+.cap { display: block; margin-top: var(--sp-2); font-size: 12px; color: var(--c-ink-4); }
+.sw { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3); }
+.sw div { padding: 10px; border-radius: var(--r-lg); background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-line); font-size: 12px; }
+.sw i { display: block; height: 44px; margin-bottom: var(--sp-2); border-radius: var(--r-md); box-shadow: inset 0 0 0 1px var(--c-line); }
+.sw b { display: block; font: 500 12px var(--font-code); color: var(--c-ink); }
+.sw span { display: block; color: var(--c-ink-3); }
+.sw code { font: 11.5px var(--font-code); color: var(--c-ink-4); }
+.spec { width: 100%; border-collapse: collapse; font-size: 13px; }
+.spec th { text-align: left; font-weight: 500; color: var(--c-ink-3); font-size: 12px; padding: 0 var(--sp-3) var(--sp-2) 0; border-bottom: 1px solid var(--c-line); }
+.spec td { padding: 12px var(--sp-3) 12px 0; border-bottom: 1px solid var(--c-line); vertical-align: middle; }
+.spec code { font: 12px var(--font-code); color: var(--c-ink-2); }
+.bar-sp { display: inline-block; height: 12px; background: var(--c-accent); border-radius: 2px; vertical-align: middle; }
+.rad { width: 64px; height: 44px; background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-line-2); }
+.shd { height: 64px; border-radius: var(--r-lg); background: var(--c-surface); }
+.icons { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--sp-3); }
+.icons div { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-lg); background: var(--c-surface); box-shadow: inset 0 0 0 1px var(--c-line); font: 12px var(--font-code); color: var(--c-ink-3); }
+.icons svg { width: 20px; height: 20px; color: var(--c-ink); }
+.demo-list { width: var(--w-index); }
+.demo-card { width: 680px; height: 820px; }
+.mini { width: 420px; }
+.mini .cbars { height: 56px; }
+/* 静态展示悬停与聚焦（只在组件板） */
+.chips button.is-hover { color: var(--c-ink); box-shadow: inset 0 0 0 1px var(--c-ink-4); }
+.btn-p.is-hover { background: var(--c-ink-2); }
+.btn-g.is-hover { color: var(--c-ink); box-shadow: inset 0 0 0 1px var(--c-ink-4); }
+.ib.is-hover { color: var(--c-ink); background: var(--c-sunk); }
+.row.is-hover .nm .n { text-decoration: underline; text-decoration-color: var(--c-line-2); text-underline-offset: 3px; }
+.input input.is-focus { box-shadow: inset 0 0 0 1px var(--c-accent), 0 0 0 3px var(--c-accent-soft); }
+.toast.static { position: static; transform: none; opacity: 1; display: inline-flex; }
+.top.static { position: static; }
+</style>
+</head>
+<body>
+<main class="kb">
+  <header>
+    <h1>组件板</h1>
+    <p class="lede">方向「导读」的全部共用组件、状态与设计变量。页面只能组合这里的组件；颜色、字号、间距、圆角、动效只用 tokens.css 里的变量。左下角可以切换浅色、深色。</p>
+  </header>
+
+  <section class="ks" id="color"><h2>颜色</h2><p class="lede">只有一个强调色。状态色只用在状态本身；名次、新增数字都不用彩色区分先后。</p><div id="swatches"></div></section>
+
+  <section class="ks"><h2>字体与字号</h2><p class="lede">全部是 macOS 自带字体。宋体只用于页面标题和阅读正文；数字统一用 Iowan Old Style 的等宽数字。</p><table class="spec" id="type"></table></section>
+
+  <section class="ks"><h2>间距、圆角、阴影</h2>
+    <div class="cols3">
+      <div><div class="kh">间距（4 的倍数）</div><table class="spec" id="space"></table></div>
+      <div><div class="kh">圆角（一套固定规则）</div><table class="spec" id="radius"></table></div>
+      <div><div class="kh">阴影（只给浮起的东西）</div><div style="display:grid;gap:16px">
+        <div><div class="shd" style="box-shadow:var(--shadow-card)"></div><span class="cap">--shadow-card　阅读卡、登录面板</span></div>
+        <div><div class="shd" style="box-shadow:var(--shadow-raised)"></div><span class="cap">--shadow-raised　选中行、演示面板</span></div>
+        <div><div class="shd" style="height:32px;width:104px;box-shadow:var(--shadow-thumb)"></div><span class="cap">--shadow-thumb　分段控件滑块</span></div>
+      </div></div>
+    </div>
+  </section>
+
+  <section class="ks"><h2>动效</h2><p class="lede">只动 transform 和 opacity；悬停的颜色变化用 --dur-fast。系统开启“减少动态效果”时全部直接切换。下面的例子可以点。</p>
+    <table class="spec" id="motion"></table>
+    <div class="cols2" style="margin-top:24px">
+      <div class="frame"><div class="kh" style="margin-top:0">窗口切换：下划线滑动，窗口内的柱子从右往左依次换色</div><div id="m-tabs"></div><div class="mini card" style="margin-top:16px;padding:16px" id="m-chart"></div></div>
+      <div class="frame"><div class="kh" style="margin-top:0">选中：选中块滑到新行（也可以用 ↑ ↓）；收藏轻弹；复制后变成勾号</div><div class="list demo-list" style="width:100%"><span class="sel-mark" id="m-mark"></span><ol class="rows" id="m-rows"></ol></div>
+        <div class="row-inline" style="margin-top:12px"><button class="btn btn-p" type="button" id="m-copy"></button><button class="btn btn-g" type="button" id="m-fav"></button><button class="btn btn-g" type="button" id="m-toast">弹出提示气泡</button></div></div>
+    </div>
+  </section>
+
+  <section class="ks"><h2>顶栏</h2><p class="lede">左边品牌和四个入口，右边数据状态和账号。状态点的三种颜色只表达数据状态。</p>
+    <div class="frame tight"><header class="top static" id="k-top1"></header></div>
+    <div class="frame tight" style="margin-top:12px"><header class="top static" id="k-top2"></header></div>
+    <div class="frame tight" style="margin-top:12px"><header class="top static" id="k-top3"></header></div>
+  </section>
+
+  <section class="ks"><h2>切换与筛选</h2>
+    <div class="cols2">
+      <div><div class="kh">下划线标签：时间窗口、其他榜单</div><div id="k-tabs1"></div><div id="k-tabs2" style="--tab-w:112px;margin-top:16px"></div></div>
+      <div><div class="kh">分段控件：安装目标、热门榜周期</div><div class="row-inline"><div id="k-seg1"></div><div id="k-seg2"></div></div></div>
+    </div>
+    <div class="kh">分类胶囊：默认、悬停、选中</div>
+    <div class="chips" style="margin-top:0"><button type="button">AI 应用工具</button><button type="button" class="is-hover">Agent／MCP</button><button type="button" aria-pressed="true">Skill</button><button type="button">开发者工具与基础设施</button></div>
+  </section>
+
+  <section class="ks"><h2>提示条</h2><p class="lede">状态优先；“不足 20 个”可以和状态同时出现。提示条不会自动消失。</p><div style="width:var(--w-index)" id="k-notes"></div></section>
+
+  <section class="ks"><h2>榜单行</h2><p class="lede">三行：项目名、一句话简介、分类；右侧是本榜的主数字和次数字，最右是收藏。名次只给前三名加深，选中时变成强调色；小字里凡是有信息的，都用不低于 4.5:1 对比度的灰。</p>
+    <div class="cols2">
+      <div><div class="kh">涨星榜：选中、普通、悬停、已收藏</div><div class="list demo-list"><span class="sel-mark"></span><ol class="rows" id="k-rows1"></ol></div></div>
+      <div><div class="kh">边界：并列、超长名字与最长简介、七位数</div><div class="list demo-list"><ol class="rows" id="k-rows2"></ol></div></div>
+      <div><div class="kh">其他榜单：新项目榜、累计高星榜、官方热门榜</div><div class="list demo-list"><ol class="rows" id="k-rows3"></ol></div></div>
+      <div><div class="kh">加载中</div><div class="list demo-list"><ol class="rows" id="k-rows4"></ol></div></div>
+    </div>
+  </section>
+
+  <section class="ks"><h2>阅读卡</h2><p class="lede">首页右栏和项目页共用。底部操作栏常驻：安装目标、复制整个仓库的安装指令、收藏、在 GitHub 打开。单个 Skill 在列表里单独收藏、单独复制。</p>
+    <div class="cols2" style="grid-template-columns:680px 1fr">
+      <div><div class="kh">完整：有使用条件、有 Skill</div><article class="card demo-card" id="k-card1"></article></div>
+      <div><div class="kh">简介生成中</div><article class="card" style="height:520px" id="k-card2"></article>
+        <div class="kh">加载中</div><article class="card" style="height:280px" id="k-card3"></article></div>
+    </div>
+  </section>
+
+  <section class="ks"><h2>按钮</h2>
+    <div class="row-inline" id="k-btns"></div>
+    <span class="cap">从左到右：主按钮、主按钮悬停、复制成功、次按钮、次按钮悬停、已收藏、小按钮、图标按钮、图标按钮悬停、已收藏的图标按钮、不可用</span>
+  </section>
+
+  <section class="ks"><h2>表单</h2>
+    <div class="cols3">
+      <div class="field"><label>默认</label><div class="input"><input placeholder="用户名"></div></div>
+      <div class="field"><label>聚焦</label><div class="input"><input class="is-focus" value="changhao"></div></div>
+      <div class="field" data-error><label>出错</label><div class="input"><input value="changhao"></div></div>
+    </div>
+    <div class="err" style="width:400px" id="k-err"></div>
+  </section>
+
+  <section class="ks"><h2>空状态、提示气泡、头像</h2>
+    <div class="cols3">
+      <div class="card" id="k-empty1"></div>
+      <div class="card" id="k-empty2"></div>
+      <div><div class="kh" style="margin-top:0">提示气泡</div><div class="toast static" id="k-toast"></div>
+        <div class="kh">头像读不到时用首字母</div><div class="row-inline"><img class="av" alt="" style="width:36px;height:36px" referrerpolicy="no-referrer" src="https://avatars.githubusercontent.com/u/28293365?s=72&v=4"><span class="av av-fb" style="width:36px;height:36px">M</span><span class="av av-fb" style="width:48px;height:48px;font-size:18px">R</span></div></div>
+    </div>
+  </section>
+
+  <section class="ks"><h2>单栏页的条目</h2>
+    <div class="cols2">
+      <div><div class="kh">我的收藏：项目、Skill</div><ul class="flist" id="k-fav"></ul></div>
+      <div><div class="kh">日报：第一次出现、见上；版本发布</div><ol class="dlist" id="k-daily"></ol><div id="k-rel"></div></div>
+    </div>
+  </section>
+
+  <section class="ks"><h2>图标</h2><p class="lede">Heroicons v2.2.0（MIT），线框 1.5 描边；只有“已收藏”用实心星。尺寸由外层决定：行内 17px，按钮 16px，小按钮 14px。</p><div class="icons" id="k-icons"></div></section>
+</main>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, I } = GC, P = GC.projects;
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  // 颜色
+  const COLORS = [
+    ['表面', [['--c-bg', '页面底'], ['--c-surface', '阅读卡、选中行、输入框'], ['--c-sunk', '凹陷：轨道、使用条件、提示条']]],
+    ['文字', [['--c-ink', '标题、项目名、正文'], ['--c-ink-2', '次要正文'], ['--c-ink-3', '说明、标签、时间、第 4 名以后的名次'], ['--c-ink-4', '加号前缀、占位、未收藏的星标']]],
+    ['线', [['--c-line', '分隔线'], ['--c-line-2', '描边']]],
+    ['强调与图表', [['--c-accent', '当前窗口、选中名次、窗口内的柱子'], ['--c-accent-ink', '强调色的小字'], ['--c-accent-soft', '输入框聚焦的外圈'], ['--c-bar', '窗口外的柱子']]],
+    ['状态', [['--c-ok', '数据正常、复制成功'], ['--c-warn', '可能不完整、并列、使用条件'], ['--c-bad', '更新失败、登录失败']]],
+  ];
+  function drawColors() {
+    $('#swatches').innerHTML = COLORS.map(([g, list]) => `<div class="kh">${g}</div><div class="sw">${list.map(([v, u]) => `<div><i style="background:var(${v})"></i><b>${v}</b><span>${u}</span><code>${css(v)}</code></div>`).join('')}</div>`).join('');
+  }
+  drawColors();
+  new MutationObserver(drawColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawColors);
+
+  // 字体与字号
+  const TYPE = [
+    ['--fs-display', 'var(--font-read)', 700, '涨星榜', '页面标题'],
+    ['--fs-title', 'var(--font-ui)', 600, 'mattpocock/skills', '阅读卡项目名'],
+    ['--fs-stat', 'var(--font-num)', 400, '+367,871', '阅读卡统计数字'],
+    ['--fs-read', 'var(--font-read)', 400, '把真实的软件工程方法做成一组 Agent Skill。', '阅读正文'],
+    ['--fs-rank', 'var(--font-num)', 400, '1 2 3 18 20', '榜单名次'],
+    ['--fs-gain', 'var(--font-num)', 400, '+8,273　+1,038,214', '榜单新增'],
+    ['--fs-body', 'var(--font-ui)', 400, '界面正文与项目名 morluto/rea', '正文'],
+    ['--fs-small', 'var(--font-ui)', 400, '让 AI Agent 帮你做逆向工程，从应用行为一直分析到原生二进制', '一句话简介、说明'],
+    ['--fs-micro', 'var(--font-ui)', 400, 'Agent／MCP　开发者工具与基础设施　总 36.9 万', '分类、次数字、时间'],
+    ['12.5px', 'var(--font-code)', 400, 'grill-me　reverse-engineer-anything', 'Skill 名（等宽）'],
+  ];
+  $('#type').innerHTML = '<tr><th>变量</th><th>样例</th><th>用途</th></tr>' + TYPE.map(([v, f, w, t, u]) => `<tr><td><code>${v}</code></td><td style="font-family:${f};font-size:${v.startsWith('--') ? `var(${v})` : v};font-weight:${w};font-variant-numeric:lining-nums tabular-nums">${t}</td><td>${u}</td></tr>`).join('');
+
+  $('#space').innerHTML = [1, 2, 3, 4, 5, 6, 8, 10, 11, 16].map((n) => `<tr><td><code>--sp-${n}</code></td><td>${css('--sp-' + n)}</td><td><span class="bar-sp" style="width:var(--sp-${n})"></span></td></tr>`).join('');
+  $('#radius').innerHTML = [['xs', '键位提示'], ['sm', '分段滑块'], ['md', '按钮、轨道、提示条、输入框'], ['lg', '榜单行、使用条件'], ['xl', '阅读卡、登录面板'], ['pill', '分类胶囊、提示气泡']].map(([k, u]) => `<tr><td><code>--r-${k}</code></td><td><div class="rad" style="border-radius:var(--r-${k})"></div></td><td>${u}</td></tr>`).join('');
+  $('#motion').innerHTML = '<tr><th>变量</th><th>值</th><th>用在哪里</th></tr>' + [
+    ['--dur-fast', '悬停时颜色、底色、描边；柱子换色'], ['--dur-base', '进场淡入上移 6px、下划线和滑块滑动、选中块移动、提示气泡出现'], ['--dur-slow', '名次换位、走势柱升起、收藏轻弹'], ['--dur-exit', '退场、取消收藏的条目滑出'], ['--stagger', '列表进场错峰'], ['--stagger-bar', '走势柱从右往左依次换色'], ['--ease-out', '所有进场和移动'], ['--ease-in', '所有退场'],
+  ].map(([v, u]) => `<tr><td><code>${v}</code></td><td><code>${css(v)}</code></td><td>${u}</td></tr>`).join('');
+
+  // 动效例子
+  const rea = P['morluto/rea'];
+  const chart = $('#m-chart');
+  chart.innerHTML = `<div class="chart" style="margin-top:0">${GC.cardHTML(rea, { win: 'd1', mode: 'pane' }).match(/<div class="cbars">[\s\S]*?<\/div>/)[0]}</div>`;
+  const place = GC.tabs($('#m-tabs'), GC.WINDOWS.map((w) => [w.id, w.label]), 'd1', (id) => { place(id); GC.sweepBars(chart, id); });
+
+  const mrows = GC.ranking('d1').slice(0, 3);
+  let msel = mrows[0].repo;
+  const mEl = $('#m-rows'), mMark = $('#m-mark');
+  GC.reconcile(mEl, mrows, { key: (r) => r.repo, create: (r) => GC.rowCreate(r, (k) => { msel = k; GC.placeSel(mEl, mMark, msel); }), update: (n, r) => GC.rowUpdate(n, r, 'gain') });
+  GC.placeSel(mEl, mMark, msel);
+  const mc = $('#m-copy'); mc.innerHTML = `${I.copy}<span>复制安装指令</span>`; mc.addEventListener('click', () => GC.copyInstall(mc, 'morluto/rea', 'claude'));
+  const mf = $('#m-fav'); mf.innerHTML = `${I.star}<span>收藏</span>`; GC.setFavBtn(mf, GC.favs.has('peach-mitao/peach'), true); mf.addEventListener('click', () => GC.toggleFav('peach-mitao/peach', mf, true));
+  $('#m-toast').addEventListener('click', () => GC.toast('已复制，粘贴给 Claude Code 即可安装'));
+
+  // 顶栏三种状态
+  ['ok', 'partial', 'failed'].forEach((s, i) => {
+    const h = $(`#k-top${i + 1}`);
+    h.innerHTML = `<div class="top-in"><a class="brand"><span class="mark"></span>GitHub 快速中心</a><nav class="nav">${['涨星榜', '其他榜单', '日报', '我的收藏'].map((t, k) => `<a${k === i ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav><div class="top-r"><span class="fresh"><span class="dot" data-tone="${GC.STATUS[s].tone}"></span><span>${GC.STATUS[s].top}</span></span><span class="who"><b>常浩</b><a>退出</a></span></div></div>`;
+  });
+
+  GC.tabs($('#k-tabs1'), GC.WINDOWS.map((w) => [w.id, w.label]), 'd7', () => {});
+  GC.tabs($('#k-tabs2'), [['new', '新项目榜'], ['trending', '官方热门榜'], ['total', '累计高星榜']], 'trending', () => {});
+  GC.seg($('#k-seg1'), Object.entries(GC.AI), 'claude', () => {}, 100);
+  GC.seg($('#k-seg2'), [['d', '日榜'], ['w', '周榜'], ['m', '月榜']], 'w', () => {}, 64);
+
+  const kn = $('#k-notes');
+  GC.notes(kn, 'partial', '「Skill」在近 7 天只核出 7 个项目，全部列出。');
+  const kn2 = document.createElement('div'); GC.notes(kn2, 'failed', ''); kn.appendChild(kn2);
+
+  // 榜单行
+  const mk = (el, rows, kind, label, after) => { GC.reconcile($(el), rows, { key: (r) => r.repo + (r._k || ''), create: (r) => GC.rowCreate(r, () => {}), update: (n, r) => GC.rowUpdate(n, r, kind, label) }); after && after($(el)); };
+  const top = GC.ranking('d1');
+  mk('#k-rows1', [top[0], top[1], top[2], top[4]], 'gain', '', (el) => {
+    GC.placeSel(el, el.previousElementSibling, top[0].repo);
+    el.children[2].classList.add('is-hover');
+  });
+  const longP = { repo: 'a-very-long-organization-name/an-extremely-long-repository-name-to-test-wrapping', owner: 0, total: 3120, cats: ['开发框架与组件库', '开发者工具与基础设施'], what: '一个用来检查最长中文简介的边界示例，简介写得特别长，检查换行、省略和对齐在这个宽度下是否依然整齐', series: rea.series };
+  mk('#k-rows2', [
+    { ...top[5], rank: 6, tie: true, _k: 'a' }, { ...top[6], rank: 6, tie: true, _k: 'b' },
+    { ...longP, gain: 1088, rank: 19, tie: false },
+    { ...P['affaan-m/ECC'], gain: 1038214, total: 2864912, rank: 1, tie: false, _k: 'c' },
+  ], 'gain');
+  const newRow = GC.rankBy(GC.list.filter((p) => p.created >= '2026-09-23').map((p) => ({ ...p })), 'total')[0];
+  const totRow = GC.rankBy(GC.list.map((p) => ({ ...p })), 'total')[0];
+  const trRow = { ...P['php/php-src'], gain: 287, rank: 1, tie: false };
+  const r3 = $('#k-rows3');
+  [[newRow, 'created'], [totRow, 'total'], [trRow, 'gain', '今日']].forEach(([r, kind, label]) => {
+    const li = GC.rowCreate(r, () => {}); li.dataset.key = r.repo + kind; GC.rowUpdate(li, r, kind, label); r3.appendChild(li);
+  });
+  $('#k-rows4').innerHTML = GC.rowSkeleton(2);
+
+  // 阅读卡
+  const kw = P['anthropics/knowledge-work-plugins'];
+  const c1 = $('#k-card1'); c1.innerHTML = GC.cardHTML(kw, { eyebrow: '<span>官方热门日榜第 2 名</span><span>页面标注今日 <span class="num">+303</span></span>', win: 'd7', mode: 'pane' }); GC.wireCard(c1, kw);
+  const c2 = $('#k-card2'); c2.innerHTML = GC.cardHTML(P['Gathin23/cleanyourtv'], { eyebrow: '<span>第 2 名 · 近 1 天</span><span class="num">+4,629</span>', win: 'd1', mode: 'pane', generating: true }); GC.wireCard(c2, P['Gathin23/cleanyourtv']);
+  $('#k-card3').innerHTML = GC.cardSkeleton();
+
+  // 按钮
+  $('#k-btns').innerHTML = `
+    <button class="btn btn-p" type="button">${I.copy}<span>复制安装指令</span></button>
+    <button class="btn btn-p is-hover" type="button">${I.copy}<span>复制安装指令</span></button>
+    <button class="btn btn-p" data-done type="button">${I.check}<span>已复制</span></button>
+    <button class="btn btn-g" type="button">${I.star}<span>收藏</span></button>
+    <button class="btn btn-g is-hover" type="button">${I.star}<span>收藏</span></button>
+    <button class="btn btn-g" aria-pressed="true" type="button">${I['star-fill']}<span>已收藏</span></button>
+    <button class="btn btn-g btn-s" type="button">${I.copy}<span>复制安装</span></button>
+    <button class="btn btn-g btn-i" type="button" aria-label="在 GitHub 打开">${I.external}</button>
+    <button class="ib is-hover" type="button" aria-label="收藏">${I.star}</button>
+    <button class="ib" aria-pressed="true" type="button" aria-label="取消收藏">${I['star-fill']}</button>
+    <button class="btn btn-p" disabled type="button">登录中</button>`;
+  $('#k-err').innerHTML = `${I.error}<span>用户名或密码不对，请再试一次。</span>`;
+
+  $('#k-empty1').innerHTML = GC.emptyHTML('star', '还没有收藏', '在榜单或项目页点星标，就会收在这里。', ['index.html', '去看涨星榜']);
+  $('#k-empty2').innerHTML = GC.emptyHTML('inbox', '这个分类当期没有核出项目', '换个时间窗口，或者看看别的分类。');
+  $('#k-toast').innerHTML = `${I.check}<span>已复制，粘贴给 Claude Code 即可安装</span>`;
+
+  // 单栏条目
+  const ms = P['mattpocock/skills'];
+  $('#k-fav').innerHTML = `<li class="fitem"><img class="av" alt="" referrerpolicy="no-referrer" src="${GC.avatar(ms, 72)}"><div class="tx"><div class="nm"><span class="o">mattpocock/</span><span class="n">skills</span></div><div class="ds">${ms.what}</div></div><span class="when">收藏于 <span class="num">10/21 09:12</span></span><button class="ib" aria-pressed="true" type="button">${I['star-fill']}</button></li>
+    <li class="fitem"><span class="skill-ic">${I.puzzle}</span><div class="tx"><div class="nm"><code>grill-me</code><span class="from">来自 mattpocock/skills</span></div><div class="ds">动手前连续追问，直到需求说清楚</div></div><span class="when">收藏于 <span class="num">10/22 20:30</span></span><button class="ib" aria-pressed="true" type="button">${I['star-fill']}</button></li>`;
+  $('#k-daily').innerHTML = `<li class="ditem"><div class="rk"><b>1</b></div><div class="tx"><div class="head"><img class="av" alt="" referrerpolicy="no-referrer" src="${GC.avatar(rea, 48)}"><div class="nm"><a><span class="o">morluto/</span><span class="n">rea</span></a></div></div><p>${rea.what}。${rea.problem}。</p><div class="tg"><span>Agent／MCP</span><span>开发者工具与基础设施</span><span>总 Star 36.9 万</span></div></div><div class="g"><small>+</small>8,273</div></li>
+    <li class="ditem"><div class="rk"><b>1</b></div><div class="tx"><div class="head"><img class="av" alt="" referrerpolicy="no-referrer" src="${GC.avatar(rea, 48)}"><div class="nm"><a><span class="o">morluto/</span><span class="n">rea</span></a></div></div><div class="seeup">见上：<a>近 1 天第 1 名</a></div></div><div class="g"><small>+</small>91,740</div></li>`;
+  const rel = GC.D.releases[0];
+  $('#k-rel').innerHTML = `<div class="rel"><span class="num">10/22</span><span><a>${rel.repo}</a><code>${rel.tag}</code></span><a class="out">${I.external}<span>Release</span></a></div>`;
+
+  $('#k-icons').innerHTML = Object.entries(I).map(([k, v]) => `<div>${v}<span>${k}</span></div>`).join('');
+
+  GC.demo([['ok', '浅色或深色']], () => {});
+})();
+</script>
+</body>
+</html>

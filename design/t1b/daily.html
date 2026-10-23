@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>日报 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="doc">
+  <aside class="toc"><nav id="toc" aria-label="日报目录"><span class="toc-line" id="tocline"></span></nav></aside>
+  <article class="art" id="art"></article>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, $$, I, esc } = GC;
+  GC.topbar('日报');
+  const art = $('#art'), toc = $('#toc');
+  const link = (r) => `project.html?repo=${encodeURIComponent(r.repo)}&from=daily`;
+
+  function render(state) {
+    GC.setStatus(state === 'loading' ? 'ok' : state);
+    if (state === 'loading') {
+      art.innerHTML = `<span class="sk" style="width:40%;height:28px"></span><span class="sk" style="width:60%;margin-top:14px"></span><span class="sk" style="width:100%;height:14px;margin-top:32px"></span><span class="sk" style="width:94%;height:14px;margin-top:12px"></span><span class="sk" style="width:70%;height:14px;margin-top:12px"></span>`;
+      return;
+    }
+    // 同一项目在多个窗口出现时只在第一次介绍，其余写“见上”
+    const seen = new Map();
+    const sections = GC.WINDOWS.map((w) => {
+      const top = GC.ranking(w.id).slice(0, 10);
+      const items = top.map((r) => {
+        const first = seen.get(r.repo);
+        if (!first) seen.set(r.repo, { id: `${w.id}-${r.rank}`, label: `${w.label}第 ${r.rank} 名` });
+        const body = first
+          ? `<div class="seeup">见上：<a href="#${first.id}">${first.label}</a></div>`
+          : `<p>${esc(r.what)}。${esc(r.problem)}。</p><div class="tg">${r.cats.map((c) => `<span>${c}</span>`).join('')}<span>总 Star ${GC.wan(r.total)}</span></div>`;
+        return `<li class="ditem" id="${w.id}-${r.rank}"><div class="rk"><b>${r.rank}</b></div>
+          <div class="tx"><div class="head"><img class="av" alt="" loading="lazy" referrerpolicy="no-referrer" src="${GC.avatar(r, 48)}"><div class="nm"><a href="${link(r)}"><span class="o">${esc(GC.ownerOf(r))}/</span><span class="n">${esc(GC.nameOf(r))}</span></a></div></div>${body}</div>
+          <div class="g"><small>+</small>${GC.num(r.gain)}</div></li>`;
+      }).join('');
+      return { id: w.id, title: `${w.label}前 10`, count: top.length, html: `<section id="${w.id}"><h2>${w.label}前 10</h2><ol class="dlist">${items}</ol></section>` };
+    });
+    // 版本发布：只列榜上项目、统计日前 7 天内真实发布的 Release，每个项目取最近一次
+    const onBoard = new Set(seen.keys()), relSeen = new Set();
+    const rels = GC.D.releases.filter((r) => onBoard.has(r.repo) && !relSeen.has(r.repo) && relSeen.add(r.repo));
+    const relHTML = `<section id="rel"><h2>版本发布</h2><p class="lede">榜上项目在 10 月 16 日到 22 日之间发布的版本，每个项目取最近一次。只写有记录的事，不猜为什么涨。</p>${rels.map((r) =>
+      `<div class="rel"><span class="num">${GC.mdShort(GC.iso(r.date))}</span><span><a href="${link(r)}">${esc(r.repo)}</a><code>${esc(r.tag)}</code></span><a class="out" href="${esc(r.url)}" target="_blank" rel="noopener">${I.external}<span>Release</span></a></div>`).join('')}</section>`;
+
+    art.innerHTML = `<div class="phead"><h1>${GC.md(GC.dayAt(29))}日报</h1><p class="lede">统计日 ${GC.md(GC.dayAt(29))}（UTC），10 月 23 日 16:52 生成。飞书里收到的就是这一份。</p></div>
+      ${state === 'failed' ? `<div class="note" data-tone="bad">${I.error}<b>更新失败</b><p>10 月 23 日的日报没有生成，下面是上次成功的 10 月 22 日日报。</p></div>` : ''}
+      <section id="overview" style="margin-top:28px"><h2 class="vh">概览</h2><p class="overview">${esc(GC.D.daily.overview)}</p></section>
+      ${sections.map((s) => s.html).join('')}${relHTML}
+      <p class="foot">数字来自 GitHub 官方数据；项目介绍由 AI 根据项目文档写成。</p>`;
+
+    const items = [['overview', '概览', ''], ...sections.map((s) => [s.id, s.title, s.count]), ['rel', '版本发布', rels.length]];
+    toc.innerHTML = '<span class="toc-line" id="tocline"></span>' + items.map(([id, t, n]) => `<a href="#${id}" data-id="${id}"><span>${t}</span>${n !== '' ? `<span class="num">${n}</span>` : ''}</a>`).join('');
+    spy();
+  }
+
+  // 目录跟随阅读位置
+  let io;
+  function spy() {
+    io?.disconnect();
+    const links = $$('a', toc), line = $('#tocline', toc);
+    const mark = (id) => links.forEach((a, i) => { const on = a.dataset.id === id; a.toggleAttribute('aria-current', on); if (on) line.style.transform = `translateY(${i * 32}px)`; });
+    mark('overview');
+    io = new IntersectionObserver((es) => { const v = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]; if (v) mark(v.target.id); }, { rootMargin: '-80px 0px -70% 0px' });
+    links.forEach((a) => { const s = document.getElementById(a.dataset.id); s && io.observe(s); });
+  }
+
+  render('ok');
+  GC.demo([['ok', '正常'], ['failed', '更新失败'], ['loading', '加载中']], render);
+})();
+</script>
+</body>
+</html>

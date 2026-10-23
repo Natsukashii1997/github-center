@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>涨星榜 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="split">
+  <section class="index">
+    <div class="phead"><h1>涨星榜</h1><p class="lede" id="lede"></p></div>
+    <div id="wins" role="group" aria-label="时间窗口"></div>
+    <div id="cats" role="group" aria-label="分类"></div>
+    <div id="notes"></div>
+    <div class="list"><span class="sel-mark" id="selmark"></span><ol class="rows" id="rows" role="listbox" aria-label="涨星榜"></ol></div>
+    <p class="foot">所有数字来自 GitHub 官方数据。</p>
+  </section>
+  <aside class="reader"><article class="card" id="card" aria-live="polite"></article></aside>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, q } = GC;
+  let win = q.get('win') || 'd1', cat = q.get('cat') || null, state = 'ok', sel = q.get('sel'), rows = [], shown = null;
+  const rowsEl = $('#rows'), card = $('#card'), mark = $('#selmark');
+
+  GC.topbar('涨星榜');
+  const placeWin = GC.tabs($('#wins'), GC.WINDOWS.map((w) => [w.id, w.label]), win, (id) => { if (id !== win) { win = id; render(); } });
+  const placeCat = GC.chips($('#cats'), cat, (c) => { if (c !== cat) { cat = c; render(); } });
+  $('#lede').innerHTML = `统计日 ${GC.md(GC.dayAt(29))}（UTC）。全站 <span class="num">${GC.meta.candidates}</span> 个候选，官方核数 <span class="num">${GC.meta.checks}</span> 次。`;
+
+  const W = () => GC.WINDOWS.find((w) => w.id === win);
+  const eyebrow = (r) => `<span>第 ${r.rank} 名${r.tie ? '（并列）' : ''} · ${W().label}</span><span class="num">+${GC.num(r.gain)}</span>`;
+  function select(repo) {
+    if (repo === sel) return;
+    sel = repo;
+    GC.placeSel(rowsEl, mark, sel);
+    showCard();
+  }
+  // 换项目：正文淡入上移、走势按日期升起；同一项目换窗口：只换高亮
+  function showCard() {
+    const r = rows.find((x) => x.repo === sel);
+    if (!r) { card.innerHTML = GC.emptyHTML('inbox', '这个分类当期没有核出项目', '换个时间窗口，或者看看别的分类。'); shown = null; return; }
+    if (shown === r.repo) { $('.eyebrow', card).innerHTML = eyebrow(r); GC.sweepBars(card, win); return; }
+    card.innerHTML = GC.cardHTML(r, { eyebrow: eyebrow(r), win, mode: 'pane', generating: state === 'generating' && r.rank === 1 });
+    GC.wireCard(card, r);
+    GC.anim(GC.$('.body', card), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+    GC.growBars(card);
+    shown = r.repo;
+  }
+
+  function render() {
+    placeWin(win); placeCat(cat);
+    GC.setStatus(state === 'generating' ? 'ok' : state);
+    rows = GC.ranking(win, cat);
+    GC.notes($('#notes'), state === 'generating' ? 'ok' : state, rows.length && rows.length < 20 ? `「${cat}」在${W().label}只核出 ${rows.length} 个项目，全部列出。` : '');
+    if (state === 'loading') { rowsEl.innerHTML = GC.rowSkeleton(8); mark.style.visibility = 'hidden'; card.innerHTML = GC.cardSkeleton(); shown = null; return; }
+    if (!rows.some((r) => r.repo === sel)) sel = rows[0]?.repo || null;
+    GC.reconcile(rowsEl, rows, { key: (r) => r.repo, create: (r) => GC.rowCreate(r, select), update: (n, r) => GC.rowUpdate(n, r, 'gain') });
+    if (!rows.length) rowsEl.innerHTML = '';
+    GC.placeSel(rowsEl, mark, sel);
+    showCard();
+  }
+
+  addEventListener('keydown', (e) => {
+    if (!rows.length || e.target.closest?.('input, select')) return;
+    const i = rows.findIndex((r) => r.repo === sel);
+    if (e.key === 'Enter' && sel) { location.href = `project.html?repo=${encodeURIComponent(sel)}`; return; }
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    e.preventDefault();
+    const n = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    select(n.repo);
+    rowsEl.querySelector(`[data-key="${CSS.escape(n.repo)}"]`).scrollIntoView({ block: 'nearest' });
+  });
+
+  render();
+  GC.demo([['ok', '正常'], ['partial', '可能不完整'], ['failed', '更新失败'], ['loading', '加载中'], ['generating', '简介生成中']], (s) => { state = s; shown = null; render(); });
+})();
+</script>
+</body>
+</html>

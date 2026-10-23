@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的收藏 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+</head>
+<body>
+<header class="top"></header>
+<main class="single">
+  <div class="phead"><h1>我的收藏</h1><p class="lede" id="lede"></p></div>
+  <div id="content"></div>
+</main>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, $$, I, esc } = GC;
+  GC.topbar('我的收藏');
+  let items = GC.D.favorites.slice();
+  const content = $('#content');
+  const open = (repo) => { location.href = `project.html?repo=${encodeURIComponent(repo)}&from=favorites`; };
+
+  function itemHTML(f) {
+    const p = GC.projects[f.repo];
+    const when = `<span class="when">收藏于 <span class="num">${GC.mdIso(f.at).replace(/(\d+) 月 (\d+) 日 /, '$1/$2 ')}</span></span>`;
+    if (f.type === 'skill') {
+      const s = p.skills.find((x) => x.name === f.skill);
+      return `<li class="fitem" data-repo="${esc(f.repo)}" data-id="${esc(f.repo + '#' + f.skill)}"><span class="skill-ic">${I.puzzle}</span>
+        <div class="tx"><div class="nm"><code>${esc(f.skill)}</code><span class="from">来自 ${esc(f.repo)}</span></div><div class="ds">${esc(s.desc)}</div></div>
+        ${when}<button class="ib" type="button" aria-pressed="true" aria-label="取消收藏">${I['star-fill']}</button></li>`;
+    }
+    return `<li class="fitem" data-repo="${esc(f.repo)}" data-id="${esc(f.repo)}"><img class="av" alt="" referrerpolicy="no-referrer" src="${GC.avatar(p, 72)}">
+      <div class="tx"><div class="nm"><span class="o">${esc(GC.ownerOf(p))}/</span><span class="n">${esc(GC.nameOf(p))}</span></div><div class="ds">${esc(p.what)}</div></div>
+      ${when}<button class="ib" type="button" aria-pressed="true" aria-label="取消收藏">${I['star-fill']}</button></li>`;
+  }
+
+  function render() {
+    const repos = items.filter((f) => f.type === 'repo'), skills = items.filter((f) => f.type === 'skill');
+    $('#lede').textContent = items.length ? `${repos.length} 个项目，${skills.length} 个 Skill。按收藏时间从新到旧排；只有你自己看得到。` : '只有你自己看得到。';
+    if (!items.length) { content.innerHTML = `<div class="sec">${GC.emptyHTML('star', '还没有收藏', '在榜单或项目页点星标，就会收在这里。', ['index.html', '去看涨星榜'])}</div>`; return; }
+    content.innerHTML = [['项目', repos], ['Skill', skills]].filter(([, l]) => l.length).map(([t, l]) =>
+      `<section class="sec"><div class="sec-h"><h2>${t}<span class="num">${l.length}</span></h2></div><ul class="flist">${l.map(itemHTML).join('')}</ul></section>`).join('');
+    $$('.fitem', content).forEach((li) => {
+      li.addEventListener('click', () => open(li.dataset.repo));
+      $('.ib', li).addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = li.dataset.id;
+        (id.includes('#') ? GC.favSkills : GC.favs).delete(id);
+        GC.toast(`已取消收藏 ${id.replace('#', ' 的 Skill ')}`, 'star');
+        const done = () => { items = items.filter((f) => (f.type === 'skill' ? `${f.repo}#${f.skill}` : f.repo) !== id); render(); };
+        GC.anim(li, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateX(8px)' }], { duration: 160, easing: 'cubic-bezier(.5, 0, .75, 0)', fill: 'forwards' });
+        setTimeout(done, GC.reduced() ? 0 : 160);
+      });
+    });
+  }
+  render();
+  GC.demo([['ok', '有收藏'], ['empty', '没有收藏']], (s) => { items = s === 'empty' ? [] : GC.D.favorites.slice(); render(); });
+})();
+</script>
+</body>
+</html>

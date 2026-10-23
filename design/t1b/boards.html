@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>其他榜单 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+</head>
+<body>
+<header class="top"></header>
+<div class="split">
+  <section class="index">
+    <div class="phead"><h1>其他榜单</h1><p class="lede" id="lede"></p></div>
+    <div id="boards" role="group" aria-label="榜单" style="--tab-w:112px"></div>
+    <div class="sub" id="sub"><div id="period" role="group" aria-label="热门榜周期"></div><span id="subtext"></span></div>
+    <div id="cats" role="group" aria-label="分类"></div>
+    <div id="notes"></div>
+    <div class="list"><span class="sel-mark" id="selmark"></span><ol class="rows" id="rows" role="listbox" aria-label="榜单"></ol></div>
+    <p class="foot">所有数字来自 GitHub 官方数据。</p>
+  </section>
+  <aside class="reader"><article class="card" id="card" aria-live="polite"></article></aside>
+</div>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, q } = GC;
+  const BOARDS = [['new', '新项目榜'], ['trending', '官方热门榜'], ['total', '累计高星榜']];
+  const PERIODS = [['daily', '日榜', '今日'], ['weekly', '周榜', '本周'], ['monthly', '月榜', '本月']];
+  let board = q.get('board') || 'new', period = 'daily', cat = null, state = 'ok', sel = null, rows = [], shown = null;
+  const rowsEl = $('#rows'), card = $('#card'), mark = $('#selmark');
+
+  GC.topbar('其他榜单');
+  $('#lede').innerHTML = `统计日 ${GC.md(GC.dayAt(29))}（UTC）。每个榜前 20 名，末位并列一起列出。`;
+  const placeBoard = GC.tabs($('#boards'), BOARDS, board, (id) => { if (id !== board) { board = id; sel = null; render(); } });
+  GC.seg($('#period'), PERIODS.map(([id, t]) => [id, t]), period, (id) => { period = id; sel = null; render(); }, 64);
+  const placeCat = GC.chips($('#cats'), cat, (c) => { if (c !== cat) { cat = c; render(); } });
+
+  // 三个榜各自的名单与说明
+  function build() {
+    if (board === 'new') {
+      const since = new Date(GC.dayAt(0)).toISOString().slice(0, 10);
+      return { rows: GC.rankBy(GC.list.filter((p) => p.created >= since).map((p) => ({ ...p })), 'total'), kind: 'created', sub: '近 30 天内创建的项目，按总 Star 排。', eyebrow: (r) => `<span>新项目榜第 ${r.rank} 名</span>` };
+    }
+    if (board === 'trending') {
+      const [, , word] = PERIODS.find((x) => x[0] === period);
+      const rows = GC.D.trending[period].map((t, i) => ({ ...GC.projects[t.repo], gain: t.gain, rank: i + 1, tie: false }));
+      return { rows, kind: 'gain', label: word, sub: 'Trending 原样排序，数字为官方页面标注。', eyebrow: (r) => `<span>官方热门${PERIODS.find((x) => x[0] === period)[1]}第 ${r.rank} 名</span><span>页面标注${word} <span class="num">+${GC.num(r.gain)}</span></span>` };
+    }
+    return { rows: GC.rankBy(GC.byCat(cat).map((p) => ({ ...p })), 'total'), kind: 'total', sub: '按总 Star 排，可以按分类筛选。', eyebrow: (r) => `<span>累计高星榜第 ${r.rank} 名</span><span class="num">${GC.num(r.total)} Star</span>` };
+  }
+
+  let cur;
+  function select(repo) { if (repo === sel) return; sel = repo; GC.placeSel(rowsEl, mark, sel); showCard(); }
+  function showCard() {
+    const r = rows.find((x) => x.repo === sel);
+    if (!r) { card.innerHTML = GC.emptyHTML('inbox', '这个分类当期没有项目', '换个分类看看。'); shown = null; return; }
+    if (shown === r.repo + board + period) return;
+    card.innerHTML = GC.cardHTML(r, { eyebrow: cur.eyebrow(r), win: board === 'trending' && period !== 'daily' ? (period === 'weekly' ? 'd7' : 'd30') : 'd1', mode: 'pane' });
+    GC.wireCard(card, r);
+    GC.anim($('.body', card), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+    GC.growBars(card);
+    shown = r.repo + board + period;
+  }
+
+  function render() {
+    placeBoard(board); placeCat(cat);
+    cur = build(); rows = cur.rows;
+    $('#period').hidden = board !== 'trending';
+    $('#cats').hidden = board !== 'total';
+    GC.swap($('#subtext'), cur.sub);
+    GC.setStatus(state);
+    const short = board === 'new' && rows.length < 20 ? `近 30 天内创建、进入候选的项目只有 ${rows.length} 个，全部列出。` : board === 'total' && cat && rows.length < 20 ? `「${cat}」只有 ${rows.length} 个项目，全部列出。` : '';
+    GC.notes($('#notes'), state, short);
+    if (state === 'loading') { rowsEl.innerHTML = GC.rowSkeleton(8); mark.style.visibility = 'hidden'; card.innerHTML = GC.cardSkeleton(); shown = null; return; }
+    if (!rows.some((r) => r.repo === sel)) sel = rows[0]?.repo || null;
+    GC.reconcile(rowsEl, rows, { key: (r) => r.repo, create: (r) => GC.rowCreate(r, select), update: (n, r) => GC.rowUpdate(n, r, cur.kind, cur.label) });
+    if (!rows.length) rowsEl.innerHTML = '';
+    GC.placeSel(rowsEl, mark, sel);
+    showCard();
+  }
+
+  addEventListener('keydown', (e) => {
+    if (!rows.length || e.target.closest?.('input, select')) return;
+    const i = rows.findIndex((r) => r.repo === sel);
+    if (e.key === 'Enter' && sel) { location.href = `project.html?repo=${encodeURIComponent(sel)}&from=boards`; return; }
+    if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+    e.preventDefault();
+    const n = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
+    select(n.repo);
+    rowsEl.querySelector(`[data-key="${CSS.escape(n.repo)}"]`).scrollIntoView({ block: 'nearest' });
+  });
+
+  render();
+  GC.demo([['ok', '正常'], ['partial', '可能不完整'], ['failed', '更新失败'], ['loading', '加载中']], (s) => { state = s; shown = null; render(); });
+})();
+</script>
+</body>
+</html>

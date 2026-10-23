@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目 · GitHub 快速中心</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+</head>
+<body>
+<header class="top"></header>
+<main class="single">
+  <a class="back" id="back" href="index.html"></a>
+  <article class="card" id="card" data-mode="page"></article>
+</main>
+
+<script src="icons.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+(() => {
+  const { $, q } = GC;
+  // 从哪里来就回哪里去：涨星榜、日报、我的收藏
+  const FROM = { daily: ['daily.html', '返回日报', '日报'], favorites: ['favorites.html', '返回我的收藏', '我的收藏'], boards: ['boards.html', '返回其他榜单', '其他榜单'] };
+  const [href, label, nav] = FROM[q.get('from')] || ['index.html', '返回涨星榜', '涨星榜'];
+  GC.topbar(nav);
+  $('#back').href = href;
+  $('#back').innerHTML = `${GC.I.back}<span>${label}</span>`;
+
+  const p = GC.projects[q.get('repo') || 'mattpocock/skills'] || GC.projects['mattpocock/skills'];
+  document.title = `${p.repo} · GitHub 快速中心`;
+  // 页头小字：这个项目在三个涨星榜里的名次（进了前 20 才写）
+  const ranks = GC.WINDOWS.map((w) => [w, GC.ranking(w.id).find((r) => r.repo === p.repo)]).filter(([, r]) => r);
+  const eyebrow = ranks.length ? ranks.map(([w, r]) => `<span class="rank-in">${w.label}第 ${r.rank} 名</span>`).join('') : '<span>不在当前三个涨星榜的前 20 名里</span>';
+
+  const card = $('#card');
+  function render(state) {
+    if (state === 'loading') { card.innerHTML = GC.cardSkeleton(); return; }
+    card.innerHTML = GC.cardHTML(p, { eyebrow, win: 'd1', mode: 'page', generating: state === 'generating' });
+    GC.wireCard(card, p);
+    GC.anim($('.body', card), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
+    GC.growBars(card);
+  }
+  render('ok');
+  GC.demo([['ok', '正常'], ['generating', '简介生成中'], ['loading', '加载中']], render);
+})();
+</script>
+</body>
+</html>
