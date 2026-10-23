@@ -1,22 +1,32 @@
 // 候选来源：GH Archive 小时文件（主）、ClickHouse 公开事件库（某小时缺失时补）、官方热门日榜。
 // 事件计数只用来挑候选，不进入快照。
-import { Readable } from 'node:stream';
+import { Readable, pipeline } from 'node:stream';
 import { createGunzip } from 'node:zlib';
-import { createInterface } from 'node:readline';
 
+const ARCHIVE_TIMEOUT_MS = 180_000;
+
+// 下载出错或超时时抛出（由调用方改用 ClickHouse），不能让流错误变成进程崩溃。
 export async function archiveHour({ fetch, day, hour }) {
-  const res = await fetch(`https://data.gharchive.org/${day}-${hour}.json.gz`);
+  const res = await fetch(`https://data.gharchive.org/${day}-${hour}.json.gz`, { signal: AbortSignal.timeout(ARCHIVE_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`GH Archive ${day}-${hour} 返回 ${res.status}`);
+  const text = createGunzip().setEncoding('utf8');
+  pipeline(Readable.fromWeb(res.body), text, () => {});
   const rows = new Map();
-  const lines = createInterface({ input: Readable.fromWeb(res.body).pipe(createGunzip()), crlfDelay: Infinity });
-  for await (const line of lines) {
-    if (!line.includes('"WatchEvent"')) continue;
+  const take = (line) => {
+    if (!line.includes('"WatchEvent"')) return;
     const e = JSON.parse(line);
-    if (e.type !== 'WatchEvent') continue;
+    if (e.type !== 'WatchEvent') return;
     const row = rows.get(e.repo.id) ?? { id: e.repo.id, name: e.repo.name, events: 0 };
     row.events += 1;
     rows.set(e.repo.id, row);
+  };
+  let rest = '';
+  for await (const chunk of text) {
+    const lines = (rest + chunk).split('\n');
+    rest = lines.pop();
+    lines.forEach(take);
   }
+  take(rest);
   return [...rows.values()];
 }
 

@@ -34,7 +34,7 @@ export function startServer({ dataDir, port = 5310 }) {
   const server = createServer((req, res) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return res.writeHead(405).end();
     if (new URL(req.url, 'http://127.0.0.1').pathname !== '/') return res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('没有这个页面');
-    const html = home(readLatestSnapshot(dataDir, 'd1'));
+    const html = home(readLatestSnapshot(dataDir));
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' }).end(req.method === 'HEAD' ? undefined : html);
   });
   return new Promise((resolve, reject) => {

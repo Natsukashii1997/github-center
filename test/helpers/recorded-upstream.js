@@ -11,17 +11,23 @@ const idByName = new Map(
   }),
 );
 
-export function recordedUpstream({ missingArchiveHours = [], failing = [] } = {}) {
+export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours = [], failing = [], notFound = [] } = {}) {
   const calls = [];
   const json = (name) => new Response(read(name), { headers: { 'content-type': 'application/json', date: 'Fri, 23 Oct 2026 08:33:34 GMT' } });
   async function fetch(input, init = {}) {
     const url = String(input);
     calls.push({ url, method: init.method ?? 'GET', body: init.body });
     if (failing.some((re) => re.test(url))) return new Response('Service Unavailable', { status: 503 });
+    if (notFound.some((re) => re.test(url))) return new Response('{"message":"Not Found"}', { status: 404 });
     let m;
     if ((m = url.match(/^https:\/\/data\.gharchive\.org\/(\d{4}-\d{2}-\d{2})-(\d{1,2})\.json\.gz$/))) {
       const hour = Number(m[2]);
       if (missingArchiveHours.includes(hour)) return new Response('Not Found', { status: 404 });
+      if (brokenArchiveHours.includes(hour)) {
+        // 下载到一半连接断开（真实运行中见过 undici 的 BodyTimeoutError）。
+        const head = gzipSync(Buffer.from('{"type":"WatchEvent","repo":{"id":1,"name":"a/b"}}\n'.repeat(200))).subarray(0, 40);
+        return new Response(new ReadableStream({ start(c) { c.enqueue(head); c.error(new TypeError('terminated')); } }));
+      }
       const name = `gharchive-${m[1]}-${String(hour).padStart(2, '0')}.ndjson`;
       return new Response(gzipSync(existsSync(new URL(name, dir)) ? read(name) : Buffer.alloc(0)));
     }

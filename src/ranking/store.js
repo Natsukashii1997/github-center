@@ -3,6 +3,10 @@ import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from 
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
+export const WINDOW = 'd1';
+const snapshotDir = join('snapshots', WINDOW);
+const snapshotPath = (day) => join(snapshotDir, `${day}.json`);
+
 export function openStore(dataDir, runId) {
   return {
     saveRaw(kind, name, res) {
@@ -12,8 +16,8 @@ export function openStore(dataDir, runId) {
       return { url: res.url, path, sha256: createHash('sha256').update(res.body).digest('hex'), date: res.date };
     },
     publish(snapshot) {
-      const path = join('snapshots', snapshot.window, `${snapshot.statDay}.json`);
-      mkdirSync(dirname(join(dataDir, path)), { recursive: true });
+      const path = snapshotPath(snapshot.statDay);
+      mkdirSync(join(dataDir, snapshotDir), { recursive: true });
       try {
         writeFileSync(join(dataDir, path), JSON.stringify(snapshot, null, 2) + '\n', { flag: 'wx' });
         return { status: 'published', path };
@@ -25,13 +29,13 @@ export function openStore(dataDir, runId) {
   };
 }
 
-export function findSnapshot(dataDir, window, day) {
-  const path = join('snapshots', window, `${day}.json`);
+export function findSnapshot(dataDir, day) {
+  const path = snapshotPath(day);
   return existsSync(join(dataDir, path)) ? { path, snapshot: JSON.parse(readFileSync(join(dataDir, path), 'utf8')) } : null;
 }
 
-export function readLatestSnapshot(dataDir, window = 'd1') {
-  const dir = join(dataDir, 'snapshots', window);
+export function readLatestSnapshot(dataDir) {
+  const dir = join(dataDir, snapshotDir);
   if (!existsSync(dir)) return null;
   const latest = readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().pop();
   return latest ? JSON.parse(readFileSync(join(dir, latest), 'utf8')) : null;
