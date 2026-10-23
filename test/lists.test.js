@@ -2,13 +2,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { get } from 'node:http';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rankDay, readLatestSnapshot, readStatus } from '../src/ranking/index.js';
 import { recordedUpstream } from './helpers/recorded-upstream.js';
-import { startServer } from '../src/web/server.js';
+import { visit } from './helpers/web.js';
 
 const day = '2026-10-22';
 const now = () => new Date('2026-10-23T08:40:00Z');
@@ -127,17 +126,6 @@ test('同一统计日重跑不覆盖三个榜单的快照，也不再请求上�
 });
 
 // ---- 接缝 2：榜单页 ----
-const page = (url) => new Promise((resolve, reject) => {
-  get(url, (res) => { let body = ''; res.setEncoding('utf8'); res.on('data', (c) => (body += c)); res.on('end', () => resolve({ status: res.statusCode, body })); }).on('error', reject);
-});
-async function visit(dataDir, path) {
-  const { server, url } = await startServer({ dataDir, port: 0 });
-  try {
-    return await page(url + path);
-  } finally {
-    server.close();
-  }
-}
 const rows = (body) => [...body.matchAll(/<tr><td>(\d+)<\/td><td><a href="https:\/\/github\.com\/([^"]+)">/g)].map((m) => [Number(m[1]), m[2]]);
 
 test('新项目榜、累计高星榜页：前 20（含并列），写明范围和搜索的已知现象', async () => {

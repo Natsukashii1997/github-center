@@ -1,11 +1,11 @@
-// 接缝 2：本机网站首页。首页只读快照和更新记录，访问时不调用外部接口。
+// 接缝 2：本机网站首页（登录后）。首页只读快照和更新记录，访问时不调用外部接口。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { get } from 'node:http';
 import { startServer } from '../src/web/server.js';
+import { visit } from './helpers/web.js';
 
 const fixture = new URL('./fixtures/snapshot-d1-2026-10-22.json', import.meta.url);
 function dataDirWithSnapshot() {
@@ -28,17 +28,6 @@ function writeSnapshot(dir, window, extra) {
   };
   mkdirSync(join(dir, 'snapshots', window), { recursive: true });
   writeFileSync(join(dir, 'snapshots', window, `${snapshot.statDay}.json`), JSON.stringify(snapshot));
-}
-const page = (url) => new Promise((resolve, reject) => {
-  get(url, (res) => { let body = ''; res.setEncoding('utf8'); res.on('data', (c) => (body += c)); res.on('end', () => resolve({ status: res.statusCode, body })); }).on('error', reject);
-});
-async function visit(dataDir, path = '') {
-  const { server, url } = await startServer({ dataDir, port: 0 });
-  try {
-    return await page(url + path);
-  } finally {
-    server.close();
-  }
 }
 
 test('首页显示近 1 天榜单：名次、项目、当天新增、当前总 Star、统计日期、更新时间', async () => {
