@@ -10,8 +10,8 @@ export const RESERVE = 1500;
 const RETRIES = 3;
 const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// stats 记实际发出的请求次数（含重试）。
-export function githubClient({ fetch, token, sleep = realSleep, now = Date.now }) {
+// stats 记实际发出的请求次数（含重试）。单个请求最多等 timeoutMs，连接挂住就算失败重试，不让每天的运行卡死。
+export function githubClient({ fetch, token, sleep = realSleep, now = Date.now, timeoutMs = 60_000 }) {
   const stats = { history: 0, project: 0, search: 0 };
   let pauseUntil = 0;
   async function get(kind, p) {
@@ -23,6 +23,7 @@ export function githubClient({ fetch, token, sleep = realSleep, now = Date.now }
       try {
         res = await fetch(url, {
           headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.github+json', 'x-github-api-version': '2022-11-28', 'user-agent': 'github-center' },
+          signal: AbortSignal.timeout(timeoutMs),
         });
       } catch (e) {
         if (attempt < RETRIES) { await sleep(attempt * 2000); continue; }
@@ -32,7 +33,13 @@ export function githubClient({ fetch, token, sleep = realSleep, now = Date.now }
       const remaining = h.has('x-ratelimit-remaining') ? Number(h.get('x-ratelimit-remaining')) : null;
       const resetAt = h.has('x-ratelimit-reset') ? Number(h.get('x-ratelimit-reset')) * 1000 + 5000 : null;
       if (h.get('x-ratelimit-resource') !== 'search' && remaining !== null && remaining < RESERVE && resetAt) pauseUntil = Math.max(pauseUntil, resetAt);
-      const body = await res.text();
+      let body;
+      try {
+        body = await res.text();
+      } catch (e) {
+        if (attempt < RETRIES) { await sleep(attempt * 2000); continue; }
+        throw new Error(`${url} 读取响应失败：${e.message}`);
+      }
       if (res.status === 404) return null;
       if (res.ok) return { url, body, date: h.get('date') };
       // 被限流：等到额度重置（或按 retry-after）再试。

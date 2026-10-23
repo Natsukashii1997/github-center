@@ -68,3 +68,15 @@ test('404 返回空，不重试；其他错误（如 401）不重试直接报错
   await assert.rejects(gh.history(repo), /返回 401：Bad credentials/);
   assert.equal(s.at.length, 2);
 });
+
+test('请求挂住超过时限就算失败重试，不让运行卡死', async () => {
+  let calls = 0;
+  const fetch = (url, init) => {
+    calls++;
+    if (calls === 1) return new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason)));
+    return Promise.resolve(new Response('[]'));
+  };
+  const gh = githubClient({ fetch, token: 't', sleep: async () => {}, timeoutMs: 20 });
+  assert.equal((await gh.history(repo)).body, '[]');
+  assert.equal(calls, 2);
+});

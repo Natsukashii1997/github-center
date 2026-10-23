@@ -7,6 +7,8 @@ import { selfCheck, lowerThreshold } from './check.js';
 import { LISTS, buildList } from './lists.js';
 
 const MAX_FAILED_SHARE = 0.05;
+// 同时发出的官方请求数：4 个约每分钟 500 次，低于 GitHub 每分钟 900 次的次级限流。
+const CONCURRENCY = 4;
 // 每个窗口最多核这么多个候选（约是近 1 天全部有事件记录的项目数），保证每天一次的运行在额度内跑得完。
 const MAX_CANDIDATES = 5000;
 
@@ -123,7 +125,7 @@ async function rankEntries({ verified, project }) {
   let pool = verified.filter((v) => v.gain > 0);
   for (;;) {
     const top = topWithTies(pool);
-    const rows = await mapLimit(top, 6, async (t) => ({ t, ...(await project(t.candidate)) }));
+    const rows = await mapLimit(top, CONCURRENCY, async (t) => ({ t, ...(await project(t.candidate)) }));
     const seen = new Set();
     const dup = new Set(rows.filter(({ p }) => seen.has(p.id) || !seen.add(p.id)).map(({ t }) => t.candidate));
     if (!dup.size) {
@@ -149,7 +151,7 @@ async function rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, proj
   for (;;) {
     const fromEvents = ev.rows.filter((r) => r.events >= threshold);
     const candidates = mergeById([...fromEvents, ...hotItems]);
-    const results = await mapLimit(candidates, 6, verify);
+    const results = await mapLimit(candidates, CONCURRENCY, verify);
     const unavailable = [];
     const failed = [];
     const verified = [];

@@ -33,13 +33,13 @@ export async function archiveHour({ fetch, day, hour }) {
 
 const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ClickHouse 公开库和官方热门榜偶尔连不上：断网或 5xx 时最多试 3 次，仍失败就带上数据源名字报错。
+// ClickHouse 公开库和官方热门榜偶尔连不上：断网、超时（60 秒）或 5xx 时最多试 3 次，仍失败就带上数据源名字报错。
 async function fetchRetry({ fetch, sleep = realSleep, url, init, label }) {
   for (let attempt = 1; ; attempt++) {
     let res;
     let why;
     try {
-      res = await fetch(url, init);
+      res = await fetch(url, { ...init, signal: AbortSignal.timeout(60_000) });
     } catch (e) {
       why = `请求失败（${e.cause?.code ?? e.message}）`;
     }
