@@ -25,7 +25,8 @@
 .data-card { padding: 12px; border-radius: var(--r-card); background: var(--bg-sunk); border: 1px solid var(--line-soft); font-size: 12px; color: var(--ink-3); line-height: 1.6; }
 .data-card b { color: var(--ink-2); font-weight: 600; }
 .me { display: flex; align-items: center; justify-content: space-between; }
-.me span { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.me span { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.side .theme button { width: 24px; }
 
 /* 主区 */
 .main { padding: 34px 44px 80px; max-width: 1240px; width: 100%; }
@@ -64,6 +65,7 @@
 .mini .no { margin-bottom: 10px; }
 .mini .owner { font-size: 12.5px; color: var(--ink-4); }
 .mini h3 { margin: 1px 0 6px; padding-right: 30px; font-size: 17px; line-height: 1.3; font-weight: 700; overflow-wrap: anywhere; }
+.mini .tags { display: flex; gap: 6px; margin-top: 8px; }
 .mini .what { font-size: 13px; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .mini .foot { display: flex; align-items: flex-end; justify-content: space-between; margin-top: auto; padding-top: 12px; }
 .mini .big b { font-size: 26px; }
@@ -92,8 +94,8 @@
 .enter { animation: gc-fade-up 240ms var(--ease) both; animation-delay: calc(var(--i, 0) * 22ms); }
 
 /* 项目详情：右侧抽屉 */
-.scrim { position: fixed; inset: 0; z-index: 40; background: var(--scrim); animation: gc-fade-in 200ms ease-out both; }
-.sheet { position: fixed; top: 10px; right: 10px; bottom: 10px; z-index: 41; width: 600px; overflow: auto; padding: 22px 28px 40px; border-radius: var(--r-sheet); background: var(--bg); border: 1px solid var(--line); box-shadow: var(--shadow-pop); animation: a-sheet-in 300ms var(--ease) both; }
+.scrim { position: fixed; inset: 0; z-index: 40; background: var(--scrim); animation: gc-fade-in 200ms var(--ease) both; }
+.sheet { position: fixed; top: 10px; right: 10px; bottom: 10px; z-index: 41; width: 600px; overflow: auto; padding: 22px 28px 40px; border-radius: var(--r-sheet); background: var(--bg); border: 1px solid var(--line); box-shadow: var(--shadow-pop); animation: a-sheet-in 280ms var(--ease) both; }
 .sheet-bar { position: sticky; top: -22px; z-index: 2; display: flex; justify-content: space-between; align-items: center; margin: -22px -28px 18px; padding: 14px 20px 10px 28px; background: color-mix(in oklab, var(--bg) 88%, transparent); backdrop-filter: blur(8px); }
 .sheet-bar span { font: 500 11px/1 var(--mono); letter-spacing: .12em; color: var(--ink-4); }
 .closing .scrim { animation: gc-fade-out 180ms ease-in both; }
@@ -137,8 +139,8 @@ const no = (r) => `NO.${String(r).padStart(2, '0')}`;
 
 document.querySelector('.brand').innerHTML = G.logo(22) + 'GitHub 快速中心';
 document.getElementById('theme').innerHTML = G.themeSwitch();
-document.getElementById('me').innerHTML = G.avatar('常', 24) + '常浩';
-document.getElementById('dataCard').innerHTML = `<b>每天更新一次</b><br>统计日 <span class="mono">${meta.statDay}</span><br>更新于 <span class="mono">${meta.updatedAt}</span>`;
+document.getElementById('me').innerHTML = G.avatar('常', 24) + '常浩' + `<button class="icon-btn" data-logout title="退出" aria-label="退出">${icon('logout')}</button>`;
+const sideData = () => { const m = G.metaFor(S.state); document.getElementById('dataCard').innerHTML = `<b>每天更新一次</b><br>统计日 <span class="mono">${m.statDay}</span><br>更新于 <span class="mono">${m.updatedAt}</span>`; };
 
 function nav() {
   const items = [['rank', 'trend', '涨星榜'], ['other', 'list', '其他榜单'], ['daily', 'paper', '日报'], ['favs', 'bookmark', '我的收藏']];
@@ -148,7 +150,7 @@ function nav() {
 function header() {
   return `<div class="head">
     <div><div class="kicker" id="kicker"></div><h1>涨星榜</h1>
-    <p>统计日 <span class="num">${meta.statLabel}</span>　·　从 <span class="mono">${fmt(meta.candidates)}</span> 个候选里按 GitHub 官方 Star 数据核出前 20，并列同名次</p></div>
+    <p>统计日 <span class="num">${G.metaFor(S.state).statLabel}</span>　·　从 <span class="mono">${fmt(meta.candidates)}</span> 个候选里按 GitHub 官方 Star 数据核出前 20，并列同名次</p></div>
     ${G.seg(WINDOWS, S.win, 'win')}
   </div>
   <div class="cats">${[[null, '全部'], ...CATS.map((c) => [c, c])].map(([k, l]) => `<button class="chip${S.cat === k ? ' on' : ''}" data-cat="${k ?? ''}">${l}</button>`).join('')}</div>
@@ -163,7 +165,8 @@ function board() {
   document.getElementById('notice').innerHTML = G.NOTICE[S.state] || '';
   const k = document.getElementById('kicker');
   k.className = 'kicker' + (S.state === 'incomplete' ? ' warn' : S.state === 'failed' ? ' bad' : '');
-  k.innerHTML = `<span class="dot"></span>${S.state === 'incomplete' ? '今天的榜单可能不完整' : S.state === 'failed' ? `今天更新失败，显示 ${meta.lastGood} 的结果` : `今天已更新，${meta.updatedAt}`}`;
+  const m = G.metaFor(S.state);
+  k.innerHTML = `<span class="dot"></span>${S.state === 'incomplete' ? '今天的榜单可能不完整' : S.state === 'failed' ? `今天更新失败，显示 ${m.statLabel} 的结果` : `今天已更新，${m.updatedAt}`}`;
   if (S.state === 'loading') {
     el.innerHTML = `<div class="podium"><div class="skeleton sk-card"></div><div class="side-stack"><div class="skeleton sk-card" style="height:auto"></div><div class="skeleton sk-card" style="height:auto"></div></div></div>
       <div class="list">${Array.from({ length: 5 }, () => `<div class="sk-row"><span class="skeleton" style="width:24px"></span><span class="skeleton" style="width:38%"></span><span class="skeleton" style="width:12%;margin-left:auto"></span></div>`).join('')}</div>`;
@@ -182,6 +185,7 @@ function board() {
   const mini = (r) => { const [o, n] = split(r.repo); return `<div class="card mini enter" style="--i:${i++}" data-open="${r.repo}">
       <div class="no" style="color:${rankColor(r.rank)}">${no(r.rank)} ${tieTag(r)}</div>${favBtn(r.repo)}
       <div class="owner">${o} /</div><h3>${n}</h3><p class="what">${r.what}</p>
+      <div class="tags">${r.cats.map((c) => `<span class="tag">${c}</span>`).join('')}</div>
       <div class="foot">${spark(series(r.repo), { w: 130, h: 34, last })}<div class="big"><b>+${fmt(r.gain)}</b><small>总 ${short(r.total)}</small></div></div>
     </div>`; };
   const row = (r) => { const [o, n] = split(r.repo); return `<div class="row enter" style="--i:${i++}" data-open="${r.repo}">
@@ -196,7 +200,7 @@ function board() {
   if (S.cat && rows.length < 20) html += `<p class="cat-note">「${S.cat}」在${winLabel()}核出的结果里有 ${rows.length} 个项目，全部列出。</p>`;
   if (!rows.length) { el.innerHTML = html + `<div class="list"><div class="empty-list">这个分类今天没有项目进入核数结果</div></div>`; return; }
   html += `<div class="podium" style="${top.length < 2 ? 'grid-template-columns:1fr' : ''}">${lead(top[0])}${top.length > 1 ? `<div class="side-stack">${top.slice(1).map(mini).join('')}</div>` : ''}</div>`;
-  if (rest.length) html += `<div class="list enter" style="--i:${i++}"><div class="list-head"><b>继续看<span class="mono">No.04-${String(rows.length).padStart(2, '0')}</span></b><small>走势为近 30 天每日新增</small></div>${rest.map(row).join('')}</div>`;
+  if (rest.length) html += `<div class="list enter" style="--i:${i++}"><div class="list-head"><b>继续看<span class="mono">No.04-${String(rows.length).padStart(2, '0')}</span></b><small>走势为近 30 天每日新增，各行按自身最高值缩放，只比形状</small></div>${rest.map(row).join('')}</div>`;
   el.innerHTML = html;
 }
 
@@ -209,6 +213,7 @@ function favPage() {
 
 function render() {
   nav();
+  sideData();
   const m = document.getElementById('main');
   if (S.page === 'rank') { m.innerHTML = header(); board(); }
   else if (S.page === 'favs') m.innerHTML = favPage();
@@ -244,7 +249,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 document.addEventListener('gc:fav', () => { nav(); if (S.page === 'favs') document.getElementById('main').innerHTML = favPage(); });
-G.demoPanel((st) => { S.state = st; if (S.page === 'rank') board(); if (S.open) openSheet(S.open); });
+G.demoPanel((st) => { S.state = st; if (S.page === 'rank') render(); else sideData(); if (S.open) openSheet(S.open); });
 // 评审用网址参数：?win=d7&state=failed&open=owner/repo
 const Q = new URLSearchParams(location.search);
 if (Q.get('win')) S.win = Q.get('win');

@@ -27,7 +27,7 @@ window.GC = (() => {
   add('dream-num/univer', 22300, '让 AI Agent 操作表格、文档、PPT、PDF', '让 AI 直接生成和修改办公文件', ['知识管理与办公效率']);
   add('anthropics/claude-plugins-official', 18900, 'Claude Code 官方插件与 Skill 目录', '一处找齐官方维护的 Claude Code 扩展', ['Skill'], { skills: [{ name: 'frontend-design', desc: '做出有设计感的前端界面' }, { name: 'pdf', desc: '读取、填写和生成 PDF' }, { name: 'xlsx', desc: '处理 Excel 表格' }] });
   add('Panniantong/Agent-Reach', 89800, '给 AI Agent 接入互联网', '让 AI 能搜索并读取多个平台上的内容', ['Agent／MCP']);
-  add('example-org/ai-engineering-from-scratch-handbook', 63200, '从零开始构建 AI 工程的完整教程', '系统学会怎样做出自己的 AI 应用', ['其他']);
+  add('example-org/ai-engineering-from-scratch-handbook', 1032400, '从零开始构建 AI 工程的完整教程', '系统学会怎样做出自己的 AI 应用', ['其他']);
   add('a-very-long-organization-name/an-extremely-long-repository-name-to-test-wrapping', 3120, '一个专门用来测试最长中文简介显示效果的示例项目，简介写得特别长，用来检查换行、省略和对齐在各种宽度下是否依然优雅', '验证极端长度的名字与说明不会把版面撑坏', ['其他']);
   add('lumen-db/lumen', 7400, '嵌入式向量数据库', '在本机给几十万份文档做语义搜索', ['数据库与数据工具']);
   add('tinyui/tiny-ui', 5230, '只有 6KB 的无样式组件库', '快速搭出可访问的表单和弹窗', ['开发框架与组件库']);
@@ -37,8 +37,8 @@ window.GC = (() => {
     d7: [['morluto/rea', 223708], ['storytold/photocraft', 21066], ['Ebony-Vinyl/dsh-our-free-model', 15837], ['storytold/artcraft', 15581], ['boykopovar/AnyPS5', 13599], ['debpalash/VoiceStudio', 13474], ['storytold/wordcraft', 10676], ['mattpocock/skills', 10131], ['cathrynlavery/diagram-design', 7613], ['NationalSecurityAgency/ghidra', 7502], ['vectorize-io/hindsight', 7120], ['paperclipai/paperclip', 6890], ['Panniantong/Agent-Reach', 6402], ['stablyai/orca', 6011], ['dream-num/univer', 5320], ['openshell-dev/openshell', 5102], ['example-org/ai-engineering-from-scratch-handbook', 5099], ['anthropics/claude-plugins-official', 4870], ['lumen-db/lumen', 4410], ['tinyui/tiny-ui', 4205]],
     d30: [['morluto/rea', 241002], ['paperclipai/paperclip', 41870], ['debpalash/VoiceStudio', 40112], ['stablyai/orca', 35660], ['storytold/photocraft', 33320], ['vectorize-io/hindsight', 31014], ['Panniantong/Agent-Reach', 29870], ['storytold/artcraft', 27200], ['mattpocock/skills', 25560], ['NationalSecurityAgency/ghidra', 21980], ['Ebony-Vinyl/dsh-our-free-model', 20117], ['example-org/ai-engineering-from-scratch-handbook', 19830], ['boykopovar/AnyPS5', 17940], ['dream-num/univer', 15730], ['storytold/wordcraft', 13560], ['anthropics/claude-plugins-official', 12840], ['openshell-dev/openshell', 11950], ['cathrynlavery/diagram-design', 8870], ['lumen-db/lumen', 6930], ['tinyui/tiny-ui', 5120]],
   };
-  const FLOOR = { d1: 1034, d7: 4205, d30: 5120 };
   const WINDOWS = [['d1', '近 1 天'], ['d7', '近 7 天'], ['d30', '近 30 天']];
+  const AI = { claude: 'Claude Code', codex: 'Codex' };
 
   // 名次：并列同名次；分类筛选在同一份已核数结果里重排，不足 20 个如实显示。
   function ranking(win, cat) {
@@ -52,15 +52,18 @@ window.GC = (() => {
   }
 
   function installText(repo, target, skill) {
-    const who = target === 'claude' ? 'Claude Code' : 'Codex';
+    const who = AI[target];
     const what = skill ? `仓库 ${repo} 里名为「${skill}」的 Skill` : ` GitHub 项目 ${repo}`;
     return `请在你所在的这台电脑上，为 ${who} 安装${what}（https://github.com/${repo}）。\n1. 先阅读项目官方 README 和安装文档，按文档步骤安装和配置，不要猜测命令。\n2. 装好后实际调用一次，确认能正常使用。\n3. 如果需要账号、API Key 或付费，停下来告诉我缺什么，不要自行注册或付费。\n4. 最后用两三句话告诉我：它装在哪里、怎么调用、第一次可以怎么试。`;
   }
 
   const SPAN = { d1: 1, d7: 7, d30: 30 };
   const fmt = (n) => n.toLocaleString('en-US');
-  const short = (n) => (n >= 1000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, '') + 'k' : String(n));
-  const meta = { statDay: '2026-10-22', statLabel: '10 月 22 日', updatedAt: '10-23 10:04', lastGood: '10 月 21 日', candidates: 1284, verified: 1284 };
+  const short = (n) => (n >= 1e6 ? (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + 'M' : n >= 1000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1).replace(/\.0$/, '') + 'k' : String(n));
+  // 更新失败时整页显示上次成功的那一份，日期如实写上次的，不伪造。
+  const meta = { statDay: '2026-10-22', statLabel: '10 月 22 日', updatedAt: '10-23 10:04', candidates: 1284, verified: 1284 };
+  const lastGood = { statDay: '2026-10-21', statLabel: '10 月 21 日', updatedAt: '10-22 10:02' };
+  const metaFor = (state) => (state === 'failed' ? { ...meta, ...lastGood } : meta);
 
   // 某窗口的新增；没进该窗口前 20 时为 null，页面写“未上榜”。
   const gainOf = (repo, win) => { const hit = order[win].find(([r]) => r === repo); return hit ? hit[1] : null; };
@@ -106,6 +109,7 @@ window.GC = (() => {
     close: '<path d="M4 4l8 8M12 4l-8 8"/>',
     arrow: '<path d="M2.5 8h11M9.5 4l4 4-4 4"/>',
     back: '<path d="M13.5 8h-11M6.5 4l-4 4 4 4"/>',
+    logout: '<path d="M6.5 2.5h-3v11h3M10.5 5l3 3-3 3M13.5 8h-7"/>',
     user: '<circle cx="8" cy="5.5" r="2.8"/><path d="M2.5 14c.8-2.6 3-4 5.5-4s4.7 1.4 5.5 4"/>',
     spark: '<path d="M8 1.5l1.4 5.1 5.1 1.4-5.1 1.4L8 14.5l-1.4-5.1L1.5 8l5.1-1.4z"/>',
   };
@@ -170,7 +174,7 @@ window.GC = (() => {
 
   const NOTICE = {
     incomplete: `<div class="notice warn"><span class="dot"></span><span><b>可能不完整</b>　今天有 2 个小时的事件数据缺失，已用备用源补回 1 个；榜单可能漏掉个别项目。</span></div>`,
-    failed: `<div class="notice"><span class="dot"></span><span><b>今天更新失败</b>　下面是 ${meta.lastGood} 的结果，下次更新会自动重试。</span></div>`,
+    failed: `<div class="notice"><span class="dot"></span><span><b>今天更新失败</b>　下面是 ${lastGood.statLabel} 的结果，下次更新会自动重试。</span></div>`,
   };
 
   // 评审用：切换状态。
@@ -188,5 +192,5 @@ window.GC = (() => {
     document.body.append(el);
   }
 
-  return { CATS, P, WINDOWS, SPAN, FLOOR, ranking, installText, gainOf, series, spark, icon, logo, avatar, fmt, short, meta, favs, toggleFav, bump, toast, copy, seg, setSeg, themeSwitch, reduced, transition, NOTICE, demoPanel };
+  return { CATS, P, WINDOWS, SPAN, AI, ranking, installText, gainOf, series, spark, icon, logo, avatar, fmt, short, meta, metaFor, favs, toggleFav, bump, toast, copy, seg, setSeg, themeSwitch, reduced, transition, NOTICE, demoPanel };
 })();

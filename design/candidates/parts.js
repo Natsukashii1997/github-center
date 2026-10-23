@@ -1,7 +1,7 @@
 // v2 共用部件：项目详情内容与收藏按钮。三套只换容器（抽屉 / 整页 / 弹窗），内容结构相同。
 (() => {
   const G = window.GC;
-  const { icon, fmt, avatar, spark, series, gainOf, installText, seg, setSeg, WINDOWS, SPAN, favs } = G;
+  const { icon, fmt, avatar, spark, series, installText, seg, setSeg, WINDOWS, SPAN, AI, favs } = G;
 
   const split = (repo) => { const i = repo.indexOf('/'); return [repo.slice(0, i), repo.slice(i + 1)]; };
   const vtName = (repo) => 'r-' + repo.replace(/[^a-zA-Z0-9]/g, '-');
@@ -12,7 +12,9 @@
     return `<button class="${cls} fav${on ? ' on' : ''}" data-fav="${key}" aria-pressed="${on}" title="${on ? '取消收藏' : '收藏'}">${icon('bookmark')}${text}</button>`;
   };
 
-  const stat = (label, v, plus = true) => `<div class="pd-stat"><small>${label}</small>${v == null ? '<b class="na">未上榜</b>' : `<b class="mono">${plus ? '+' : ''}${fmt(v)}</b>`}</div>`;
+  const stat = (label, v, plus = true) => `<div class="pd-stat"><small>${label}</small><b class="mono">${plus ? '+' : ''}${fmt(v)}</b></div>`;
+  // 项目页的近 1/7/30 天新增来自同一份官方星数历史，没进榜单的项目也有数。
+  const sumLast = (s, n) => s.slice(-n).reduce((a, b) => a + b, 0);
 
   function detail(repo, { win = 'd1', state = 'normal', target = 'claude' } = {}) {
     const p = G.P[repo];
@@ -26,7 +28,7 @@
       <div class="pd-skill"><div><b class="mono">${s.name}</b><span>${s.desc}</span></div>${favBtn(repo + '#' + s.name)}<button class="btn sm" data-copy-skill="${s.name}">${icon('copy')}复制安装指令</button></div>`).join('')}</div></section>` : '';
     return `<article class="pd" data-repo="${repo}">
       <header class="pd-head">${avatar(repo, 44)}<div class="pd-title"><div class="pd-owner">${owner} /</div><h2 class="pd-name" style="view-transition-name:${vtName(repo)}">${name}</h2></div><div class="pd-cats">${p.cats.map((c) => `<span class="chip">${c}</span>`).join('')}</div></header>
-      <div class="pd-stats">${stat('当前总 Star', p.total, false)}${WINDOWS.map(([k, l]) => stat(l + '新增', gainOf(repo, k))).join('')}</div>
+      <div class="pd-stats">${stat('当前总 Star', p.total, false)}${WINDOWS.map(([k, l]) => stat(l + '新增', sumLast(series(repo), SPAN[k]))).join('')}</div>
       <section class="pd-trend"><div class="pd-label"><span>近 30 天每日新增</span><small>来自 GitHub 官方 Star 历史 · 高亮为${WINDOWS.find(([k]) => k === win)[1]}</small></div>${spark(series(repo), { w: 520, h: 72, last: SPAN[win] })}<div class="pd-axis mono"><span>09-23</span><span>10-22</span></div></section>
       <section class="pd-sec"><h3>它是做什么的</h3>${about}</section>
       ${conditions}${skills}
@@ -51,7 +53,7 @@
         setSeg(t.closest('.seg'), 'target', target);
         const pre = pd.querySelector('[data-install]');
         pre.textContent = installText(repo, target);
-        pre.style.animation = 'none'; void pre.offsetWidth; pre.style.animation = 'gc-fade-in 180ms ease-out both';
+        pre.style.animation = 'none'; void pre.offsetWidth; pre.style.animation = 'gc-fade-in 180ms cubic-bezier(.25,1,.5,1) both';
         return;
       }
       const c = e.target.closest('[data-copy]');
@@ -59,7 +61,7 @@
         await G.copy(installText(repo, target));
         c.classList.add('done');
         c.innerHTML = `${icon('check', 'pop')}<span>已复制</span>`;
-        G.toast(`安装指令已复制，粘贴给 ${target === 'claude' ? 'Claude Code' : 'Codex'} 即可`);
+        G.toast(`安装指令已复制，粘贴给 ${AI[target]} 即可`);
         clearTimeout(c._t);
         c._t = setTimeout(() => { c.classList.remove('done'); c.innerHTML = `${icon('copy')}<span>复制安装指令</span>`; }, 1800);
         return;
@@ -71,6 +73,9 @@
       }
     });
   }
+
+  // 退出：候选阶段只演示入口位置，登录页在选定方向后的高保真阶段补齐。
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) G.toast('候选阶段只演示入口，登录页在选定方向后补齐'); });
 
   // 收藏按钮在页面任何位置都生效，同一对象的所有按钮同步。
   document.addEventListener('click', (e) => {

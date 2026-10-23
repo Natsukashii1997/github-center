@@ -37,7 +37,7 @@
 .cat-note { margin-bottom: 14px; font-size: 12.5px; color: var(--ink-4); }
 
 /* 榜单：只用细线分隔 */
-.thead, .row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 190px 120px 92px 30px; gap: 16px; align-items: center; }
+.thead, .row { display: grid; grid-template-columns: 44px 28px minmax(0, 1fr) 190px 120px 92px 30px; gap: 16px; align-items: center; }
 .thead { padding: 0 0 10px; border-bottom: 1px solid var(--line); font: 500 11px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-4); }
 .thead .r, .row .g, .row .t { text-align: right; }
 .row { position: relative; min-height: 76px; padding: 14px 0; border-bottom: 1px solid var(--line-soft); cursor: pointer; background: var(--bg); }
@@ -73,7 +73,7 @@
 <header class="top"><div class="top-in">
   <div class="brand" id="brand"></div>
   <nav class="links" id="links"></nav>
-  <div class="tools"><span class="stamp" id="stamp"></span><span id="theme"></span></div>
+  <div class="tools"><span class="stamp" id="stamp"></span><span id="theme"></span><span class="me" id="me"></span></div>
 </div></header>
 <main class="col" id="main"></main>
 <script>
@@ -85,7 +85,8 @@ const rankColor = (r) => `var(--rank-${r <= 3 ? r : 'rest'})`;
 
 document.getElementById('brand').innerHTML = G.logo(22) + 'GitHub 快速中心';
 document.getElementById('theme').innerHTML = G.themeSwitch();
-document.getElementById('stamp').innerHTML = `统计日 ${meta.statDay}<br>更新于 ${meta.updatedAt}`;
+document.getElementById('me').innerHTML = G.avatar('常', 24) + '常浩' + `<button class="icon-btn" data-logout title="退出" aria-label="退出">${icon('logout')}</button>`;
+const stamp = () => { const m = G.metaFor(S.state); document.getElementById('stamp').innerHTML = `统计日 ${m.statDay}<br>更新于 ${m.updatedAt}`; };
 
 function links() {
   const items = [['rank', '涨星榜'], ['other', '其他榜单'], ['daily', '日报'], ['favs', '我的收藏']];
@@ -95,20 +96,20 @@ function links() {
 function rankPage() {
   return `<section class="hero">
       <div class="eyebrow">Rising · 官方核数</div>
-      <h1><span class="w" id="hw">${winLabel()}，</span><em>涨星最快的 20 个项目。</em></h1>
-      <p>从 <span class="mono">${fmt(meta.candidates)}</span> 个候选里，逐个按 GitHub 官方 Star 历史核出新增数，取前 20，末位并列一起列出。统计日 <span class="num">${meta.statLabel}</span>，每天更新一次。</p>
+      <h1><span class="w" id="hw">${winLabel()}，</span><em>涨星最快的项目。</em></h1>
+      <p>从 <span class="mono">${fmt(meta.candidates)}</span> 个候选里，逐个按 GitHub 官方 Star 历史核出新增数，取前 20，末位并列一起列出。统计日 <span class="num">${G.metaFor(S.state).statLabel}</span>，每天更新一次。</p>
     </section>
     <div class="controls">${G.seg(WINDOWS, S.win, 'win')}</div>
     <div class="cats">${[[null, '全部'], ...CATS.map((c) => [c, c])].map(([k, l]) => `<button class="chip${S.cat === k ? ' on' : ''}" data-cat="${k ?? ''}">${l}</button>`).join('')}</div>
     <div class="notice-slot" id="notice"></div>
     <div id="catNote"></div>
-    <div class="thead"><span>No.</span><span>项目</span><span class="r">分类</span><span class="r" id="gHead">${winLabel()}新增</span><span class="r">总 Star</span><span></span></div>
+    <div class="thead"><span>No.</span><span></span><span>项目</span><span class="r">分类</span><span class="r" id="gHead">${winLabel()}新增</span><span class="r">总 Star</span><span></span></div>
     <div id="list"></div>
     <p class="foot-note">数字均来自 GitHub 官方 Star 历史；统计日按 UTC 划分。</p>`;
 }
 
 const rowHtml = (r) => { const [o, n] = split(r.repo); return `<div class="row" data-key="${r.repo}" data-open="${r.repo}">
-  <span class="rk" style="color:${rankColor(r.rank)}">${String(r.rank).padStart(2, '0')}</span>
+  <span class="rk" style="color:${rankColor(r.rank)}">${String(r.rank).padStart(2, '0')}</span>${G.avatar(r.repo, 28)}
   <div class="nm"><b><span style="view-transition-name:${vtName(r.repo)}"><i>${o} / </i>${n}</span>${r.tie ? '<span class="tag tie">并列</span>' : ''}</b><p>${r.what}</p></div>
   <div class="cs">${r.cats.map((c) => `<span class="tag">${c}</span>`).join('')}</div>
   <span class="g">+${fmt(r.gain)}</span><span class="t">${fmt(r.total)}</span>${favBtn(r.repo)}
@@ -130,7 +131,7 @@ function list(animate) {
     if (prev == null) { c.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240, delay: 140 + i * 14, easing: ease, fill: 'backwards' }); return; }
     const dy = prev - c.getBoundingClientRect().top;
     if (dy) c.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 280, easing: ease });
-    c.querySelector('.g').animate([{ opacity: .25 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+    c.querySelector('.g').animate([{ opacity: .25 }, { opacity: 1 }], { duration: 220, easing: 'cubic-bezier(.25,1,.5,1)' });
   });
 }
 
@@ -144,6 +145,7 @@ function favPage() {
 
 function render() {
   links();
+  stamp();
   const m = document.getElementById('main');
   if (S.page === 'rank') { m.innerHTML = rankPage(); list(false); }
   else if (S.page === 'project') m.innerHTML = `<div class="page"><a href="#" class="back" data-page="rank">${icon('back')}返回涨星榜</a>${G.detail(S.open, { win: S.win, state: S.state })}</div>`;
@@ -169,7 +171,7 @@ document.addEventListener('click', (e) => {
     G.setSeg(w.closest('.seg'), 'win', S.win);
     const hw = document.getElementById('hw');
     hw.textContent = winLabel() + '，';
-    hw.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.25,1,.5,1)' });
+    if (!G.reduced()) hw.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(.25,1,.5,1)' });
     document.getElementById('gHead').textContent = winLabel() + '新增';
     list(true);
     return;
@@ -181,7 +183,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.page === 'project') go('rank'); });
 document.addEventListener('gc:fav', () => { links(); if (S.page === 'favs') document.getElementById('main').innerHTML = favPage(); });
-G.demoPanel((st) => { S.state = st; if (S.page === 'rank') list(false); else render(); });
+G.demoPanel((st) => { S.state = st; render(); });
 // 评审用网址参数：?win=d7&state=failed&open=owner/repo
 const Q = new URLSearchParams(location.search);
 if (Q.get('win')) S.win = Q.get('win');
