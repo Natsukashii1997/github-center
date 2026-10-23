@@ -24,17 +24,18 @@
     showCard();
     remember();
   }
-  // 换项目：正文淡入上移、走势按日期升起；同一项目换窗口：只换高亮
+  // 换项目：正文淡入上移、走势按日期升起；同一项目换窗口：只换高亮（两期榜单出自不同次运行时数字可能不同，照换项目重画）
   function showCard() {
     const r = rows.find((x) => x.repo === sel);
     if (!r) { const e = W().empty; card.innerHTML = GC.emptyHTML('inbox', e.title, e.text); shown = null; return; }
-    if (shown === r.repo) { $('.eyebrow', card).innerHTML = eyebrow(r); GC.sweepBars(card, win); return; }
+    const key = `${r.repo}@${r.run}`;
+    if (shown === key) { $('.eyebrow', card).innerHTML = eyebrow(r); GC.sweepBars(card, win); return; }
     const p = D.projects[r.repo];
-    card.innerHTML = GC.cardHTML(p, { eyebrow: eyebrow(r), win, mode: 'pane' });
+    card.innerHTML = GC.cardHTML(p, { eyebrow: eyebrow(r), run: r.run, win, mode: 'pane' });
     GC.wireCard(card, p);
     GC.anim(GC.$('.body', card), [{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240 });
     GC.growBars(card);
-    shown = r.repo;
+    shown = key;
   }
 
   function render() {
@@ -52,15 +53,18 @@
     remember();
   }
 
-  addEventListener('keydown', (e) => {
-    if (!rows.length || e.target.closest?.('input, select, textarea')) return;
-    const i = rows.findIndex((r) => r.repo === sel);
-    if (e.key === 'Enter' && sel && !e.target.closest?.('button, a')) { location.href = GC.pageOf(sel); return; }
+  // 键盘：焦点在榜单行上时，方向键换选中（焦点跟着走），回车打开项目页；行里的收藏按钮照常响应自己的回车。
+  rowsEl.addEventListener('keydown', (e) => {
+    if (!e.target.classList.contains('row')) return;
+    if (e.key === 'Enter') { location.href = GC.pageOf(sel); return; }
     if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
     e.preventDefault();
+    const i = rows.findIndex((r) => r.repo === sel);
     const n = rows[Math.max(0, Math.min(rows.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))];
     select(n.repo);
-    rowsEl.querySelector(`[data-key="${CSS.escape(n.repo)}"]`).scrollIntoView({ block: 'nearest' });
+    const li = rowsEl.querySelector(`[data-key="${CSS.escape(n.repo)}"]`);
+    li.focus({ preventScroll: true });
+    li.scrollIntoView({ block: 'nearest' });
   });
 
   render();

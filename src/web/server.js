@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
 import { openFavorites } from './favorites.js';
-import { readLatestSnapshot, readStatus, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
+import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
 import { findProfile, readProfile, findOnBoards, currentGenerated, skillPlace, skillPurpose, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 import { homeData, homePage } from './home.js';
 
@@ -18,8 +18,8 @@ const SEARCH_NOTE = '已知现象：GitHub 搜索会把少数仓库计进总数�
 
 // 更新失败时保留上一次的快照，写明它的真实日期和失败原因。
 function failure(board, snapshot, status) {
-  const last = status?.boards?.[board];
-  if (last?.status !== 'failed' || (snapshot && last.day <= snapshot.statDay)) return '';
+  const last = newerFailure(status, board, snapshot);
+  if (!last) return '';
   return `<p class="warn">统计日 ${esc(last.day)} 的榜单更新失败：${esc(last.error)}${snapshot ? `。下面仍是统计日 ${esc(snapshot.statDay)} 的榜单。` : ''}</p>\n`;
 }
 
@@ -217,7 +217,7 @@ function sameOrigin(req) {
 }
 
 // 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上就行；
-// 取消不用查，资料没了也能取消。成功返回 null，否则返回 [状态码, 原因]。
+// 取消不用查，资料没了也能取消。成功返回 null，否则返回拒绝的 { status, error }。
 function changeFavorite(dataDir, favorites, account, form) {
   const projectId = Number(form.get('project_id'));
   const skillPath = form.get('skill') ?? '';
@@ -225,17 +225,17 @@ function changeFavorite(dataDir, favorites, account, form) {
     favorites.remove(account.id, projectId, skillPath);
     return null;
   }
-  if (form.get('action') !== 'add') return [400, '不认识的操作'];
+  if (form.get('action') !== 'add') return { status: 400, error: '不认识的操作' };
   const known = Number.isSafeInteger(projectId) && projectId > 0;
   const profile = known ? readProfile(dataDir, projectId) : null;
   const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) : null;
   const skill = skillPath && profile?.material?.skills.find((s) => s.path === skillPath);
-  if (skillPath ? !skill : !profile && !listed) return [404, '没有这个项目或 Skill 的资料'];
+  if (skillPath ? !skill : !profile && !listed) return { status: 404, error: '没有这个项目或 Skill 的资料' };
   favorites.add(account.id, { projectId, fullName: profile?.fullName ?? listed.name, skillPath, skillName: skill?.name ?? '' });
   return null;
 }
 
-// 页面样式、图标和脚本（#13 起）：视觉方案里的通用文件，不含任何数据，登录页也要用，所以不用登录就能取。
+// 首页的样式、图标和脚本（#13）：视觉方案里的通用文件。
 const ASSETS = { 'tokens.css': 'text/css', 'components.css': 'text/css', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript' };
 const assetFile = (name) => readFileSync(new URL(`./assets/${name}`, import.meta.url));
 
@@ -264,13 +264,9 @@ export function startServer({ dataDir, port = 5310 }) {
     const send = (status, headers, body) => res.writeHead(status, headers).end(req.method === 'HEAD' ? undefined : body);
     const text = (status, body) => send(status, { 'content-type': 'text/plain; charset=utf-8' }, body);
     const html = (status, body, headers = {}) => send(status, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', ...headers }, body);
-    const json = (status, data) => send(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }, JSON.stringify(data));
+    const json = (status, data, headers = {}) => send(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers }, JSON.stringify(data));
     const tooBig = () => send(413, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }, '表单太大');
 
-    const asset = url.pathname.match(/^\/assets\/([\w.-]+)$/)?.[1];
-    if (asset && Object.hasOwn(ASSETS, asset) && (req.method === 'GET' || req.method === 'HEAD')) {
-      return send(200, { 'content-type': `${ASSETS[asset]}; charset=utf-8`, 'cache-control': 'no-cache' }, assetFile(asset));
-    }
 
     if (url.pathname === '/login' && (req.method === 'GET' || req.method === 'HEAD')) {
       return accounts.session(cookieOf(req)) ? send(303, { location: '/' }) : html(200, loginPage(safeNext(url.searchParams.get('next'))));
@@ -294,16 +290,20 @@ export function startServer({ dataDir, port = 5310 }) {
       if (url.pathname.startsWith('/api/')) return json(401, { error: '未登录' });
       return send(303, { location: `/login?next=${encodeURIComponent(url.pathname + url.search)}` });
     }
-    // 收藏：项目页和我的收藏用表单，提交后回到 next；首页的收藏按钮（#13）用接口，回 JSON。
+    // 收藏：项目页和我的收藏用表单，提交后回到 next；首页的收藏按钮（#13）用接口，结果和拒绝原因都回 JSON。
     if ((url.pathname === '/favorites' || url.pathname === '/api/favorites') && req.method === 'POST') {
-      if (!sameOrigin(req)) return text(403, '只接受本站提交的表单');
+      const api = url.pathname === '/api/favorites';
+      const refuse = ({ status, error }) => (api ? json(status, { error }) : text(status, error));
+      if (!sameOrigin(req)) return refuse({ status: 403, error: '只接受本站提交的表单' });
       const form = await readForm(req).catch(() => null);
-      if (!form) return tooBig();
-      const failed = changeFavorite(dataDir, favorites, account, form);
-      if (url.pathname === '/api/favorites') return failed ? json(failed[0], { error: failed[1] }) : json(200, { saved: form.get('action') === 'add' });
-      return failed ? text(...failed) : send(303, { location: safeNext(form.get('next') ?? '/favorites') });
+      if (!form) return api ? json(413, { error: '表单太大' }, { connection: 'close' }) : tooBig();
+      const refused = changeFavorite(dataDir, favorites, account, form);
+      if (refused) return refuse(refused);
+      return api ? json(200, { saved: form.get('action') === 'add' }) : send(303, { location: safeNext(form.get('next') ?? '/favorites') });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
+    const asset = url.pathname.match(/^\/assets\/([\w.-]+)$/)?.[1];
+    if (asset && Object.hasOwn(ASSETS, asset)) return send(200, { 'content-type': `${ASSETS[asset]}; charset=utf-8`, 'cache-control': 'no-cache' }, assetFile(asset));
     // 首页涨星榜（#13）：整页按视觉方案出，不套下面的从简布局。
     if (url.pathname === '/') {
       const w = url.searchParams.get('w');

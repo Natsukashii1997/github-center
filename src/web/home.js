@@ -1,8 +1,9 @@
 // 首页涨星榜（#13）：照冻结的视觉方案 t1b-r2 落地。服务端把近 1/7/30 天三个窗口的快照、上榜项目的资料和这个人的收藏
 // 整理成一份数据嵌进页面，页面脚本（assets/home.js）用方案里的共用组件画出来，切换窗口不再请求服务端。
-// 名次、新增和总 Star 只取快照；项目卡片的 30 天走势取同一次运行存下的官方星数历史原始响应，缺失不补零。
+// 名次、新增和总 Star 只取快照。卡片上的数字和 30 天走势取这一期榜单那次运行存下的官方原始响应：三个窗口的快照可能出自
+// 不同次运行（某个窗口失败后重跑），同一张卡上的数字和柱子来自同一份响应才对得上。缺数据的那天留空位，不补零。
 import { join } from 'node:path';
-import { readLatestSnapshot, readStatus, WINDOWS } from '../ranking/index.js';
+import { readLatestSnapshot, readStatus, newerFailure, WINDOWS } from '../ranking/index.js';
 import { readJson } from '../ranking/store.js';
 import { bucketOf, windowDays } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';
@@ -21,23 +22,31 @@ export function chance(p) {
   return `约${name} ${(p / u).toFixed(1)}`;
 }
 
-// 截至统计日（含）的 30 个统计日，每天取官方星数历史里那一格；和出榜同一条规则：缺某一周就整条作废（缺失不补零），
-// 只有那天项目还不存在（历史不满一页且最早一周晚于那天）才记为 0。
+// 截至统计日（含）的 30 个统计日，每天取官方星数历史里那一格，规则和出榜相同：那一周的历史在就取；项目那天还不存在
+// （历史不满一页且最早一周晚于那天）记 0；否则那天缺数据，记 null（缺失不补零）。
 export function dailySeries(weeks, statDay) {
-  const series = [];
-  for (const d of windowDays(statDay, SERIES_DAYS)) {
+  return windowDays(statDay, SERIES_DAYS).map((d) => {
     const b = bucketOf(d);
     const week = weeks.find((w) => w.week === b.week);
-    if (week) series.push(week.days[b.dayIndex]);
-    else if (weeks.length < PER_PAGE && weeks.every((w) => w.week > b.week)) series.push(0);
-    else return null;
-  }
-  return series;
+    if (week) return week.days[b.dayIndex];
+    return weeks.length < PER_PAGE && weeks.every((w) => w.week > b.week) ? 0 : null;
+  });
+}
+
+// 一次运行里一个项目的数字：30 天走势、三个窗口的新增（窗口里有一天缺数据就记 null）、总 Star。
+// 这一期自己的窗口直接用榜上的数字，它和走势出自同一份响应，两者相等。
+function runFigures(dataDir, w, snapshot, entry) {
+  const weeks = entry.evidence?.history ? readJson(join(dataDir, entry.evidence.history.path)) : null;
+  const series = weeks ? dailySeries(weeks, snapshot.statDay) : null;
+  const gains = Object.fromEntries(Object.entries(WINDOWS).map(([id, { days }]) => {
+    const span = series?.slice(-days);
+    return [id, span && !span.includes(null) ? span.reduce((s, x) => s + x, 0) : null];
+  }));
+  return { seriesDay: snapshot.statDay, series, gains: { ...gains, [w]: entry.gain }, total: entry.total };
 }
 
 // 顶栏的更新状态、提示条：更新失败（比当前快照新的那天失败了）优先，其次是可能不完整；生成于自检上线之前的旧快照如实说明。
-function windowStatus(w, snapshot, last) {
-  const failed = last?.status === 'failed' && (!snapshot || last.day > snapshot.statDay) ? last : null;
+function windowStatus(snapshot, failed) {
   const notes = [];
   if (failed) notes.push({ tone: 'bad', icon: 'error', title: '更新失败', text: `${md(failed.day)}的更新失败：${failed.error}。${snapshot ? `下面是上次成功的 ${md(snapshot.statDay)}数据。` : ''}` });
   if (snapshot?.incomplete) {
@@ -56,7 +65,7 @@ function windowStatus(w, snapshot, last) {
 }
 
 function board(w, snapshot, status) {
-  const { top, notes } = windowStatus(w, snapshot, status?.boards?.[w]);
+  const { top, notes } = windowStatus(snapshot, newerFailure(status, w, snapshot));
   if (!snapshot) return { label: label(w), top, notes, entries: [], empty: { title: `还没有${label(w)}的榜单`, text: '每天统计日结束后自动生成。' } };
   const ranks = snapshot.entries.map((e) => e.rank);
   return {
@@ -68,20 +77,19 @@ function board(w, snapshot, status) {
       candidates: snapshot.candidates.total,
       checks: snapshot.requests.history + snapshot.requests.project,
     },
-    entries: snapshot.entries.map((e) => ({ repo: e.fullName, rank: e.rank, tie: ranks.filter((r) => r === e.rank).length > 1, gain: e.gain })),
+    entries: snapshot.entries.map((e) => ({ repo: e.fullName, rank: e.rank, tie: ranks.filter((r) => r === e.rank).length > 1, gain: e.gain, run: snapshot.runId })),
     empty: snapshot.entries.length ? null : { title: '这一期没有核出项目', text: '换个时间窗口看看。' },
   };
 }
 
-// 一个上榜项目在卡片上要的全部内容。onBoards：它在哪些窗口的快照里出现（取最新那份的原始响应和总 Star）。
+// 一个上榜项目在卡片上要的全部内容。onBoards：它出现在哪些窗口的快照里，最新生成的在前；语言、创建日期取最新存下的项目信息，
+// 数字按运行分开放（runs），卡片按这一期榜单的运行取。
 function project(dataDir, onBoards, { account, favorites }) {
-  const [{ snapshot, entry }] = onBoards;
-  const raw = (ev) => (ev ? readJson(join(dataDir, ev.path)) : null);
-  const weeks = raw(entry.evidence.history);
-  const info = raw(entry.evidence.project);
-  const series = weeks ? dailySeries(weeks, snapshot.statDay) : null;
-  const sum = (n) => (series ? series.slice(-n).reduce((s, x) => s + x, 0) : null);
-  const gains = Object.fromEntries(Object.keys(WINDOWS).map((w) => [w, onBoards.find((b) => b.w === w)?.entry.gain ?? sum(WINDOWS[w].days)]));
+  const { entry } = onBoards[0];
+  const projectRaw = onBoards.find((b) => b.entry.evidence?.project)?.entry.evidence.project;
+  const info = projectRaw ? readJson(join(dataDir, projectRaw.path)) : null;
+  const runs = {};
+  for (const b of onBoards) runs[b.snapshot.runId] ??= runFigures(dataDir, b.w, b.snapshot, b.entry);
   const profile = readProfile(dataDir, entry.projectId);
   const g = currentGenerated(profile);
   const saved = favorites.savedIn(account.id, entry.projectId);
@@ -89,10 +97,7 @@ function project(dataDir, onBoards, { account, favorites }) {
     repo: entry.fullName,
     id: entry.projectId,
     ownerId: info?.owner?.id ?? null,
-    total: entry.total,
-    series,
-    seriesDay: snapshot.statDay,
-    gains,
+    runs,
     lang: info?.language ?? null,
     created: info?.created_at?.slice(0, 10) ?? null,
     what: g?.what ?? null,
@@ -115,7 +120,7 @@ export function homeData(dataDir, ctx) {
       seen.get(entry.fullName).push({ w, snapshot, entry });
     }
   }
-  for (const list of seen.values()) list.sort((a, b) => (a.snapshot.statDay < b.snapshot.statDay ? 1 : a.snapshot.statDay > b.snapshot.statDay ? -1 : 0));
+  for (const list of seen.values()) list.sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
   return {
     account: { name: ctx.account.name },
     ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]),

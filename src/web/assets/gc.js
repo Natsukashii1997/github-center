@@ -10,13 +10,13 @@ window.GC = (() => {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   // ── 数字与日期 ──
-  const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
-  const wan = (n) => (n == null ? '—' : n >= 10000 ? `${(n / 10000).toFixed(n >= 1000000 ? 0 : 1)} 万` : num(n));
+  const num = (n) => n.toLocaleString('en-US');
+  const wan = (n) => (n >= 10000 ? `${(n / 10000).toFixed(n >= 1000000 ? 0 : 1)} 万` : num(n));
   const utc = (day) => new Date(day + 'T00:00:00Z');
   const md = (d) => `${d.getUTCMonth() + 1} 月 ${d.getUTCDate()} 日`;
   const mdShort = (d) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
-  // 走势的第 i 天（0 是 30 天里最早的一天）
-  const dayAt = (p, i) => new Date(utc(p.seriesDay).getTime() - (29 - i) * 86400000);
+  // 走势的第 i 天（0 是 30 天里最早的一天）；run 是这一期榜单那次运行的数字（见 src/web/home.js）
+  const dayAt = (run, i) => new Date(utc(run.seriesDay).getTime() - (29 - i) * 86400000);
   const avatar = (p, s = 64) => (p.ownerId ? `https://avatars.githubusercontent.com/u/${p.ownerId}?s=${s}&v=4` : `https://github.com/${ownerOf(p)}.png?size=${s}`);
   const ownerOf = (p) => p.repo.split('/')[0];
   const nameOf = (p) => p.repo.split('/')[1];
@@ -177,6 +177,7 @@ window.GC = (() => {
     const li = document.createElement('li');
     li.className = 'row';
     li.setAttribute('role', 'option');
+    li.tabIndex = -1;
     const ds = p.what ?? '简介生成中';
     li.innerHTML = `<div class="rk"><b></b><i hidden>并列</i></div>
       <img class="av" alt="" loading="lazy" referrerpolicy="no-referrer" src="${avatar(p, 56)}">
@@ -190,36 +191,33 @@ window.GC = (() => {
     return li;
   }
   function rowUpdate(li, r) {
-    const p = D.projects[r.repo];
+    const run = D.projects[r.repo].runs[r.run];
     $('.rk b', li).textContent = r.rank;
     $('.rk i', li).hidden = !r.tie;
     li.toggleAttribute('data-top', r.rank <= 3);
     swap($('.g', li), `<small>+</small>${num(r.gain)}`);
-    $('.t', li).innerHTML = `总 <span class="num">${wan(p.total)}</span>`;
+    $('.t', li).innerHTML = `总 <span class="num">${wan(run.total)}</span>`;
   }
 
-  // 选中块：跟着选中行滑动
+  // 选中块：跟着选中行滑动。选中的行是榜单在 Tab 顺序里的那一站，其余行用方向键到达。
   function placeSel(listEl, mark, key) {
     const li = key ? listEl.querySelector(`[data-key="${CSS.escape(key)}"]`) : null;
-    $$('.row', listEl).forEach((x) => x.setAttribute('aria-selected', x === li));
+    $$('.row', listEl).forEach((x) => { x.setAttribute('aria-selected', x === li); x.tabIndex = x === li ? 0 : -1; });
     mark.style.visibility = li ? '' : 'hidden';
     if (li) mark.style.transform = `translateY(${li.offsetTop}px)`;
   }
 
   // ── 阅读卡（首页右栏；#14 起项目页共用） ──
-  // ctx：{ eyebrow, win（高亮哪个窗口，可空）, mode: 'pane' | 'page' }。简介还没生成好就显示“简介生成中”。
+  // ctx：{ eyebrow, run（这一期榜单的运行）, win（高亮哪个窗口，可空）, mode: 'pane' | 'page' }。简介还没生成好就显示“简介生成中”。
+  // 窗口里有一天官方数字缺了，这个窗口的新增写“暂缺”，走势里那天留空位。
   function cardHTML(p, ctx) {
-    const span = ctx.win ? SPAN[ctx.win] : 0;
+    const span = ctx.win ? SPAN[ctx.win] : 0, run = p.runs[ctx.run];
     const tag = ctx.mode === 'page' ? 'button' : 'div';
-    const stats = WINDOWS.map((w) => `<${tag} class="stat"${tag === 'button' ? ` type="button" data-win="${w.id}" aria-pressed="${w.id === ctx.win}"` : ''}${w.id === ctx.win ? ' data-on' : ''}><span class="k">${w.label}新增</span><span class="v">${p.gains[w.id] == null ? '—' : `+${num(p.gains[w.id])}`}</span></${tag}>`).join('');
+    const stats = WINDOWS.map((w) => `<${tag} class="stat"${tag === 'button' ? ` type="button" data-win="${w.id}" aria-pressed="${w.id === ctx.win}"` : ''}${w.id === ctx.win ? ' data-on' : ''}><span class="k">${w.label}新增</span><span class="v">${run.gains[w.id] == null ? '暂缺' : `+${num(run.gains[w.id])}`}</span></${tag}>`).join('');
     const read = p.what == null
       ? `<div class="gen">${I.sparkle}<span>简介生成中，通常几分钟内完成；下面的数字已是官方数据。</span></div><div class="gen-lines"><span class="sk" style="width:92%;height:14px"></span><span class="sk" style="width:76%;height:14px"></span><span class="sk" style="width:84%;height:14px"></span></div>`
       : `<div class="read"><div><div class="k">它是做什么的</div><p>${esc(p.what)}</p></div><div><div class="k">解决什么问题</div><p>${esc(p.problem)}</p></div></div>`;
-    // 走势：30 天里哪天的官方数字缺了就不画（缺失不补零）
-    const max = p.series ? Math.max(...p.series, 1) : 0;
-    const chart = p.series ? `<div class="chart"><div class="chart-k"><span>近 30 天每日新增</span><span>最高一天 <span class="num">${num(max)}</span></span></div>
-        <div class="cbars">${p.series.map((v, i) => `<i class="${i >= 30 - span ? 'on' : ''}" style="--h:${(v / max) * 100}%;--m:${v > 0 ? 1 : 0}px" title="${md(dayAt(p, i))}：${num(v)}"></i>`).join('')}</div>
-        <div class="cdates"><span>${mdShort(dayAt(p, 0))}</span><span>${mdShort(dayAt(p, 15))}</span><span>${mdShort(dayAt(p, 29))}</span></div></div>` : '';
+    const chart = run.series ? chartHTML(run, span) : '';
     const skills = p.skills.length ? `<div class="skills"><div class="sec-k">包含的 Skill · ${p.skills.length} 个</div>${p.skills.map((s) => {
       const id = `${p.repo}#${s.path}`, on = favSkills.has(id);
       return `<div class="skill"><code>${esc(s.name)}</code><span>${esc(s.desc)}</span><span class="acts"><button class="ib" type="button" data-fav-id="${esc(id)}" data-skill="${esc(s.path)}" aria-pressed="${on}" aria-label="${on ? '取消收藏' : '收藏'}">${on ? I['star-fill'] : I.star}</button><button class="btn btn-g btn-s" type="button" data-skill-copy="${esc(s.path)}">${I.copy}<span>复制安装</span></button></span></div>`;
@@ -228,7 +226,7 @@ window.GC = (() => {
     return `<div class="body">
       ${ctx.eyebrow ? `<div class="eyebrow">${ctx.eyebrow}</div>` : ''}
       <div class="title"><img class="av" alt="" data-key="${esc(p.repo)}" referrerpolicy="no-referrer" src="${avatar(p, 96)}"><div><h2><span class="o">${esc(ownerOf(p))}/</span>${esc(nameOf(p))}</h2><div class="meta">${meta}</div></div></div>
-      <div class="stats">${stats}<div class="stat"><span class="k">总 Star</span><span class="v">${wan(p.total)}</span></div></div>
+      <div class="stats">${stats}<div class="stat"><span class="k">总 Star</span><span class="v">${wan(run.total)}</span></div></div>
       ${chart}
       ${read}
       ${p.conditions.length ? `<div class="cond"><b>使用条件</b>${p.conditions.map(esc).join('；')}</div>` : ''}
@@ -242,6 +240,17 @@ window.GC = (() => {
       <button class="btn btn-g" type="button" data-fav data-fav-text data-fav-id="${esc(p.repo)}">${I.star}<span>收藏</span></button>
       <a class="btn btn-g btn-i" href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener" title="在 GitHub 打开" aria-label="在 GitHub 打开">${I.external}</a>
     </div>`;
+  }
+  // 走势：每天一根柱子，缺数据的那天留空位、不画柱（缺失不补零）。柱子只给眼睛看，读屏读下面那句摘要。
+  function chartHTML(run, span) {
+    const known = run.series.map((v, i) => [v, i]).filter(([v]) => v != null);
+    const [max, top] = known.reduce((a, b) => (b[0] > a[0] ? b : a), [0, 0]);
+    const missing = run.series.length - known.length;
+    const summary = `近 30 天每日新增走势：${md(dayAt(run, 0))}至 ${md(dayAt(run, 29))}，最高一天是 ${md(dayAt(run, top))}，新增 ${num(max)}${missing ? `；有 ${missing} 天缺官方数据` : ''}。`;
+    return `<div class="chart"><div class="chart-k"><span>近 30 天每日新增</span><span>最高一天 <span class="num">${num(max)}</span></span></div>
+        <div class="cbars" aria-hidden="true">${run.series.map((v, i) => `<i class="${i >= 30 - span ? 'on' : ''}" style="--h:${v == null ? 0 : (v / Math.max(max, 1)) * 100}%;--m:${v > 0 ? 1 : 0}px" title="${md(dayAt(run, i))}：${v == null ? '缺数据' : num(v)}"></i>`).join('')}</div>
+        <p class="vh">${summary}</p>
+        <div class="cdates" aria-hidden="true"><span>${mdShort(dayAt(run, 0))}</span><span>${mdShort(dayAt(run, 15))}</span><span>${mdShort(dayAt(run, 29))}</span></div></div>`;
   }
   function wireCard(card, p) {
     seg($('[data-target]', card), D.ais, target, (t) => { target = t; }, 100);
@@ -281,5 +290,5 @@ window.GC = (() => {
   }, true);
 
   const q = new URLSearchParams(location.search);
-  return { D, I, WINDOWS, SPAN, AI, $, $$, esc, num, wan, md, mdShort, utc, reduced, anim, reconcile, swap, toast, favs, favSkills, toggleFav, setFavBtn, copyInstall, topbar, setStatus, notes, tabs, seg, rowCreate, rowUpdate, placeSel, cardHTML, wireCard, growBars, sweepBars, emptyHTML, avatar, ownerOf, nameOf, pageOf, q };
+  return { D, I, WINDOWS, SPAN, AI, $, $$, esc, num, wan, md, mdShort, reduced, anim, reconcile, swap, toast, favs, favSkills, toggleFav, setFavBtn, copyInstall, topbar, setStatus, notes, tabs, seg, rowCreate, rowUpdate, placeSel, cardHTML, wireCard, growBars, sweepBars, emptyHTML, avatar, ownerOf, nameOf, pageOf, q };
 })();

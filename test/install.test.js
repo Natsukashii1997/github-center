@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { installInstruction } from '../src/profiles/index.js';
-import { visit } from './helpers/web.js';
+import { visit, serve, http } from './helpers/web.js';
 
 // 一份存下的项目资料：有 README、一份文档、两个 Skill、.claude-plugin/，简介里整理出一条条件（原文带 < 和换行）。
 const profile = () => ({
@@ -132,4 +132,22 @@ test('项目页：默认给 Claude Code、整个项目；能换成 Codex 或单�
   assert.equal(odd.status, 200);
   assert.match(odd.body, /<option value="claude-code" selected>/);
   assert.match(odd.body, /帮我安装并配置 GitHub 项目 acme\/agent-kit/);
+});
+
+test('安装指令接口（首页阅读卡上的复制用）：登录后按项目、AI 和 Skill 给出指令文字，和项目页一样；参数不对回 404', async () => {
+  const site = await serve(dataDirWithProfile());
+  try {
+    const whole = await site.get('api/install?project=101&ai=claude-code');
+    assert.equal(whole.status, 200);
+    assert.equal(whole.body, make({ ai: 'claude-code', skillPath: '' }));
+    const skill = await site.get('api/install?project=101&ai=codex&skill=skills%2Fpdf');
+    assert.equal(skill.body, make({ ai: 'codex', skillPath: 'skills/pdf' }));
+    for (const bad of ['project=101&ai=cursor', 'project=101&ai=codex&skill=..%2Fetc', 'project=999&ai=codex', 'project=abc&ai=codex']) {
+      const r = await site.get(`api/install?${bad}`);
+      assert.deepEqual([r.status, JSON.parse(r.body).error], [404, '没有这个项目或 Skill 的资料'], bad);
+    }
+    assert.equal((await http(site.url + 'api/install?project=101&ai=codex')).status, 401);
+  } finally {
+    site.close();
+  }
 });

@@ -63,6 +63,12 @@ export function recordStatus(dataDir, { day, at, boards }) {
   writeAtomic(join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');
 }
 
+// 某个榜单比当前快照更新的那天更新失败了（重跑更早的日子失败不算）：页面保留快照，写明失败的日期和原因。
+export function newerFailure(status, board, snapshot) {
+  const last = status?.boards?.[board];
+  return last?.status === 'failed' && (!snapshot || last.day > snapshot.statDay) ? last : null;
+}
+
 // 2026-10-23 #9 之前这个文件只记涨星榜，键名是 windows；读的时候并进 boards。
 export function readStatus(dataDir) {
   const s = readJson(join(dataDir, 'status.json'));

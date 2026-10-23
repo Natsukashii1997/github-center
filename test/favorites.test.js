@@ -188,3 +188,28 @@ test('项目改名、Skill 从仓库删掉、项目资料不在了：“我的�
     site.close();
   }
 });
+
+test('收藏接口（首页上的收藏按钮用）：收藏和取消回 JSON，拒绝也回 JSON；别的端口来的请求拒绝', async () => {
+  const dataDir = dataDirWithProfile();
+  const site = await serve(dataDir);
+  const api = (fields, headers = {}) => http(site.url + 'api/favorites', form(fields, { cookie: site.cookie, ...headers }));
+  try {
+    const added = await api({ project_id: '101', skill: '', action: 'add' });
+    assert.deepEqual([added.status, JSON.parse(added.body)], [200, { saved: true }]);
+    assert.equal((await api({ project_id: '101', skill: 'skills/pdf', action: 'add' })).status, 200);
+    // 没读到资料的上榜项目也能收藏整个项目（同 #8）。
+    assert.equal((await api({ project_id: '202', skill: '', action: 'add' })).status, 200);
+    let mine = favoriteLinks((await site.get('favorites')).body).map(([, name]) => name);
+    assert.deepEqual(mine.sort(), ['acme/agent-kit', 'acme/agent-kit 里的 Skill：pdf', 'acme/tiny'].sort());
+    const removed = await api({ project_id: '101', skill: '', action: 'remove' });
+    assert.deepEqual(JSON.parse(removed.body), { saved: false });
+    mine = favoriteLinks((await site.get('favorites')).body).map(([, name]) => name);
+    assert.ok(!mine.includes('acme/agent-kit'));
+    const missing = await api({ project_id: '101', skill: 'skills/nope', action: 'add' });
+    assert.deepEqual([missing.status, JSON.parse(missing.body)], [404, { error: '没有这个项目或 Skill 的资料' }]);
+    const odd = await api({ project_id: '101', skill: '', action: 'add' }, { origin: 'http://127.0.0.1:5999' });
+    assert.deepEqual([odd.status, JSON.parse(odd.body)], [403, { error: '只接受本站提交的表单' }]);
+  } finally {
+    site.close();
+  }
+});
