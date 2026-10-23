@@ -1,17 +1,18 @@
-// GitHub 官方接口：星数历史（核数）和项目信息（当前总 Star、项目 id）。原始响应原样交给调用方保存。
+// GitHub 官方接口：星数历史（核数）、项目信息（当前总 Star、项目 id）和仓库搜索（新项目榜、累计高星榜）。原始响应原样交给调用方保存。
 // 候选有项目 id 时按 id 访问（不受改名影响），只有名字时按名字访问。
 const API = 'https://api.github.com';
 export const PER_PAGE = 6;
 const path = (c) => (c.id ? `/repositories/${c.id}` : `/repos/${c.name}`);
 
-// 本机 gh 账号的每小时额度和 Codex 的严格实验共用；它给自己留 1,000 次底，这里留得更多，额度紧时先让它用。
+// 本机 gh 账号的每小时额度（core）和 Codex 的严格实验共用；它给自己留 1,000 次底，这里留得更多，额度紧时先让它用。
+// 搜索额度另算（每分钟 30 次），每天只用 2 次，不设预留。
 export const RESERVE = 1500;
 const RETRIES = 3;
 const realSleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // stats 记实际发出的请求次数（含重试）。
 export function githubClient({ fetch, token, sleep = realSleep, now = Date.now }) {
-  const stats = { history: 0, project: 0 };
+  const stats = { history: 0, project: 0, search: 0 };
   let pauseUntil = 0;
   async function get(kind, p) {
     const url = API + p;
@@ -30,7 +31,7 @@ export function githubClient({ fetch, token, sleep = realSleep, now = Date.now }
       const h = res.headers;
       const remaining = h.has('x-ratelimit-remaining') ? Number(h.get('x-ratelimit-remaining')) : null;
       const resetAt = h.has('x-ratelimit-reset') ? Number(h.get('x-ratelimit-reset')) * 1000 + 5000 : null;
-      if (remaining !== null && remaining < RESERVE && resetAt) pauseUntil = Math.max(pauseUntil, resetAt);
+      if (h.get('x-ratelimit-resource') !== 'search' && remaining !== null && remaining < RESERVE && resetAt) pauseUntil = Math.max(pauseUntil, resetAt);
       const body = await res.text();
       if (res.status === 404) return null;
       if (res.ok) return { url, body, date: h.get('date') };
@@ -50,5 +51,6 @@ export function githubClient({ fetch, token, sleep = realSleep, now = Date.now }
     stats,
     history: (c) => get('history', `${path(c)}/stargazers/history?per_page=${PER_PAGE}`),
     project: (c) => get('project', path(c)),
+    search: (q) => get('search', `/search/repositories?q=${encodeURIComponent(q)}&sort=stars&order=desc&per_page=100`),
   };
 }

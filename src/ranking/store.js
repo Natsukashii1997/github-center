@@ -1,10 +1,10 @@
-// 文件存储：每次运行的官方原始响应单独存放；快照按窗口和统计日只写一次，已存在就不覆盖。
-// 另存每天的全站 Star 事件合计（只用来挑候选，近 7/30 天复用）和每个窗口最近一次更新的结果。
+// 文件存储：每次运行的官方原始响应单独存放；快照按榜单（涨星榜的每个窗口各算一个）和统计日只写一次，已存在就不覆盖。
+// 另存每天的全站 Star 事件合计（只用来挑候选和自检，近 7/30 天复用）和每个榜单最近一次更新的结果。
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, renameSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 
-const snapshotPath = (window, day) => join('snapshots', window, `${day}.json`);
+const snapshotPath = (board, day) => join('snapshots', board, `${day}.json`);
 const readJson = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null);
 
 // 先写临时文件再改名，中途断掉不会留下半个文件；临时文件名各次运行不同，两次运行撞上也不互相踩。
@@ -17,14 +17,14 @@ function writeAtomic(path, text) {
 
 export function openStore(dataDir, runId) {
   return {
-    saveRaw(kind, name, res) {
-      const path = join('runs', runId, 'raw', kind, `${name}.json`);
+    saveRaw(kind, name, res, ext = 'json') {
+      const path = join('runs', runId, 'raw', kind, `${name}.${ext}`);
       mkdirSync(dirname(join(dataDir, path)), { recursive: true });
       writeFileSync(join(dataDir, path), res.body);
       return { url: res.url, path, sha256: createHash('sha256').update(res.body).digest('hex'), date: res.date };
     },
-    publish(snapshot) {
-      const path = snapshotPath(snapshot.window, snapshot.statDay);
+    publish(board, snapshot) {
+      const path = snapshotPath(board, snapshot.statDay);
       mkdirSync(dirname(join(dataDir, path)), { recursive: true });
       try {
         writeFileSync(join(dataDir, path), JSON.stringify(snapshot, null, 2) + '\n', { flag: 'wx' });
@@ -37,14 +37,14 @@ export function openStore(dataDir, runId) {
   };
 }
 
-export function findSnapshot(dataDir, window, day) {
-  const path = snapshotPath(window, day);
+export function findSnapshot(dataDir, board, day) {
+  const path = snapshotPath(board, day);
   const snapshot = readJson(join(dataDir, path));
   return snapshot ? { path, snapshot } : null;
 }
 
-export function readLatestSnapshot(dataDir, window = 'd1') {
-  const dir = join(dataDir, 'snapshots', window);
+export function readLatestSnapshot(dataDir, board = 'd1') {
+  const dir = join(dataDir, 'snapshots', board);
   if (!existsSync(dir)) return null;
   const latest = readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().pop();
   return latest ? readJson(join(dir, latest)) : null;
@@ -53,15 +53,18 @@ export function readLatestSnapshot(dataDir, window = 'd1') {
 export const readEvents = (dataDir, day) => readJson(join(dataDir, 'events', `${day}.json`));
 export const saveEvents = (dataDir, day, events) => writeAtomic(join(dataDir, 'events', `${day}.json`), JSON.stringify(events) + '\n');
 
-// 每个窗口只记最新统计日的结果：重跑更早的日子不会盖掉更新的失败记录。
-export function recordStatus(dataDir, { day, at, windows }) {
-  const path = join(dataDir, 'status.json');
-  const status = readJson(path) ?? { windows: {} };
-  for (const [window, r] of Object.entries(windows)) {
-    if ((status.windows[window]?.day ?? '') > day) continue;
-    status.windows[window] = { day, at, status: r.status, ...(r.error ? { error: r.error } : {}) };
+// 每个榜单只记最新统计日的结果：重跑更早的日子不会盖掉更新的失败记录。
+export function recordStatus(dataDir, { day, at, boards }) {
+  const status = readStatus(dataDir) ?? { boards: {} };
+  for (const [board, r] of Object.entries(boards)) {
+    if ((status.boards[board]?.day ?? '') > day) continue;
+    status.boards[board] = { day, at, status: r.status, ...(r.error ? { error: r.error } : {}) };
   }
-  writeAtomic(path, JSON.stringify(status, null, 2) + '\n');
+  writeAtomic(join(dataDir, 'status.json'), JSON.stringify(status, null, 2) + '\n');
 }
 
-export const readStatus = (dataDir) => readJson(join(dataDir, 'status.json'));
+// 2026-10-23 #9 之前这个文件只记涨星榜，键名是 windows；读的时候并进 boards。
+export function readStatus(dataDir) {
+  const s = readJson(join(dataDir, 'status.json'));
+  return s && { boards: { ...s.windows, ...s.boards } };
+}

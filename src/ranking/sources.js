@@ -2,6 +2,7 @@
 // 事件计数只用来挑候选和每日自检，不上页面。
 import { Readable, pipeline } from 'node:stream';
 import { createGunzip } from 'node:zlib';
+import { TRENDING_PAGES } from './lists.js';
 
 const ARCHIVE_TIMEOUT_MS = 180_000;
 
@@ -66,14 +67,21 @@ export function clickhouseDay({ fetch, sleep, day }) {
   return clickhouseStars({ fetch, sleep, start: `${day} 00:00:00`, span: 'DAY', tail: '', label: `ClickHouse ${day} ` });
 }
 
-const TRENDING = { daily: '日榜', weekly: '周榜', monthly: '月榜' };
 
-// 官方热门榜只能抓到运行当时的。
+const count = (s) => (s ? Number(s.replace(/,/g, '')) : null);
+
+// 官方热门榜只能抓到运行当时的。按页面原样的顺序返回项目，连同原始页面（存档用）。
+// periodStars 是页面上写的“这段时间新增 Star”（GitHub 自己的数字），total 是页面上的总 Star。
 export async function trending({ fetch, sleep, since }) {
-  const res = await fetchRetry({ fetch, sleep, url: `https://github.com/trending?since=${since}`, init: { headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0 github-center' } }, label: `官方热门${TRENDING[since]}` });
-  const html = await res.text();
-  return [...html.matchAll(/<article class="Box-row">([\s\S]*?)<\/article>/g)].map(([, a]) => ({
+  const url = `https://github.com/trending?since=${since}`;
+  const res = await fetchRetry({ fetch, sleep, url, init: { headers: { accept: 'text/html', 'user-agent': 'Mozilla/5.0 github-center' } }, label: `官方热门${TRENDING_PAGES[since].name}` });
+  const body = await res.text();
+  const items = [...body.matchAll(/<article class="Box-row">([\s\S]*?)<\/article>/g)].map(([, a]) => ({
     id: Number(a.match(/repository_id&quot;:(\d+)/)?.[1]) || null,
     name: a.match(/<h2[^>]*>\s*<a[^>]*href="\/([^"]+)"/)[1],
+    periodStars: count(a.match(/([\d,]+) stars (?:today|this week|this month)/)?.[1]),
+    total: count(a.match(/\/stargazers"[^>]*>(?:\s*<svg[\s\S]*?<\/svg>)?\s*([\d,]+)\s*<\/a>/)?.[1]),
   }));
+  if (!items.length) throw new Error(`官方热门${TRENDING_PAGES[since].name}页面没解析出任何项目（页面结构可能变了），按更新失败处理`);
+  return { items, res: { url, body, date: res.headers.get('date') } };
 }

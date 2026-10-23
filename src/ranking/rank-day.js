@@ -4,6 +4,7 @@ import { githubClient, PER_PAGE } from './github.js';
 import { openStore, findSnapshot, readEvents, saveEvents, recordStatus } from './store.js';
 import { topWithTies } from './rank.js';
 import { selfCheck, lowerThreshold } from './check.js';
+import { LISTS, buildList } from './lists.js';
 
 const MAX_FAILED_SHARE = 0.05;
 // 每个窗口最多核这么多个候选（约是近 1 天全部有事件记录的项目数），保证每天一次的运行在额度内跑得完。
@@ -132,24 +133,22 @@ async function rankEntries({ verified, project }) {
   }
 }
 
-const delta = (a, b) => Object.fromEntries(Object.keys(a).map((k) => [k, a[k] - b[k]]));
-
 // 一个窗口出榜：候选取事件记录次数前 limit 名（同次数的一起进）并入官方热门榜，核数排名后自检；
 // 自检不过就降低候选门槛、补核新进的候选再排，直到通过；门槛降到 1 或候选到上限仍不过，就如实标注“可能不完整”。
-async function rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, limit, maxCandidates }) {
+async function rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, hotPage, limit, maxCandidates }) {
   const before = { ...gh.stats };
   const days = windowDays(day, WINDOWS[window].days);
   const ev = await windowEvents({ fetch, sleep, dataDir, days });
-  const hot = await trending({ fetch, sleep, since: WINDOWS[window].since });
+  const { items: hotItems } = await hotPage(WINDOWS[window].since);
   let threshold = ev.rows[Math.min(limit, ev.rows.length) - 1]?.events ?? 1;
   // 候选上限对应的最低门槛：门槛再低，事件数据里达到它的项目就超过上限了。
   const floor = ev.rows.length > maxCandidates ? ev.rows[maxCandidates].events + 1 : 1;
-  // 只从热门榜进来的候选，自检时也按它在事件数据里的真实记录次数算。
+  // 只从官方热门榜进来的候选，自检时也按它在事件数据里的真实记录次数算。
   const recorded = new Map(ev.rows.flatMap((r) => [[nameKey(r.name), r.events], ...(r.id ? [[keyOf(r), r.events]] : [])]));
   const recordsOf = (c) => c.events || recorded.get(keyOf(c)) || recorded.get(nameKey(c.name)) || 0;
   for (;;) {
     const fromEvents = ev.rows.filter((r) => r.events >= threshold);
-    const candidates = mergeById([...fromEvents, ...hot]);
+    const candidates = mergeById([...fromEvents, ...hotItems]);
     const results = await mapLimit(candidates, 6, verify);
     const unavailable = [];
     const failed = [];
@@ -169,32 +168,42 @@ async function rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, proj
     const check = selfCheck({ entries, threshold });
     const next = Math.max(lowerThreshold(check), floor);
     if (check.passed || next >= threshold) {
-      return { days, ev, candidates, fromEvents: fromEvents.length, hot: hot.length, unavailable, failed, entries, check, requests: delta(gh.stats, before) };
+      return { days, ev, candidates, fromEvents: fromEvents.length, hot: hotItems.length, unavailable, failed, entries, check, requests: { history: gh.stats.history - before.history, project: gh.stats.project - before.project } };
     }
     threshold = next;
   }
 }
 
-// 跑一次出榜：某个已结束统计日的近 1、7、30 天涨星榜前 20（含末位并列），每个窗口单独发布。
-// 已发布的窗口不重跑；某个窗口失败不影响其他窗口，失败原因记进 status.json，网站据此提示。
-export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, now = () => new Date(), limit = 300, maxCandidates = MAX_CANDIDATES, windows = Object.keys(WINDOWS), sleep }) {
+// 跑一次出榜：某个已结束统计日的近 1、7、30 天涨星榜前 20（含末位并列），以及新项目榜、官方热门榜、累计高星榜，各自单独发布。
+// 已发布的不重跑；某个榜单失败不影响其他榜单，失败原因记进 status.json，网站据此提示。
+// 另外三个榜单只能取到运行当时的数据，所以只在出最近一个已结束的统计日时生成；补跑更早的日子不生成，免得把现在的数字记成旧日子的。
+export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, now = () => new Date(), limit = 300, maxCandidates = MAX_CANDIDATES, windows = Object.keys(WINDOWS), lists = Object.keys(LISTS), sleep }) {
   if (day > lastEndedDay(now())) throw new Error(`统计日 ${day} 还没结束（按 UTC），最近一个已结束的是 ${lastEndedDay(now())}`);
-  const results = {};
-  const todo = windows.filter((w) => {
-    const done = findSnapshot(dataDir, w, day);
-    if (done) results[w] = { status: 'exists', ...done };
+  const results = { windows: {}, lists: {} };
+  // 已发布的记为 exists，返回还没发布的。
+  const unpublished = (kind, boards) => boards.filter((b) => {
+    const done = findSnapshot(dataDir, b, day);
+    if (done) results[kind][b] = { status: 'exists', ...done };
     return !done;
   });
+  const todoWindows = unpublished('windows', windows);
+  const todoLists = unpublished('lists', day === lastEndedDay(now()) ? lists : []);
 
-  if (todo.length) {
+  if (todoWindows.length || todoLists.length) {
     const runId = `${day}_${now().toISOString().replace(/[:.]/g, '-')}`;
     const store = openStore(dataDir, runId);
     const gh = githubClient({ fetch, token, sleep });
     const verify = verifier({ gh, store });
     const project = projects({ gh, store });
-    for (const window of todo) {
+    // 同一次运行里官方热门榜的每一页只抓一次：涨星榜找候选和官方热门榜共用。
+    const pages = new Map();
+    const hotPage = (since) => {
+      if (!pages.has(since)) pages.set(since, trending({ fetch, sleep, since }));
+      return pages.get(since);
+    };
+    for (const window of todoWindows) {
       try {
-        const r = await rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, limit, maxCandidates });
+        const r = await rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, hotPage, limit, maxCandidates });
         const snapshot = {
           window,
           statDay: day,
@@ -209,12 +218,20 @@ export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, n
           requests: r.requests,
           entries: r.entries.map(({ records, ...e }) => e),
         };
-        results[window] = { ...store.publish(snapshot), snapshot };
+        results.windows[window] = { ...store.publish(window, snapshot), snapshot };
       } catch (e) {
-        results[window] = { status: 'failed', error: e.message };
+        results.windows[window] = { status: 'failed', error: e.message };
+      }
+    }
+    for (const list of todoLists) {
+      try {
+        const snapshot = { list, statDay: day, generatedAt: now().toISOString(), runId, ...(await buildList(list, { day, gh, store, hotPage })) };
+        results.lists[list] = { ...store.publish(list, snapshot), snapshot };
+      } catch (e) {
+        results.lists[list] = { status: 'failed', error: e.message };
       }
     }
   }
-  recordStatus(dataDir, { day, at: now().toISOString(), windows: results });
-  return { day, windows: results };
+  recordStatus(dataDir, { day, at: now().toISOString(), boards: { ...results.windows, ...results.lists } });
+  return { day, ...results };
 }

@@ -114,12 +114,12 @@ test('自检不通过或有候选核数失败时，标“可能不完整”并�
 
 test('更新失败时仍显示上一次的榜单，写明它的真实日期和失败原因', async () => {
   const dir = dataDirWithSnapshot();
-  writeFileSync(join(dir, 'status.json'), JSON.stringify({ windows: { d1: { day: '2026-10-23', at: '2026-10-24T02:10:00.000Z', status: 'failed', error: '官方热门日榜返回 503' } } }));
+  writeFileSync(join(dir, 'status.json'), JSON.stringify({ boards: { d1: { day: '2026-10-23', at: '2026-10-24T02:10:00.000Z', status: 'failed', error: '官方热门日榜返回 503' } } }));
   const { body } = await visit(dir);
   assert.match(body, /统计日 2026-10-23 的榜单更新失败：官方热门日榜返回 503。下面仍是统计日 2026-10-22 的榜单。/);
   assert.match(body, /统计日 2026-10-22（UTC）/);
   assert.match(body, /<a href="https:\/\/github\.com\/php\/php-src">/);
   // 失败的日子比当前快照旧（重跑更早的日子失败）时不提示。
-  writeFileSync(join(dir, 'status.json'), JSON.stringify({ windows: { d1: { day: '2026-10-21', at: '2026-10-24T02:10:00.000Z', status: 'failed', error: 'x' } } }));
+  writeFileSync(join(dir, 'status.json'), JSON.stringify({ boards: { d1: { day: '2026-10-21', at: '2026-10-24T02:10:00.000Z', status: 'failed', error: 'x' } } }));
   assert.doesNotMatch((await visit(dir)).body, /更新失败/);
 });

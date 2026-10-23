@@ -17,7 +17,7 @@ const fixture = (path) => JSON.parse(readFileSync(new URL(`./fixtures/upstream/$
 
 // 只跑近 1 天；返回这个窗口的结果。
 async function d1({ upstream = recordedUpstream(), dataDir = fresh(), ...opts } = {}) {
-  const r = await rankDay({ day, dataDir, fetch: upstream.fetch, token: 't', now, windows: ['d1'], sleep: noSleep, ...opts });
+  const r = await rankDay({ day, dataDir, fetch: upstream.fetch, token: 't', now, windows: ['d1'], lists: [], sleep: noSleep, ...opts });
   return r.windows.d1;
 }
 
@@ -74,11 +74,11 @@ test('每个上榜数字都能追溯到保存的官方原始响应', async () =>
 
 test('同一统计日重跑不覆盖已发布的快照，也不再请求上游', async () => {
   const dataDir = fresh();
-  const first = await rankDay({ day, dataDir, fetch: recordedUpstream().fetch, token: 't', now, sleep: noSleep, windows: ['d1', 'd7'] });
+  const first = await rankDay({ day, dataDir, fetch: recordedUpstream().fetch, token: 't', now, sleep: noSleep, windows: ['d1', 'd7'], lists: [] });
   assert.equal(first.windows.d1.status, 'published');
   const before = readFileSync(join(dataDir, first.windows.d1.path));
   const again = recordedUpstream();
-  const second = await rankDay({ day, dataDir, fetch: again.fetch, token: 't', now: () => new Date('2026-10-23T09:10:00Z'), sleep: noSleep, windows: ['d1'] });
+  const second = await rankDay({ day, dataDir, fetch: again.fetch, token: 't', now: () => new Date('2026-10-23T09:10:00Z'), sleep: noSleep, windows: ['d1'], lists: [] });
   assert.equal(second.windows.d1.status, 'exists');
   assert.equal(second.windows.d1.path, first.windows.d1.path);
   assert.deepEqual(readFileSync(join(dataDir, first.windows.d1.path)), before);
@@ -122,7 +122,7 @@ test('数据源中断时按更新失败处理，不写快照，失败原因记�
   assert.equal(r.status, 'failed');
   assert.match(r.error, /热门日榜/);
   assert.equal(readLatestSnapshot(dataDir), null);
-  assert.equal(readStatus(dataDir).windows.d1.status, 'failed');
+  assert.equal(readStatus(dataDir).boards.d1.status, 'failed');
 });
 
 test('官方星数历史里缺统计日那一周、全部候选都核不了时不发布（缺失不补零）', async () => {
@@ -185,7 +185,7 @@ const sumDays = (id, days) => {
 test('近 7、30 天按统计日累计官方新增；更早的日子从 ClickHouse 按天补候选', async () => {
   const dataDir = fresh();
   const upstream = recordedUpstream({ clickhouseDayRows: [{ repo_name: 'star-history/star-history', stars: 1 }] });
-  const r = await rankDay({ day, dataDir, fetch: upstream.fetch, token: 't', now, sleep: noSleep });
+  const r = await rankDay({ day, dataDir, fetch: upstream.fetch, token: 't', now, sleep: noSleep, lists: [] });
   const d7 = r.windows.d7.snapshot;
   const d30 = r.windows.d30.snapshot;
   assert.equal(d7.from, '2026-10-16');
@@ -284,8 +284,8 @@ test('更新失败时保留上一次快照；重跑更早的日子不盖掉这�
   assert.equal(failed.status, 'failed');
   assert.deepEqual(readFileSync(join(dataDir, earlier.path)), before);
   assert.equal(readLatestSnapshot(dataDir).statDay, '2026-10-08');
-  assert.deepEqual(readStatus(dataDir).windows.d1, { day, at: now().toISOString(), status: 'failed', error: failed.error });
+  assert.deepEqual(readStatus(dataDir).boards.d1, { day, at: now().toISOString(), status: 'failed', error: failed.error });
 
   assert.equal((await d1({ dataDir, day: '2026-10-08' })).status, 'exists');
-  assert.equal(readStatus(dataDir).windows.d1.day, day);
+  assert.equal(readStatus(dataDir).boards.d1.day, day);
 });

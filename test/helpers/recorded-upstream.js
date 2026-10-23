@@ -12,7 +12,9 @@ const idByName = new Map(
 );
 
 // clickhouseDayRows：按天查询 ClickHouse 时（补更早的日子）每天都返回这些行；不给就返回空。
-export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours = [], failing = [], notFound = [], clickhouseDayRows = [] } = {}) {
+// incompleteSearch：GitHub 搜索回报结果不全（incomplete_results）。
+// realTrendingPages：周榜、月榜回放各自录制的页面；默认回放日榜页面（项目都有录制的官方历史，涨星榜的测试用它）。
+export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours = [], failing = [], notFound = [], clickhouseDayRows = [], incompleteSearch = false, realTrendingPages = false } = {}) {
   const calls = [];
   const json = (name) => new Response(read(name), { headers: { 'content-type': 'application/json', date: 'Fri, 23 Oct 2026 08:33:34 GMT' } });
   async function fetch(input, init = {}) {
@@ -32,8 +34,12 @@ export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours 
       const name = `gharchive-${m[1]}-${String(hour).padStart(2, '0')}.ndjson`;
       return new Response(gzipSync(existsSync(new URL(name, dir)) ? read(name) : Buffer.alloc(0)));
     }
-    // 周榜、月榜没有单独录制，回放日榜页面。
-    if (/^https:\/\/github\.com\/trending\?since=(daily|weekly|monthly)$/.test(url)) return new Response(read('trending-daily.html'));
+    if ((m = url.match(/^https:\/\/github\.com\/trending\?since=(daily|weekly|monthly)$/))) return new Response(read(`trending-${realTrendingPages ? m[1] : 'daily'}.html`));
+    if ((m = url.match(/^https:\/\/api\.github\.com\/search\/repositories\?q=([^&]+)&sort=stars&order=desc&per_page=100$/))) {
+      // 新项目榜按创建日期搜，累计高星榜按总 Star 搜。
+      const body = JSON.parse(read(`search/${decodeURIComponent(m[1]).startsWith('created:') ? 'new' : 'top'}.json`));
+      return new Response(JSON.stringify({ ...body, incomplete_results: incompleteSearch }), { headers: { 'content-type': 'application/json', date: 'Fri, 23 Oct 2026 08:33:35 GMT', 'x-ratelimit-resource': 'search' } });
+    }
     if ((m = url.match(/^https:\/\/api\.github\.com\/repositories\/(\d+)(\/stargazers\/history\?per_page=6)?$/))) {
       return json(m[2] ? `history/${m[1]}.json` : `repos/${m[1]}.json`);
     }
