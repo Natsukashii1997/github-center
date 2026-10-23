@@ -25,18 +25,21 @@ export async function mapLimit(items, n, fn) {
 }
 
 // 同一项目可能以不同名字出现（当天改过名），有 id 时按 id 合并，名字取后出现的（更新）；只有名字的按小写名合并，并尽量并入同名的有 id 记录。
+// 有 id 的记录遇到同名、还没有 id 的记录（ClickHouse 补的日子不带 id）也并进去，补上 id。
 function mergeById(rows) {
   const byId = new Map();
   const byName = new Map();
   for (const r of rows) {
-    const known = r.id ? byId.get(r.id) : byId.get(byName.get(r.name.toLowerCase())?.id) ?? byName.get(r.name.toLowerCase());
+    const named = byName.get(r.name.toLowerCase());
+    const known = r.id ? byId.get(r.id) ?? (named && !named.id ? named : undefined) : byId.get(named?.id) ?? named;
     const row = known ?? { id: r.id, name: r.name, events: 0 };
-    if (r.id) row.name = r.name;
+    if (r.id) Object.assign(row, { id: r.id, name: r.name });
     row.events += r.events ?? 0;
     if (row.id) byId.set(row.id, row);
     byName.set(r.name.toLowerCase(), row);
   }
-  return [...new Set(byName.values())];
+  // 同名的另一个项目会在 byName 里顶掉前一个，所以有 id 的从 byId 取全。
+  return [...new Set([...byId.values(), ...byName.values()])];
 }
 
 const byEvents = (a, b) => b.events - a.events || (a.name < b.name ? -1 : 1);

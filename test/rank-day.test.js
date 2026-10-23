@@ -289,3 +289,21 @@ test('更新失败时保留上一次快照；重跑更早的日子不盖掉这�
   assert.equal((await d1({ dataDir, day: '2026-10-08' })).status, 'exists');
   assert.equal(readStatus(dataDir).boards.d1.day, day);
 });
+
+test('近 7 天合并多天事件：ClickHouse 补的日子没有项目 id，按名字并进同一项目，不丢前几天的记录', async () => {
+  const week = ['2026-10-16', '2026-10-17', '2026-10-18', '2026-10-19', '2026-10-20', '2026-10-21'];
+  const run = async (earlier) => {
+    const dataDir = fresh();
+    for (const d of week) seedEvents(dataDir, d, []);
+    seedEvents(dataDir, '2026-10-21', earlier);
+    seedEvents(dataDir, day, halfRecorded());
+    const r = await rankDay({ day, dataDir, fetch: recordedUpstream().fetch, token: 't', now, sleep: noSleep, windows: ['d7'], lists: [] });
+    return r.windows.d7.snapshot;
+  };
+  const withIds = await run(halfRecorded());
+  const nameOnly = await run(halfRecorded().map((r) => ({ ...r, id: null })));
+  const lastDayOnly = await run([]);
+  assert.equal(nameOnly.check.recordRatio, withIds.check.recordRatio);
+  assert.equal(nameOnly.candidates.total, withIds.candidates.total);
+  assert.ok(nameOnly.check.recordRatio > lastDayOnly.check.recordRatio);
+});
