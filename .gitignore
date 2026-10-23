@@ -45,3 +45,6 @@ coverage/
 
 # Design review screenshots: full-size PNGs stay local; overview JPGs live in docs/design/shots-v2/
 design/shots/
+
+# Runtime data: snapshots and official raw responses stay local
+/data/

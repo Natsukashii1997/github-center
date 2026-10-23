@@ -1,0 +1,11 @@
+{
+  "name": "github-center",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
+    "rank": "node bin/rank-day.js",
+    "serve": "node bin/serve.js"
+  }
+}

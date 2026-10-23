@@ -1,0 +1,170 @@
+{
+  "window": "d1",
+  "statDay": "2026-10-22",
+  "bucket": {
+    "week": 1792281600,
+    "dayIndex": 4
+  },
+  "boundaryMode": "observed_utc",
+  "generatedAt": "2026-10-23T08:40:00.000Z",
+  "runId": "2026-10-22_2026-10-23T08-40-00-000Z",
+  "candidates": {
+    "total": 23,
+    "archive": 14,
+    "trending": 9,
+    "fallbackHours": []
+  },
+  "requests": {
+    "history": 23,
+    "repo": 21
+  },
+  "entries": [
+    {
+      "rank": 1,
+      "repoId": 1903522,
+      "fullName": "php/php-src",
+      "gain": 5200,
+      "total": 193409,
+      "evidence": {
+        "history": {
+          "url": "https://api.github.com/repositories/1903522/stargazers/history?per_page=6",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/history/1903522.json",
+          "sha256": "ad433100ed8f1baca6d5ca59ade87e13fdb3f7143f2b74c05a79281f2f81588d",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        },
+        "repo": {
+          "url": "https://api.github.com/repositories/1903522",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/repo/1903522.json",
+          "sha256": "dc0d7369cf1b8d257b2e9d076084a9ead388cf5d67330b5c1baf76db02758737",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        }
+      }
+    },
+    {
+      "rank": 2,
+      "repoId": 1140828898,
+      "fullName": "anthropics/knowledge-work-plugins",
+      "gain": 3100,
+      "total": 115709,
+      "evidence": {
+        "history": {
+          "url": "https://api.github.com/repositories/1140828898/stargazers/history?per_page=6",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/history/1140828898.json",
+          "sha256": "820bf7de6281bc8799f55a9fd4c5d522ab195cce0354ae27f89647c148514be6",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        },
+        "repo": {
+          "url": "https://api.github.com/repositories/1140828898",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/repo/1140828898.json",
+          "sha256": "39ff162695dd969ada6b13ce0eaf196af1d364ca80fc391596e06876a33c04f3",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        }
+      }
+    },
+    {
+      "rank": 3,
+      "repoId": 1266797999,
+      "fullName": "DietrichGebert/ponytail",
+      "gain": 2400,
+      "total": 89809,
+      "evidence": {
+        "history": {
+          "url": "https://api.github.com/repositories/1266797999/stargazers/history?per_page=6",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/history/1266797999.json",
+          "sha256": "3c3fabcd64f52f2102bc2bcb292dfbbc33e443f0030a949f99908a21439f1bcd",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        },
+        "repo": {
+          "url": "https://api.github.com/repositories/1266797999",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/repo/1266797999.json",
+          "sha256": "d5768412fece1cee8a033420740f01967382b5fee9284309a8a4f6b5e1755184",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        }
+      }
+    },
+    {
+      "rank": 4,
+      "repoId": 1273427276,
+      "fullName": "cloudflare/security-audit-skill",
+      "gain": 1800,
+      "total": 67609,
+      "evidence": {
+        "history": {
+          "url": "https://api.github.com/repositories/1273427276/stargazers/history?per_page=6",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/history/1273427276.json",
+          "sha256": "b3be380eeff27ac5085371de5c4243e1e169cef888b76b22e4d5ff3685d32b7f",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        },
+        "repo": {
+          "url": "https://api.github.com/repositories/1273427276",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/repo/1273427276.json",
+          "sha256": "a200b40b573ca98946653ff31dd8769c43efe5e5e9ad9ee9d18e4b6ebe7a8c69",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        }
+      }
+    },
+    {
+      "rank": 5,
+      "repoId": 1200597263,
+      "fullName": "Graphify-Labs/graphify",
+      "gain": 1500,
+      "total": 56509,
+      "evidence": {
+        "history": {
+          "url": "https://api.github.com/repositories/1200597263/stargazers/history?per_page=6",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/history/1200597263.json",
+          "sha256": "b293f6a7ecc5bc594836ea19e334fe326bb9102344498cc90a9ee91266c412fa",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        },
+        "repo": {
+          "url": "https://api.github.com/repositories/1200597263",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/repo/1200597263.json",
+          "sha256": "73ae4457bd9f12e2f2c1a9d05c1b1b2d1ff3ad263a5f24145aae243cefa418d0",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        }
+      }
+    },
+    {
+      "rank": 5,
+      "repoId": 1241364151,
+      "fullName": "nicholasx417/WinNative-Components",
+      "gain": 1500,
+      "total": 56509,
+      "evidence": {
+        "history": {
+          "url": "https://api.github.com/repositories/1241364151/stargazers/history?per_page=6",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/history/1241364151.json",
+          "sha256": "b293f6a7ecc5bc594836ea19e334fe326bb9102344498cc90a9ee91266c412fa",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        },
+        "repo": {
+          "url": "https://api.github.com/repositories/1241364151",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/repo/1241364151.json",
+          "sha256": "0d0d55029ca48713f5f0b62641d305f2f70fa222a59462fbd998a5c1704e3435",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        }
+      }
+    },
+    {
+      "rank": 7,
+      "repoId": 1428842369,
+      "fullName": "GabrielTaiga/Taiga-Launcher-for-Steam",
+      "gain": 1200,
+      "total": 45409,
+      "evidence": {
+        "history": {
+          "url": "https://api.github.com/repositories/1428842369/stargazers/history?per_page=6",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/history/1428842369.json",
+          "sha256": "f72625dd102e80ba4a6131c7d1cb4542186d8e8d81e364ca6fcc63f1460a6678",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        },
+        "repo": {
+          "url": "https://api.github.com/repositories/1428842369",
+          "path": "runs/2026-10-22_2026-10-23T08-40-00-000Z/raw/repo/1428842369.json",
+          "sha256": "7527d2cac8fdf19fa89ecc44afb525bc8e4a29b16fa327785529ea0af6ff8867",
+          "date": "Fri, 23 Oct 2026 08:33:34 GMT"
+        }
+      }
+    }
+  ]
+}
