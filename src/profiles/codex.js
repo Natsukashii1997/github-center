@@ -75,24 +75,27 @@ function run(bin, args, { cwd, input, timeoutMs }) {
   });
 }
 
+// 用本机 Codex 按 JSON Schema 做一次结构化输出（项目资料和 #10 归类共用）：空的临时目录、只读沙箱、关掉执行命令的工具。
+export async function codexJson({ bin = 'codex', schema, input, effort = EFFORT, timeoutMs = 300_000 }) {
+  const dir = mkdtempSync(join(tmpdir(), 'gc-codex-'));
+  try {
+    const schemaPath = join(dir, 'schema.json');
+    const out = join(dir, 'out.json');
+    writeFileSync(schemaPath, JSON.stringify(schema));
+    await run(bin, [
+      'exec', '--ephemeral', '--ignore-user-config', '--skip-git-repo-check', '--sandbox', 'read-only',
+      '--disable', 'shell_tool', '--disable', 'unified_exec', '-c', `model_reasoning_effort="${effort}"`,
+      '--output-schema', schemaPath, '-o', out, '--color', 'never', '-',
+    ], { cwd: dir, input, timeoutMs });
+    return JSON.parse(readFileSync(out, 'utf8'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 export function codexGenerator({ bin = 'codex', timeoutMs = 300_000 } = {}) {
   return {
     version: `codex-${PROMPT_VERSION}`,
-    async generate(material) {
-      const dir = mkdtempSync(join(tmpdir(), 'gc-codex-'));
-      try {
-        const schema = join(dir, 'schema.json');
-        const out = join(dir, 'out.json');
-        writeFileSync(schema, JSON.stringify(SCHEMA));
-        await run(bin, [
-          'exec', '--ephemeral', '--ignore-user-config', '--skip-git-repo-check', '--sandbox', 'read-only',
-          '--disable', 'shell_tool', '--disable', 'unified_exec', '-c', `model_reasoning_effort="${EFFORT}"`,
-          '--output-schema', schema, '-o', out, '--color', 'never', '-',
-        ], { cwd: dir, input: prompt(material), timeoutMs });
-        return JSON.parse(readFileSync(out, 'utf8'));
-      } finally {
-        rmSync(dir, { recursive: true, force: true });
-      }
-    },
+    generate: (material) => codexJson({ bin, schema: SCHEMA, input: prompt(material), timeoutMs }),
   };
 }

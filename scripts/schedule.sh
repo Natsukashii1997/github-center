@@ -4,6 +4,7 @@
 # 每天北京时间 10:00 跑一次 npm run rank：统计日按 UTC 划分，北京时间 08:00 才结束，事件文件还要晚 1 小时左右才齐。
 # 只出最近一个已结束的统计日；已发布的榜单不重跑，和手动重跑撞上也安全。电脑在 10:00 睡着时，醒来后补跑。
 # 出完榜接着跑 npm run profiles：给榜单上首次出现或资料有变的项目生成项目资料（用本机已登录的 Codex CLI）。
+# 再跑 npm run classify：给这一期各榜单涉及的项目归类，榜上项目用项目页资料复核（#10，同样用本机 Codex CLI）。
 # 最后跑 npm run calibrate：严格方案有新结果就出校准报告（只读严格实验目录）。
 set -euo pipefail
 
@@ -30,7 +31,7 @@ case "${1:-}" in
 <dict>
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/sh</string><string>-c</string><string>'$NODE' --use-env-proxy bin/rank-day.js; '$NODE' --use-env-proxy bin/profiles.js; '$NODE' bin/calibrate.js</string></array>
+  <array><string>/bin/sh</string><string>-c</string><string>'$NODE' --use-env-proxy bin/rank-day.js; '$NODE' --use-env-proxy bin/profiles.js; '$NODE' --use-env-proxy bin/classify.js; '$NODE' bin/calibrate.js</string></array>
   <key>WorkingDirectory</key><string>$ROOT</string>
   <key>EnvironmentVariables</key>
   <dict><key>PATH</key><string>$(dirname "$NODE"):$(dirname "$GH"):$(dirname "$CODEX"):/usr/bin:/bin</string>$PROXY</dict>
