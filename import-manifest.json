@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "snapshot_date": "2026-10-23",
-  "scope": "Local reviewable staging only; no remote write and no collector execution.",
+  "scope": "Import provenance for the research snapshot; original runtime data remains local and unchanged.",
   "source_root": "<LOCAL_EVIDENCE_ROOT>",
   "files": [
     {
@@ -513,7 +513,7 @@
     "research_bytes": 388229
   },
   "notes": [
-    "No project scripts or tests were executed.",
+    "Copying did not execute source runtime scripts. Subsequent isolated offline checks and remote verification are recorded in docs/verification/bootstrap.md.",
     "Core collector and all imported Python source files are byte-identical.",
     "Markdown edits are limited to replacing the personal local outputs root with an evidence placeholder.",
     "Import does not move original project files or change the collector runtime."
