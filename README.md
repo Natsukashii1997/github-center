@@ -6,6 +6,8 @@
 
 ## 从这里开始
 
+- [Claude接手交接](HANDOFF.md)（本地需求补全与运行边界）
+- [可复制的接手提示词](CLAUDE_HANDOFF_PROMPT.md)
 - [当前状态与唯一下一步](CURRENT.md)
 - [已确认产品范围](docs/product/confirmed-scope.md)
 - [研究与实验入口](research/README.md)
