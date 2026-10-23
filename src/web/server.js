@@ -3,7 +3,7 @@
 import { createServer } from 'node:http';
 import { openAccounts, ROLES, SESSION_DAYS } from './accounts.js';
 import { readLatestSnapshot, readStatus, WINDOWS, LISTS, SINCES, TRENDING_PAGES } from '../ranking/index.js';
-import { findProfile, isOnBoards, installInstruction, AIS } from '../profiles/index.js';
+import { findProfile, isOnBoards, currentGenerated, skillPlace, skillPurpose, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const num = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
@@ -97,18 +97,18 @@ const COPY_SCRIPT = `document.getElementById('copy-install').addEventListener('c
 });`;
 
 // 安装指令（#7）：选交给 Claude Code 还是 Codex、装整个项目还是某个 Skill（不用脚本也能换），指令放在只读文本框里，一键复制。
-function installSection(fullName, profile, generated, query) {
-  const ai = Object.hasOwn(AIS, query.get('ai') ?? '') ? query.get('ai') : 'claude-code';
+function installSection(profile, query) {
+  const ai = Object.hasOwn(INSTALL_AIS, query.get('ai') ?? '') ? query.get('ai') : 'claude-code';
   const skills = profile.material.skills;
   const skillPath = skills.some((s) => s.path === query.get('skill')) ? query.get('skill') : '';
   const option = (value, text, selected) => `<option value="${esc(value)}"${selected ? ' selected' : ''}>${esc(text)}</option>`;
   return `<h2 id="install">安装指令</h2>
-<form method="get" action="/p/${esc(fullName)}#install">
-<label>交给 <select name="ai">${Object.entries(AIS).map(([k, v]) => option(k, v, k === ai)).join('')}</select></label>
+<form method="get" action="/p/${esc(profile.fullName)}#install">
+<label>交给 <select name="ai">${Object.entries(INSTALL_AIS).map(([k, v]) => option(k, v.name, k === ai)).join('')}</select></label>
 <label>安装 <select name="skill">${option('', '整个项目', !skillPath)}${skills.map((s) => option(s.path, `Skill：${s.name}`, s.path === skillPath)).join('')}</select></label>
 <button>换成这个</button>
 </form>
-<textarea id="install-text" rows="18" readonly>${esc(installInstruction({ profile, generated, ai, skillPath }))}</textarea>
+<textarea id="install-text" rows="18" readonly>${esc(installInstruction({ profile, ai, skillPath }))}</textarea>
 <p><button type="button" id="copy-install">复制指令</button> <span id="copy-status" class="note" role="status"></span></p>
 <script>${COPY_SCRIPT}</script>`;
 }
@@ -117,7 +117,7 @@ function installSection(fullName, profile, generated, query) {
 // 内容都来自存下的项目资料。简介没生成好、或文档更新后还没重新生成好，就写“简介生成中”，不拿猜测或过期的内容顶替。
 function projectPage(fullName, profile, query) {
   const m = profile?.material;
-  const g = m && profile.generated?.materialHash === m.hash ? profile.generated : null;
+  const g = currentGenerated(profile);
   const list = (items) => `<ul>\n${items.map(([head, text, note]) => `<li><strong>${esc(head)}</strong>　${esc(text)}<br><span class="note">${esc(note)}</span></li>`).join('\n')}\n</ul>`;
   const parts = [`<p><a href="https://github.com/${esc(fullName)}">在 GitHub 打开原项目</a></p>`, '<h2>简介</h2>'];
   if (g) {
@@ -130,8 +130,8 @@ function projectPage(fullName, profile, query) {
   }
   if (m) {
     // 安装指令放在 Skill 列表前面：Skill 多的仓库列表很长。
-    parts.push(installSection(fullName, profile, g, query), '<h2>Skill</h2>');
-    parts.push(m.skills.length ? list(m.skills.map((s) => [s.name, g?.skillPurposes[s.path] ?? s.description, s.path === '.' ? '仓库根目录' : s.path])) : '<p>仓库里没有按 SKILL.md 约定写的 Skill。</p>');
+    parts.push(installSection(profile, query), '<h2>Skill</h2>');
+    parts.push(m.skills.length ? list(m.skills.map((s) => [s.name, skillPurpose(s, g), skillPlace(s.path)])) : '<p>仓库里没有按 SKILL.md 约定写的 Skill。</p>');
     if (m.treeTruncated || m.skillsTruncated) parts.push('<p class="note">仓库太大，Skill 列表可能不全。</p>');
     const readme = m.readme ? `<a href="${esc(m.readme.htmlUrl)}">${esc(m.readme.path)}</a>` : '仓库里没有 README';
     const docs = m.docs.length ? `、${m.docs.map((d) => esc(d.path)).join('、')}` : '';

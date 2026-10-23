@@ -9,6 +9,9 @@ const profilesDir = (dataDir) => join(dataDir, 'profiles');
 export const readProfile = (dataDir, id) => readJson(join(profilesDir(dataDir), `${id}.json`));
 export const saveProfile = (dataDir, profile) => writeAtomic(join(profilesDir(dataDir), `${profile.projectId}.json`), JSON.stringify(profile, null, 2) + '\n');
 
+// 和当前资料对得上的简介；资料更新后还没重新生成好（或从没生成过）就是 null，页面和安装指令都不用过期的内容。
+export const currentGenerated = (profile) => (profile?.material && profile.generated?.materialHash === profile.material.hash ? profile.generated : null);
+
 // 按名字找（不分大小写），找不到返回 null。
 export function findProfile(dataDir, fullName) {
   const dir = profilesDir(dataDir);

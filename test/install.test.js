@@ -33,7 +33,7 @@ const profile = () => ({
     skillPurposes: { 'skills/pdf': '读取和填写 PDF 表单' },
   },
 });
-const make = (opts) => installInstruction({ profile: profile(), generated: profile().generated, ...opts });
+const make = (opts, p = profile()) => installInstruction({ profile: p, ...opts });
 
 test('整个项目、交给 Claude Code：依据项目文档装，查不到先读官方文档、不编命令；缺账号密钥或要付费就停下；装好调用一次并说明用法', () => {
   const text = make({ ai: 'claude-code', skillPath: '' });
@@ -48,7 +48,7 @@ test('整个项目、交给 Claude Code：依据项目文档装，查不到先�
   // 只给 Claude Code 的插件提示；仓库里有 Skill 时先问要哪些。
   assert.match(text, /仓库根目录有 \.claude-plugin\/，项目可能支持作为 Claude Code 插件安装/);
   assert.match(text, /仓库里有 2 个 Skill；文档没说要全部装上的，先问我要哪些。/);
-  // 中心不替项目编安装命令。
+  // 中心不替项目编命令行。
   assert.doesNotMatch(text, /npm install|pip install|git clone|brew install/);
   assert.doesNotMatch(make({ ai: 'codex', skillPath: '' }), /\.claude-plugin/);
 });
@@ -58,8 +58,12 @@ test('单个 Skill、交给 Codex：只装这一个，写明名称、用途、�
   assert.match(text, /^请在你所在的这台电脑上，把 GitHub 项目 acme\/agent-kit 里的 Skill「pdf」装进 Codex，装好后确认你能调用它，最后告诉我怎么用。/);
   assert.match(text, /只装这一个 Skill，不装整个仓库。/);
   assert.match(text, /- 用途：读取和填写 PDF 表单/);
-  assert.match(text, /- 位置：https:\/\/github\.com\/acme\/agent-kit\/tree\/main\/skills\/pdf（skills\/pdf 下的 SKILL\.md/);
-  assert.match(text, /Codex 的 Skill 放在它会加载 Skill 的目录里（常见的是 ~\/\.codex\/skills\/<Skill 名称>\/），以你所用 Codex 版本的官方文档为准。/);
+  assert.match(text, /- 位置：https:\/\/github\.com\/acme\/agent-kit\/tree\/main\/skills\/pdf（skills\/pdf 目录里的 SKILL\.md/);
+  // Codex 放 Skill 的位置各版本说法不一，不写死，只让它查官方文档。
+  assert.match(text, /Codex 的 Skill 放在它会加载 Skill 的目录里；不同版本说法不一，先查你所用 Codex 版本的官方文档确认位置，再放进去。/);
+  assert.doesNotMatch(text, /~\/\.codex/);
+  assert.match(text, /- 项目文档：README（https:\/\/github\.com\/acme\/agent-kit\/blob\/main\/README\.md）、docs\/install\.md/);
+  assert.match(text, /要重开会话才能生效的，告诉我去重开/);
   assert.match(text, /同名的 Skill 已经存在时，先问我要不要覆盖。/);
   assert.match(text, /不要自己编命令/);
   assert.match(text, /不要自己注册、付费/);
@@ -69,10 +73,30 @@ test('单个 Skill、交给 Codex：只装这一个，写明名称、用途、�
   assert.match(claude, /- 用途：Turn meeting notes into action items\./);
 });
 
-test('还没整理出使用条件、或文档里没写条件时，指令如实说明，让 AI 自己留意账号、密钥和付费', () => {
-  assert.match(installInstruction({ profile: profile(), generated: null, ai: 'codex', skillPath: '' }), /中心还没整理出这个项目的使用条件；装之前先看文档里有没有账号、密钥或付费要求。/);
-  const none = { ...profile().generated, conditions: [] };
-  assert.match(installInstruction({ profile: profile(), generated: none, ai: 'codex', skillPath: '' }), /中心在读到的项目文档里没有找到账号、密钥或付费要求；装的过程中遇到了，照规则 2 停下来告诉我。/);
+test('仓库根目录本身就是 Skill：只把 SKILL.md 和它用到的文件放进去，不说“不装整个仓库”', () => {
+  const p = profile();
+  p.material.skills = [{ path: '.', name: 'root-skill', description: 'Does one thing.' }];
+  const text = make({ ai: 'claude-code', skillPath: '.' }, p);
+  assert.match(text, /要装的：这个仓库本身就是一个 Skill（SKILL\.md 在仓库根目录）。/);
+  assert.match(text, /- 位置：https:\/\/github\.com\/acme\/agent-kit（仓库根目录里的 SKILL\.md/);
+  assert.match(text, /把仓库里 SKILL\.md 和它用到的文件放进去（仓库自己的开发文件不用带）/);
+  assert.doesNotMatch(text, /不装整个仓库/);
+});
+
+test('使用条件的说明和项目页一致：还没整理、没整理出、有条件核对不到、文档只读了开头，都如实写上', () => {
+  const pending = profile();
+  pending.generated = null;
+  assert.match(make({ ai: 'codex', skillPath: '' }, pending), /中心还没整理出这个项目的使用条件；装之前先看文档里有没有账号、密钥或付费要求。/);
+  // 资料更新后还没重新生成好，旧的条件不用。
+  const stale = profile();
+  stale.material.hash = 'h2';
+  assert.match(make({ ai: 'codex', skillPath: '' }, stale), /中心还没整理出这个项目的使用条件/);
+  const none = profile();
+  Object.assign(none.generated, { conditions: [], droppedConditions: 2 });
+  none.material.readme.truncated = true;
+  const text = make({ ai: 'codex', skillPath: '' }, none);
+  assert.match(text, /中心在读到的项目文档里没有整理出账号、密钥或付费要求。\n另有 2 条整理出的条件在原文里核对不到，没有列出。\n有的文档较长，中心只读了开头部分，后面可能还写了别的条件。\n装的过程中遇到账号、密钥或付费要求，照规则 2 停下来告诉我。$/);
+  assert.doesNotMatch(text, /没有找到账号/);
 });
 
 function dataDirWithProfile() {

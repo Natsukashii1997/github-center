@@ -5,6 +5,9 @@ const FILE = 'SKILL.md';
 export const isSkillFile = (path) => path === FILE || path.endsWith(`/${FILE}`);
 // Skill 的路径是 SKILL.md 所在的目录；仓库根目录本身是 Skill 时记为 "."。
 const dirOf = (path) => path.slice(0, -FILE.length).replace(/\/$/, '') || '.';
+// 给人看的位置和用途：中文用途是生成的（和当前资料对得上才用），没有就用 SKILL.md 原文的描述。
+export const skillPlace = (path) => (path === '.' ? '仓库根目录' : path);
+export const skillPurpose = (skill, generated) => generated?.skillPurposes[skill.path] ?? skill.description;
 
 // 只读顶层的 key: value，支持引号和 | > 多行写法；嵌套的字段用不到，跳过。
 function frontmatter(yaml) {
