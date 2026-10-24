@@ -42,10 +42,10 @@ window.GP = (() => {
     if (open) enter(box, '.skill');
   }));
 
-  // 紧凑行：名次、头像、名字（链接）、一句话、右侧主数字
-  function compactRow(r, { number, sub, href, rank = r.rank }) {
+  // 紧凑行：名次、头像、名字（链接）、一句话（desc 给了就用它，如日报里的“见上”）、右侧主数字
+  function compactRow(r, { number, sub, href, rank = r.rank, desc = ds(P(r.repo)) }) {
     const p = P(r.repo);
-    return `<li class="crow" data-key="${esc(r.repo)}" data-href="${esc(href)}"${rank <= 3 ? ' data-top' : ''}><div class="rk"><b>${rank}</b></div>${avImg(p, 48)}<div class="tx"><div class="nm" title="${esc(p.repo)}">${link(p, href)}</div><div class="ds" title="${esc(ds(p))}">${esc(ds(p))}</div></div><div class="nums"><div class="g">${number}</div>${sub ? `<div class="t">${sub}</div>` : ''}</div></li>`;
+    return `<li class="crow" data-key="${esc(r.repo)}" data-href="${esc(href)}"${rank <= 3 ? ' data-top' : ''}><div class="rk"><b>${rank}</b></div>${avImg(p, 48)}<div class="tx"><div class="nm" title="${esc(p.repo)}">${link(p, href)}</div><div class="ds" title="${esc(desc)}">${esc(desc)}</div></div><div class="nums"><div class="g">${number}</div>${sub ? `<div class="t">${sub}</div>` : ''}</div></li>`;
   }
   // 迷你走势（日报主条目）：这一期榜单那次运行的近 30 天每日新增，窗口内高亮；缺数据的那天留空位；没有官方历史的项目写明
   function spark(run, span = 0) {
@@ -93,6 +93,8 @@ window.GP = (() => {
     const p = P(r.repo);
     return `<li class="ditem" id="${id}"><div class="rk"><b>${r.rank}</b>${r.tie ? '<i>并列</i>' : ''}</div><div class="tx"><div class="head">${avImg(p, 48)}<div class="nm"><a href="${esc(href)}">${name(p)}</a></div></div><p>${esc(ds(p))}${p.problem ? ` ${esc(p.problem)}` : ''}</p><div class="tg">${cats(p)}<span>总 Star ${run?.total == null ? '暂缺' : wan(run.total)}</span></div>${spark(run, 1)}</div><div class="g"><small>+</small>${num(r.gain)}</div></li>`;
   }
+  // 版本发布行（日报）：日期、项目（链到项目页）、版本号（链到官方 Release，外观不变）
+  const relRow = (r, from) => `<div class="rel"><span class="num">${mdShort(utc(r.publishedAt.slice(0, 10)))}</span><span><a href="${esc(project(r.repo, from))}">${esc(r.repo)}</a><a href="${esc(r.url)}" target="_blank" rel="noopener" title="在 GitHub 查看这个 Release"><code>${esc(r.tag)}</code></a></span><a class="out" href="${esc(r.url)}" target="_blank" rel="noopener">${I.external}<span>Release</span></a></div>`;
   // 登录页：显示密码；服务端已判定失败时表单轻摆，再输入时清掉错误样式
   function wireLogin(form) {
     const err = $('.err', form), peek = $('#peek', form), pass = $('#pass', form);
@@ -104,5 +106,5 @@ window.GP = (() => {
   const BACK = { boards: ['/boards', '返回其他榜单', '其他榜单'], daily: ['/daily', '返回日报', '日报'], favorites: ['/favorites', '返回我的收藏', '我的收藏'] };
   const backOf = (from) => BACK[from] || ['/', '返回涨星榜', '涨星榜'];
   const phead = (title, lede) => `<div class="phead"><h1>${esc(title)}</h1><p class="lede">${lede}</p></div>`;
-  return { P, project, cats, avImg, name, link, ds, when, favBtn, wireFavs, wireOpen, wireCopy, wireMore, enter, compactRow, spark, gridCard, statStrip, chartOf, readOf, condList, skillList, sources, ditem, wireLogin, backOf, phead, skillOf, FOLD };
+  return { P, project, cats, avImg, name, link, ds, when, bjLong, relRow, favBtn, wireFavs, wireOpen, wireCopy, wireMore, enter, compactRow, spark, gridCard, statStrip, chartOf, readOf, condList, skillList, sources, ditem, wireLogin, backOf, phead, skillOf, FOLD };
 })();

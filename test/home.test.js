@@ -140,16 +140,6 @@ test('更新失败时仍显示上一次的榜单，写明它的真实日期和�
   assert.ok(!(await home(dir)).data.windows.d1.notes.some((n) => n.title === '更新失败'));
 });
 
-test('日报页：三个窗口的更新失败、可能不完整都写在页头下，标题写明是哪个窗口', async () => {
-  const dir = dataDirWithSnapshot();
-  writeSnapshot(dir, 'd7', { check: { passed: false, missProbability: 1.1e-4, threshold: 1, recordRatio: 0.011, expectedRecords: 9.1 }, incomplete: true });
-  writeFileSync(join(dir, 'status.json'), JSON.stringify({ boards: { d1: { day: '2026-10-23', at: '2026-10-24T02:10:00.000Z', status: 'failed', error: '官方热门日榜返回 503' } } }));
-  const { status, data } = await home(dir, 'daily');
-  assert.equal(status, 200);
-  assert.deepEqual(data.notes.map((n) => n.title), ['近 1 天更新失败', '近 1 天未做自检', '近 7 天可能不完整']);
-  assert.deepEqual(data.top, { tone: 'bad', text: '更新失败 · 显示 10 月 22 日数据' });
-});
-
 test('30 天走势按统计日从官方星数历史取，跨周拼接；缺一周的那几天记为缺数据，项目还不存在的日子记 0', () => {
   const s = dailySeries(weeks, '2026-10-22');
   assert.equal(s.length, 30);

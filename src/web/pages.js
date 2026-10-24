@@ -5,7 +5,9 @@ import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, LISTS, SINCES } 
 import { CATEGORIES, readCategories } from '../categories/index.js';
 import { readProfile, findProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
 import { boardProjects } from '../profiles/store.js';
-import { homeData, windowStatus, project as projectCard, embed } from './home.js';
+import { windowStatus, project as projectCard, embed } from './home.js';
+import { findSnapshot } from '../ranking/store.js';
+import { readLatestDaily } from '../daily/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const md = (day) => `${Number(day.slice(5, 7))} 月 ${Number(day.slice(8, 10))} 日`;
@@ -106,15 +108,39 @@ export function projectData(dataDir, fullName, ctx) {
 // 找不到这个项目（没资料也不在榜上）：照方案的 missing 状态出页面，服务端回 404。
 export const projectMissing = (dataDir, fullName, ctx) => ({ ...base(ctx), projects: {}, page: { missing: true, repo: fullName, top: siteTop(dataDir) } });
 
-// ── 日报：先出页面壳与三个窗口的前 10（概览与飞书推送由 #11 做）；数据同首页 ──
+// ── 日报（#11）：每天生成的那份日报（data/daily/<统计日>.json，飞书消息用的也是这一份），还没生成时页面显示空状态。
+// 简介按日报里存下的写，网页和飞书一致；头像、分类、收藏状态和走势按日报用的那几份快照取（同首页）。 ──
 export function dailyData(dataDir, ctx) {
-  const h = homeData(dataDir, ctx);
-  const windows = Object.fromEntries(Object.entries(h.windows).map(([w, b]) => [w, { label: b.label, top: b.top, notes: b.notes, entries: b.entries.slice(0, 10), empty: b.empty }]));
-  const used = new Set(Object.values(windows).flatMap((b) => b.entries.map((e) => e.repo)));
+  const daily = readLatestDaily(dataDir);
+  const top = siteTop(dataDir);
+  if (!daily) return { ...base(ctx), top, notes: [], daily: null, projects: {} };
+  const find = readCategories(dataDir).get;
+  const seen = new Map();
+  for (const [w, win] of Object.entries(daily.windows)) {
+    const snapshot = win.statDay ? findSnapshot(dataDir, w, win.statDay)?.snapshot : null;
+    for (const e of win.entries) {
+      if (!seen.has(e.repo)) seen.set(e.repo, { id: e.id, intro: daily.projects[e.first?.repo ?? e.repo], boards: [] });
+      const entry = snapshot?.entries.find((x) => x.fullName === e.repo);
+      if (entry) seen.get(e.repo).boards.push({ w, snapshot, entry });
+    }
+  }
+  const projects = {};
+  for (const [repo, { id, intro, boards }] of seen) {
+    boards.sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
+    const card = boards.length ? projectCard(dataDir, boards, ctx, find) : brief(dataDir, { id, fullName: repo }, ctx, find);
+    projects[repo] = { ...card, what: intro?.what ?? null, problem: intro?.problem ?? null };
+  }
+  // 版本发布：项目在所在时间窗口内发的正式版本，新的在前。
+  const releases = Object.entries(daily.projects).filter(([, p]) => p.release).map(([repo, p]) => ({ repo, w: p.w, ...p.release }))
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
+  // 提示条：日报里写下的（各窗口的数据情况、版本发布没查全）；之后近 1 天更新失败、新一期的日报还没生成也写明。
+  const notes = [...daily.notes];
   const d1 = readLatestSnapshot(dataDir, 'd1');
-  // 提示条：三个窗口的更新失败、可能不完整都写在页头下（右栏的近 7、30 天也算），标题前写明是哪个窗口。
-  const notes = Object.values(windows).flatMap((b) => b.notes.map((n) => ({ ...n, title: `${b.label}${n.title}` })));
-  return { ...base(ctx), windows, projects: Object.fromEntries(Object.entries(h.projects).filter(([k]) => used.has(k))), day: d1?.statDay ?? null, top: windows.d1.top, notes };
+  const failed = newerFailure(readStatus(dataDir), 'd1', { statDay: daily.statDay });
+  if (failed) notes.unshift({ tone: 'bad', icon: 'error', title: '近 1 天更新失败', text: `${md(failed.day)}的更新失败：${failed.error}。下面是 ${md(daily.statDay)}的日报。` });
+  else if (d1 && d1.statDay > daily.statDay) notes.unshift({ icon: 'warn', title: '新一期日报还没生成', text: `${md(d1.statDay)}的日报还没生成，下面是 ${md(daily.statDay)}的日报。` });
+  const { statDay, generatedAt, overview, windows } = daily;
+  return { ...base(ctx), top, notes, daily: { statDay, generatedAt, overview, windows, releases }, projects };
 }
 
 // ── 我的收藏：这个人的全部收藏，新的在前。名字优先用资料里现在的（项目可能改过名）；Skill 已从仓库删掉、项目资料已不在都写明 ──
