@@ -50,7 +50,7 @@ function fakeGitHub() {
   async function fetch(input) {
     const url = String(input);
     calls.push(url);
-    const m = url.match(/^https:\/\/api\.github\.com\/repositories\/(\d+)\/releases\?per_page=30$/);
+    const m = url.match(/^https:\/\/api\.github\.com\/repositories\/(\d+)\/releases\?per_page=100$/);
     if (!m) throw new Error(`未录制的请求：${url}`);
     if (m[1] === '2') return new Response('Service Unavailable', { status: 503 });
     if (m[1] === '3') return new Response('{"message":"Not Found"}', { status: 404 });
@@ -103,13 +103,30 @@ test('没有证据时不写原因：概览只用榜单数字；Release 查不到
     + '三个榜的前 10 共 13 个项目，其中 3 个不止上了一个榜。2 个项目在所在时间窗口内发了正式版本。');
   for (const p of ['acme/p4', 'acme/monthly', 'acme/notes']) assert.equal(daily.projects[p].release, null, p);
   assert.deepEqual([daily.projects['acme/notes'].lookup, daily.projects['acme/p3'].lookup], ['error', 'missing']);
-  assert.deepEqual(daily.notes.find((n) => n.title === '版本发布没查全'), { icon: 'warn', title: '版本发布没查全', text: '2 个项目的官方 Release 没查到（acme/notes、acme/p3），这几个项目没写版本发布。' });
+  assert.deepEqual(daily.notes.find((n) => n.title === '版本发布没查全'), { icon: 'warn', title: '版本发布没查全', text: '2 个项目的官方 Release 没查全（acme/notes、acme/p3），这几个项目没写版本发布。' });
   assert.doesNotMatch(JSON.stringify(daily), /因为|由于|得益于|爆火|走红|火了|原因/);
 
-  // 一个版本也没查到时，概览不说“发了”；有查不到的，只说“查到的项目”没发。
+  // 一个版本也没查到时，概览不说“发了”；有查不到的，只说“查到的项目”没发；一个都没查成（上游故障）就不说没发。
   const quiet = dataDir();
   const none = { fetch: async () => new Response('[]'), calls: [] };
   assert.match((await build(quiet, none)).daily.overview, /这些项目在所在时间窗口内都没有发正式版本。$/);
+  const down = { fetch: async () => new Response('Service Unavailable', { status: 503 }), calls: [] };
+  const outage = (await build(dataDir(), down)).daily;
+  assert.match(outage.overview, /。官方 Release 这次都没查全，没写版本发布。$/);
+  assert.doesNotMatch(outage.overview, /没有发/);
+});
+
+test('Release 一页读满、最早的一个还在窗口内又没有正式版本：记为没查全，不说没发；读到窗口起点之前才算查完', async () => {
+  // acme/rocket（近 1 天，窗口 10 月 22 日）：当天 100 个预发布版，读满一页；acme/monthly（近 30 天，窗口从 9 月 23 日起）：
+  // 99 个预发布版，第 100 个是窗口前的正式版，说明已经读过了窗口起点。
+  const many = (n, at) => Array.from({ length: n }, (_, i) => rel(`n${i}`, at, { prerelease: true, created_at: at }));
+  const pages = { 1: many(100, '2026-10-22T08:00:00Z'), 30: [...many(99, '2026-10-20T08:00:00Z'), rel('v1.0.0', '2026-09-01T00:00:00Z', { created_at: '2026-09-01T00:00:00Z' })] };
+  const up = { fetch: async (u) => new Response(JSON.stringify(pages[String(u).match(/repositories\/(\d+)\/releases\?per_page=100$/)[1]] ?? [])), calls: [] };
+  const { daily } = await build(dataDir(), up);
+  assert.deepEqual([daily.projects['acme/rocket'].lookup, daily.projects['acme/rocket'].release], ['partial', null]);
+  assert.deepEqual([daily.projects['acme/monthly'].lookup, daily.projects['acme/monthly'].release], ['ok', null]);
+  assert.equal(daily.notes.find((n) => n.title === '版本发布没查全').text, '1 个项目的官方 Release 没查全（acme/rocket），这几个项目没写版本发布。');
+  assert.match(daily.overview, /查到的项目在所在时间窗口内都没有发正式版本。$/);
 });
 
 test('按统计日只写一次：再跑不重写、不再请求上游；还没有近 1 天的榜单就不生成', async () => {
@@ -130,6 +147,8 @@ test('某个窗口当天没出：用更早的一期并写明（更新失败写�
   assert.deepEqual(daily.notes.map((n) => n.title), ['近 7 天还没有榜单', '近 30 天更新失败', '版本发布没查全']);
   assert.equal(daily.notes[1].text, '10 月 22 日的更新失败：GH Archive 第 3 小时下载失败。下面是上次成功的 10 月 21 日数据。');
   assert.match(daily.overview, /^10 月 22 日，近 1 天第 1 名是 acme\/rocket（\+900），近 30 天（10 月 21 日的数据）第 1 名 acme\/monthly（\+20,000）。两个榜的前 10/);
+  // 飞书消息里没有榜单的窗口，写法同日报页。
+  assert.ok(feishuMarkdown(daily).includes('#### 近 7 天前 10\n\n还没有近 7 天的榜单。\n'));
   // 近 7 天自检未通过：提示条同网站。
   const partial = (await build(dataDir())).daily;
   assert.equal(partial.notes[0].title, '近 7 天可能不完整');
@@ -144,8 +163,8 @@ test('飞书消息内容：同一份日报写成 Markdown 文件（本仓库不�
   assert.match(text, /^## GitHub 快速中心日报 · 10 月 22 日\n\n统计日 10 月 22 日（UTC），10 月 23 日 10:40（北京时间）生成。\n\n10 月 22 日，近 1 天第 1 名是 acme\/rocket/);
   assert.ok(text.includes(r.daily.overview));
   for (const n of r.daily.notes) assert.ok(text.includes(`- ${n.title}：${n.text}`), n.title);
-  // 第一次出现：名次、本机项目页、新增、GitHub 链接、一句话简介、有就写版本发布。
-  assert.ok(text.includes('**1. [acme/rocket](http://127.0.0.1:5310/p/acme/rocket?from=daily)**　+900　[GitHub](https://github.com/acme/rocket)\nacme/rocket 把脚本打包成命令行工具。\n版本发布：10 月 22 日 [v2.0.0](https://github.com/acme/x/releases/tag/v2.0.0)'));
+  // 第一次出现：名次、本机项目页、新增、GitHub 链接、简介（干什么、能解决什么问题，同日报页）、有就写版本发布。
+  assert.ok(text.includes('**1. [acme/rocket](http://127.0.0.1:5310/p/acme/rocket?from=daily)**　+900　[GitHub](https://github.com/acme/rocket)\nacme/rocket 把脚本打包成命令行工具。 省去手写安装脚本。\n版本发布：10 月 22 日 [v2.0.0](https://github.com/acme/x/releases/tag/v2.0.0)'));
   assert.equal(text.split('acme/rocket 把脚本打包成命令行工具。').length, 2, '简介只出现一次');
   // 再出现：只写名次、新增和“见上”。
   assert.ok(text.includes('**1. [acme/rocket](http://127.0.0.1:5310/p/acme/rocket?from=daily)**　+5,000　见上（近 1 天第 1 名）'));
@@ -184,9 +203,14 @@ test('日报页：显示生成的那份日报（和飞书消息同一份），�
   // 每个条目都有项目可画（头像、名字、收藏），简介是日报里存的那份。
   for (const w of Object.values(d.daily.windows)) for (const e of w.entries) assert.ok(d.projects[e.repo], e.repo);
   assert.deepEqual([d.projects['acme/rocket'].what, d.projects['acme/notes'].what], ['acme/rocket 把脚本打包成命令行工具。', null]);
-  // 日报生成后资料又变了：页面仍按日报里存的写，和已经发出的飞书消息一致。
+  // 日报生成后资料又变了：页面仍按日报里存的写，和已经发出的飞书消息一致；当时还在生成的，生成好了就显示。
   put(dir, 'profiles/1.json', { projectId: 1, fullName: 'acme/rocket', material: { hash: 'h9', skills: [] }, generated: { materialHash: 'h9', what: '新简介', problem: '新', conditions: [] } });
-  assert.equal((await page()).projects['acme/rocket'].what, 'acme/rocket 把脚本打包成命令行工具。');
+  put(dir, 'profiles/2.json', { projectId: 2, fullName: 'acme/notes', material: { hash: 'h2-new', skills: [] }, generated: { materialHash: 'h2-new', what: 'acme/notes 把笔记同步到本地。', problem: '离线也能查。', conditions: [] } });
+  const later = await page();
+  assert.equal(later.projects['acme/rocket'].what, 'acme/rocket 把脚本打包成命令行工具。');
+  assert.deepEqual([later.projects['acme/notes'].what, later.projects['acme/notes'].problem], ['acme/notes 把笔记同步到本地。', '离线也能查。']);
+  // 右栏的读屏名称同方案。
+  assert.match((await visit(dir, 'daily')).body, /<aside class="rail" id="rail" aria-label="近 7 天、近 30 天与版本发布">/);
 
   // 新一期近 1 天出来了、日报还没生成；之后近 1 天更新失败。
   put(dir, 'snapshots/d1/2026-10-23.json', snapshot('d1', '2026-10-23', D1));

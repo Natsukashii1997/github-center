@@ -9,8 +9,7 @@
   const main = $('#main'), rail = $('#rail');
   const R = D.daily;
   if (!R) {
-    main.innerHTML = `${phead('日报', '每天出榜和补资料跑完后自动生成。')}<div id="notes"></div>${GC.emptyHTML('inbox', '今天的日报还没生成', '出榜和补资料跑完就会出现在这里，飞书消息内容也一起生成。', ['/', '先看涨星榜'])}`;
-    GC.notes($('#notes'), D.notes);
+    main.innerHTML = `${phead('日报', '每天出榜和补资料跑完后自动生成。')}${GC.emptyHTML('inbox', '今天的日报还没生成', '出榜和补资料跑完就会出现在这里，飞书消息内容也一起生成。', ['/', '先看涨星榜'])}`;
     rail.hidden = true;
     return;
   }

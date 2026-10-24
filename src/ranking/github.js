@@ -3,6 +3,8 @@
 // 候选有项目 id 时按 id 访问（不受改名影响），只有名字时按名字访问。
 const API = 'https://api.github.com';
 export const PER_PAGE = 6;
+// Release 一次取一页、每页最多 100 个（接口上限）。
+export const RELEASES_PER_PAGE = 100;
 const path = (c) => (c.id ? `/repositories/${c.id}` : `/repos/${c.name}`);
 
 // 本机 gh 账号的每小时额度（core）和 Codex 的严格实验共用；它给自己留 1,000 次底，这里留得更多，额度紧时先让它用。
@@ -65,7 +67,7 @@ export function githubClient({ fetch, token, sleep = realSleep, now = Date.now, 
     readme: (c) => get('readme', `${path(c)}/readme`),
     tree: (c, ref) => get('tree', `${path(c)}/git/trees/${encodeURIComponent(ref)}?recursive=1`),
     graphql: (query) => get('graphql', '/graphql', JSON.stringify({ query })),
-    // 最近 30 个 Release（按创建时间从新到旧，含草稿和预发布版，由调用方筛）。
-    releases: (c) => get('releases', `${path(c)}/releases?per_page=30`),
+    // 最近 100 个 Release（按 created_at 从新到旧，含草稿和预发布版，由调用方筛）。
+    releases: (c) => get('releases', `${path(c)}/releases?per_page=${RELEASES_PER_PAGE}`),
   };
 }

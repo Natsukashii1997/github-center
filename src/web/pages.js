@@ -109,11 +109,11 @@ export function projectData(dataDir, fullName, ctx) {
 export const projectMissing = (dataDir, fullName, ctx) => ({ ...base(ctx), projects: {}, page: { missing: true, repo: fullName, top: siteTop(dataDir) } });
 
 // ── 日报（#11）：每天生成的那份日报（data/daily/<统计日>.json，飞书消息用的也是这一份），还没生成时页面显示空状态。
-// 简介按日报里存下的写，网页和飞书一致；头像、分类、收藏状态和走势按日报用的那几份快照取（同首页）。 ──
+// 简介按日报里存下的写，网页和飞书一致；当时还在生成、现在生成好了的，用现在的。头像、分类、收藏状态和走势按日报用的那几份快照取（同首页）。 ──
 export function dailyData(dataDir, ctx) {
   const daily = readLatestDaily(dataDir);
   const top = siteTop(dataDir);
-  if (!daily) return { ...base(ctx), top, notes: [], daily: null, projects: {} };
+  if (!daily) return { ...base(ctx), top, daily: null, projects: {} };
   const find = readCategories(dataDir).get;
   const seen = new Map();
   for (const [w, win] of Object.entries(daily.windows)) {
@@ -128,7 +128,7 @@ export function dailyData(dataDir, ctx) {
   for (const [repo, { id, intro, boards }] of seen) {
     boards.sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
     const card = boards.length ? projectCard(dataDir, boards, ctx, find) : brief(dataDir, { id, fullName: repo }, ctx, find);
-    projects[repo] = { ...card, what: intro?.what ?? null, problem: intro?.problem ?? null };
+    projects[repo] = intro?.what ? { ...card, what: intro.what, problem: intro.problem } : card;
   }
   // 版本发布：项目在所在时间窗口内发的正式版本，新的在前。
   const releases = Object.entries(daily.projects).filter(([, p]) => p.release).map(([repo, p]) => ({ repo, w: p.w, ...p.release }))
@@ -197,7 +197,7 @@ export const projectPage = (data) => shell({ title: data.page.missing ? '找不�
 
 export const dailyPage = (data) => shell({ title: '日报', script: 'daily.js', data, body: `<div class="mr">
   <main class="main" id="main"></main>
-  <aside class="rail" id="rail" aria-label="近 7 天与近 30 天"></aside>
+  <aside class="rail" id="rail" aria-label="近 7 天、近 30 天与版本发布"></aside>
 </div>` });
 
 export const favoritesPage = (data) => shell({ title: '我的收藏', script: 'favorites.js', data, body: `<main class="single-wide">

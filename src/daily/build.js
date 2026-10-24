@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { WINDOWS, readLatestSnapshot, readStatus } from '../ranking/index.js';
 import { findSnapshot, readJson, writeOnce, writeAtomic, openStore } from '../ranking/store.js';
 import { windowDays } from '../ranking/stat-day.js';
-import { githubClient } from '../ranking/github.js';
+import { githubClient, RELEASES_PER_PAGE } from '../ranking/github.js';
 import { mapLimit } from '../ranking/rank-day.js';
 import { readProfile, findProfile, currentGenerated } from '../profiles/index.js';
 import { windowStatus } from '../web/home.js';
@@ -68,15 +68,18 @@ function sections(snapshots) {
   return { windows, projects: [...seen.values()] };
 }
 
-// 项目在它第一次出现的窗口内发的最新正式版本；查不到就记下，不当作“没有发”。
+// 项目在它第一次出现的窗口内发的最新正式版本；查不到、没查全就记下，不当作“没有发”。
 async function releaseOf({ gh, store, project, from, day }) {
   try {
     const res = await gh.releases({ id: project.id, name: project.repo });
     if (!res) return { lookup: 'missing', release: null };
     const evidence = store.saveRaw('releases', String(project.id ?? project.repo.replace('/', '__')), res);
-    const inWindow = JSON.parse(res.body).filter((r) => !r.draft && !r.prerelease && r.published_at
+    const list = JSON.parse(res.body);
+    const inWindow = list.filter((r) => !r.draft && !r.prerelease && r.published_at
       && r.published_at.slice(0, 10) >= from && r.published_at.slice(0, 10) <= day && /^https:\/\/github\.com\//.test(r.html_url ?? ''));
     const latest = inWindow.sort((a, b) => b.published_at.localeCompare(a.published_at))[0];
+    // 一页读满、最早的一个还不早于窗口起点：窗口内可能还有没读到的正式版本，不能说没发。
+    if (!latest && list.length >= RELEASES_PER_PAGE && !(list.at(-1).created_at?.slice(0, 10) < from)) return { lookup: 'partial', evidence, release: null };
     return { lookup: 'ok', evidence, release: latest ? { tag: latest.tag_name, publishedAt: latest.published_at, url: latest.html_url } : null };
   } catch (e) {
     return { lookup: 'error', error: e.message, release: null };
@@ -101,7 +104,9 @@ function overviewOf(day, windows, projects) {
   if (firsts.length) parts.push(`${md(day)}，${firsts.join('，')}。`);
   if (list.length) {
     parts.push(`${CN[shown.length]}个榜的前 ${TOP} 共 ${list.length} 个项目${repeated ? `，其中 ${repeated} 个不止上了一个榜` : ''}。`);
-    parts.push(released ? `${released} 个项目在所在时间窗口内发了正式版本。` : `${unknown ? '查到的项目' : '这些项目'}在所在时间窗口内都没有发正式版本。`);
+    parts.push(released ? `${released} 个项目在所在时间窗口内发了正式版本。`
+      : unknown === list.length ? '官方 Release 这次都没查全，没写版本发布。'
+      : `${unknown ? '查到的项目' : '这些项目'}在所在时间窗口内都没有发正式版本。`);
   }
   return parts.join('');
 }
@@ -149,7 +154,7 @@ export async function buildDaily({ dataDir, fetch = globalThis.fetch, token, now
     projects[row.repo] = { id: row.id, what: g?.what ?? null, problem: g?.problem ?? null, w, windows: inWindows, ...looked[i] };
   });
   const unknown = Object.entries(projects).filter(([, p]) => p.lookup !== 'ok');
-  if (unknown.length) notes.push({ icon: 'warn', title: '版本发布没查全', text: `${unknown.length} 个项目的官方 Release 没查到（${unknown.map(([r]) => r).join('、')}），这几个项目没写版本发布。` });
+  if (unknown.length) notes.push({ icon: 'warn', title: '版本发布没查全', text: `${unknown.length} 个项目的官方 Release 没查全（${unknown.map(([r]) => r).join('、')}），这几个项目没写版本发布。` });
 
   const daily = { statDay: day, generatedAt: now().toISOString(), runId, overview: overviewOf(day, windows, projects), notes, windows, projects, requests: gh.stats.releases };
   const written = writeOnce(dataDir, path, JSON.stringify(daily, null, 2));
