@@ -1,0 +1,26 @@
+/* 样稿 signals-r1（#16）：名次变化、连续上榜、维护信号的新样式。只用冻结的 t1b-r2 变量（tokens.css），不加新颜色：
+   这三类都是“事实”，不是状态，所以不用状态色（成功 / 警示 / 失败）和强调色；升降靠 ▲▼ 字形区分，不靠红绿。 */
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* ── 名次变化：名次下方，和“并列”共存（名次 → 并列 → 变化） ── */
+.mv { display: block; font-size: var(--fs-micro); line-height: 1.3; color: var(--c-ink-3); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.mv[data-mv="new"] { color: var(--c-ink-2); font-weight: 500; }
+
+/* ── 连续上榜：首页阅读卡顶行、项目页名次胶囊旁。灰底不描边：描边胶囊是可以点的分类筛选，这个只是事实（T1b #2） ── */
+.streak { font-size: var(--fs-micro); line-height: 1.4; color: var(--c-ink-2); padding: 1px 8px; border-radius: var(--r-pill); background: var(--c-sunk); white-space: nowrap; }
+
+/* ── 项目页名次胶囊：胶囊里是“近 1 天第 1 名 ▲2”，连续期数在胶囊外紧跟着（同一组，组内间距比组间小） ── */
+.pj1 .ranks { align-items: center; gap: var(--sp-2) var(--sp-3); }
+.pj1 .ranks .rank-grp { display: inline-flex; align-items: center; gap: 4px; padding: 0; border-radius: 0; background: none; }
+.pj1 .ranks .rank-pill { display: inline-flex; align-items: baseline; gap: 6px; }
+.pj1 .ranks .rank-pill span { padding: 0; border-radius: 0; background: none; }
+.pj1 .ranks .rank-pill .mv { display: inline; }
+.pj1 .ranks .streak { font-size: var(--fs-micro); padding: 3px 8px; background: var(--c-sunk); color: var(--c-ink-3); }
+
+/* ── 维护信号：项目名下面第二行，和分类、语言、创建日期同一套小字 ── */
+.meta.maint { margin-top: 2px; }
+.meta.maint code { font-family: var(--font-code); font-size: var(--fs-micro); }
+.meta.maint a { color: inherit; text-decoration: underline; text-decoration-color: var(--c-line-2); text-underline-offset: 3px; }
+.meta.maint a:hover { text-decoration-color: currentColor; }
+.meta.maint a:focus-visible { outline: var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }

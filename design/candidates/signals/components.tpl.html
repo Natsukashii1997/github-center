@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件板 · 名次变化、连续上榜、维护信号 · GitHub 快速中心</title>
+<link rel="stylesheet" href="/assets/tokens.css">
+<link rel="stylesheet" href="/assets/components.css">
+<link rel="stylesheet" href="/assets/pages.css">
+<style>
+/* 只属于组件板的排版，不进正式样式（照 t1b-pages 组件板的写法） */
+.kb { max-width: 1240px; margin: 0 auto; padding: var(--sp-10) var(--gutter) 120px; }
+.kb > header h1 { margin: 0; font-family: var(--font-read); font-size: var(--fs-display); font-weight: 700; }
+.ks { margin-top: 56px; }
+.ks > h2 { margin: 0 0 var(--sp-1); font-size: 18px; font-weight: 600; }
+.ks > .lede { margin: 0 0 var(--sp-5); }
+.kh { margin: 28px 0 10px; font-size: 12px; color: var(--c-ink-3); letter-spacing: .04em; }
+.frame { padding: var(--sp-6); border-radius: var(--r-xl); background: var(--c-bg); box-shadow: inset 0 0 0 1px var(--c-line); }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); }
+.cap { display: block; margin-top: var(--sp-2); font-size: 12px; color: var(--c-ink-4); }
+.demo-list { width: var(--w-index); }
+.eb-list { display: grid; gap: var(--sp-4); padding: var(--sp-6) var(--sp-11); border-radius: var(--r-xl); background: var(--c-surface); box-shadow: var(--shadow-card); }
+.frame.pj1 { display: block; max-width: none; margin: 0; padding: var(--sp-6); }
+.frame.pj1 .ranks { margin-top: 0; }
+.frame.pj1 .cap + .ranks { margin-top: var(--sp-5); }
+.frame.pj1 .title + .title { margin-top: var(--sp-6); }
+.ov { max-width: 640px; }
+.ov p { margin: 0; }
+.ov p + .cap { margin-bottom: var(--sp-5); }
+.spec { width: 100%; border-collapse: collapse; font-size: 13px; }
+.spec th { text-align: left; font-weight: 500; color: var(--c-ink-3); font-size: 12px; padding: 0 var(--sp-3) var(--sp-2) 0; border-bottom: 1px solid var(--c-line); }
+.spec td { padding: 12px var(--sp-3) 12px 0; border-bottom: 1px solid var(--c-line); vertical-align: middle; }
+.ex { font-size: 11.5px; color: var(--c-ink-3); padding: 1px 6px; border-radius: var(--r-xs); background: var(--c-sunk); margin-left: 6px; font-weight: 400; }
+</style>
+</head>
+<body>
+<header class="top"></header>
+<main class="kb">
+  <header>
+    <h1>组件板 · 名次变化、连续上榜、维护信号</h1>
+    <p class="lede">样稿 signals-r1（#16）。项目资料是真实的；标“示例”的名次变化、期数、版本是为了列全状态编的。地址加 <code>?theme=dark</code> 看深色。</p>
+  </header>
+
+  <section class="ks">
+    <h2>榜单行 · 名次变化</h2>
+    <p class="lede">名次下方，和“并列”共存（名次 → 并列 → 变化）。▲n 升、▼n 降、新进（上一期不在前 20，含并列）、– 持平。只用文字色，不用状态色和强调色；读屏读“比上一期升 3 名”这样的完整说法。</p>
+    <div class="cols2">
+      <div><div class="kh">四种记号，含并列<span class="ex">示例</span></div><div class="list demo-list"><span class="sel-mark" id="mark1"></span><ol class="rows" id="rows1"></ol></div></div>
+      <div><div class="kh">没有上一期：不标记号，提示条说明</div><div class="demo-list"><div id="notes2"></div><div class="list"><span class="sel-mark" id="mark2" style="visibility:hidden"></span><ol class="rows" id="rows2"></ol></div></div>
+        <div class="kh">分类榜：和“可能有漏”同时出现时排在后面</div><div class="demo-list" id="notes3"></div></div>
+    </div>
+  </section>
+
+  <section class="ks">
+    <h2>首页阅读卡顶行 · 连续上榜</h2>
+    <p class="lede">“连续 N 期第 1”或“连续 N 期前 20”，N≥2 才显示，第 1 优先；中间缺一期就断开重算。灰底小胶囊（不描边，和可以点的分类胶囊区分开），放在名次和新增数之间。</p>
+    <div class="eb-list" id="eyebrows"></div>
+  </section>
+
+  <section class="ks">
+    <h2>项目页名次胶囊</h2>
+    <p class="lede">胶囊里是“近 1 天第 1 名 ▲2”，持平写“持平”；连续期数紧跟在胶囊外，和下一个胶囊拉开距离。没有上一期的窗口只写名次。</p>
+    <div class="frame pj1" id="ranks"></div>
+  </section>
+
+  <section class="ks">
+    <h2>项目页维护信号</h2>
+    <p class="lede">项目名下面第二行，和分类、语言、创建日期同一套小字。只写事实，不打分；版本号可点，去 GitHub 的那个 Release。</p>
+    <div class="frame pj1" id="maint"></div>
+  </section>
+
+  <section class="ks">
+    <h2>日报与飞书消息 · 概览加一句</h2>
+    <p class="lede">只在概览末尾加一句（几个新进前 10、谁连续第 1），列表行不加记号。飞书消息的概览是同一段文字。这里数的是“上一期不在前 10”，不用“新进”二字（行里的“新进”指上一期不在前 20）。</p>
+    <div class="ov" id="ov"></div>
+  </section>
+
+  <section class="ks">
+    <h2>从哪一期起显示</h2>
+    <table class="spec">
+      <thead><tr><th>榜</th><th>名次变化从</th><th>最早当“上一期”的</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>近 1 天</td><td>10 月 23 日那期</td><td>10 月 22 日</td><td>样稿里的近 1 天就是这一期的真实对比</td></tr>
+        <tr><td>近 7 天、近 30 天</td><td>10 月 24 日那期</td><td>10 月 23 日</td><td>10 月 22 日那期受已修的合并问题影响可能有漏，不拿它比</td></tr>
+        <tr><td>分类榜（三个窗口）</td><td>10 月 24 日那期</td><td>10 月 23 日</td><td>分类候选从 10 月 23 日起才存</td></tr>
+      </tbody>
+    </table>
+    <p class="foot">连续期数最早也只数到“最早当上一期的”那一期。</p>
+  </section>
+</main>
+<script type="application/json" id="gc-data">__DATA__</script>
+<script src="/assets/icons.js"></script>
+<script src="/assets/gc.js"></script>
+<script src="/assets/board.js"></script>
+</body>
+</html>

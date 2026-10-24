@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>组件板 · 名次变化、连续上榜、维护信号 · GitHub 快速中心</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/components.css">
+<link rel="stylesheet" href="assets/pages.css">
+<style>
+/* 只属于组件板的排版，不进正式样式（照 t1b-pages 组件板的写法） */
+.kb { max-width: 1240px; margin: 0 auto; padding: var(--sp-10) var(--gutter) 120px; }
+.kb > header h1 { margin: 0; font-family: var(--font-read); font-size: var(--fs-display); font-weight: 700; }
+.ks { margin-top: 56px; }
+.ks > h2 { margin: 0 0 var(--sp-1); font-size: 18px; font-weight: 600; }
+.ks > .lede { margin: 0 0 var(--sp-5); }
+.kh { margin: 28px 0 10px; font-size: 12px; color: var(--c-ink-3); letter-spacing: .04em; }
+.frame { padding: var(--sp-6); border-radius: var(--r-xl); background: var(--c-bg); box-shadow: inset 0 0 0 1px var(--c-line); }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-6); }
+.cap { display: block; margin-top: var(--sp-2); font-size: 12px; color: var(--c-ink-4); }
+.demo-list { width: var(--w-index); }
+.eb-list { display: grid; gap: var(--sp-4); padding: var(--sp-6) var(--sp-11); border-radius: var(--r-xl); background: var(--c-surface); box-shadow: var(--shadow-card); }
+.frame.pj1 { display: block; max-width: none; margin: 0; padding: var(--sp-6); }
+.frame.pj1 .ranks { margin-top: 0; }
+.frame.pj1 .cap + .ranks { margin-top: var(--sp-5); }
+.frame.pj1 .title + .title { margin-top: var(--sp-6); }
+.ov { max-width: 640px; }
+.ov p { margin: 0; }
+.ov p + .cap { margin-bottom: var(--sp-5); }
+.spec { width: 100%; border-collapse: collapse; font-size: 13px; }
+.spec th { text-align: left; font-weight: 500; color: var(--c-ink-3); font-size: 12px; padding: 0 var(--sp-3) var(--sp-2) 0; border-bottom: 1px solid var(--c-line); }
+.spec td { padding: 12px var(--sp-3) 12px 0; border-bottom: 1px solid var(--c-line); vertical-align: middle; }
+.ex { font-size: 11.5px; color: var(--c-ink-3); padding: 1px 6px; border-radius: var(--r-xs); background: var(--c-sunk); margin-left: 6px; font-weight: 400; }
+</style>
+<link rel="stylesheet" href="assets/signals.css">
+<script src="assets/sample.js"></script>
+</head>
+<body>
+<header class="top"></header>
+<main class="kb">
+  <header>
+    <h1>组件板 · 名次变化、连续上榜、维护信号</h1>
+    <p class="lede">样稿 signals-r1（#16）。项目资料是真实的；标“示例”的名次变化、期数、版本是为了列全状态编的。地址加 <code>?theme=dark</code> 看深色。</p>
+  </header>
+
+  <section class="ks">
+    <h2>榜单行 · 名次变化</h2>
+    <p class="lede">名次下方，和“并列”共存（名次 → 并列 → 变化）。▲n 升、▼n 降、新进（上一期不在前 20，含并列）、– 持平。只用文字色，不用状态色和强调色；读屏读“比上一期升 3 名”这样的完整说法。</p>
+    <div class="cols2">
+      <div><div class="kh">四种记号，含并列<span class="ex">示例</span></div><div class="list demo-list"><span class="sel-mark" id="mark1"></span><ol class="rows" id="rows1"></ol></div></div>
+      <div><div class="kh">没有上一期：不标记号，提示条说明</div><div class="demo-list"><div id="notes2"></div><div class="list"><span class="sel-mark" id="mark2" style="visibility:hidden"></span><ol class="rows" id="rows2"></ol></div></div>
+        <div class="kh">分类榜：和“可能有漏”同时出现时排在后面</div><div class="demo-list" id="notes3"></div></div>
+    </div>
+  </section>
+
+  <section class="ks">
+    <h2>首页阅读卡顶行 · 连续上榜</h2>
+    <p class="lede">“连续 N 期第 1”或“连续 N 期前 20”，N≥2 才显示，第 1 优先；中间缺一期就断开重算。灰底小胶囊（不描边，和可以点的分类胶囊区分开），放在名次和新增数之间。</p>
+    <div class="eb-list" id="eyebrows"></div>
+  </section>
+
+  <section class="ks">
+    <h2>项目页名次胶囊</h2>
+    <p class="lede">胶囊里是“近 1 天第 1 名 ▲2”，持平写“持平”；连续期数紧跟在胶囊外，和下一个胶囊拉开距离。没有上一期的窗口只写名次。</p>
+    <div class="frame pj1" id="ranks"></div>
+  </section>
+
+  <section class="ks">
+    <h2>项目页维护信号</h2>
+    <p class="lede">项目名下面第二行，和分类、语言、创建日期同一套小字。只写事实，不打分；版本号可点，去 GitHub 的那个 Release。</p>
+    <div class="frame pj1" id="maint"></div>
+  </section>
+
+  <section class="ks">
+    <h2>日报与飞书消息 · 概览加一句</h2>
+    <p class="lede">只在概览末尾加一句（几个新进前 10、谁连续第 1），列表行不加记号。飞书消息的概览是同一段文字。这里数的是“上一期不在前 10”，不用“新进”二字（行里的“新进”指上一期不在前 20）。</p>
+    <div class="ov" id="ov"></div>
+  </section>
+
+  <section class="ks">
+    <h2>从哪一期起显示</h2>
+    <table class="spec">
+      <thead><tr><th>榜</th><th>名次变化从</th><th>最早当“上一期”的</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>近 1 天</td><td>10 月 23 日那期</td><td>10 月 22 日</td><td>样稿里的近 1 天就是这一期的真实对比</td></tr>
+        <tr><td>近 7 天、近 30 天</td><td>10 月 24 日那期</td><td>10 月 23 日</td><td>10 月 22 日那期受已修的合并问题影响可能有漏，不拿它比</td></tr>
+        <tr><td>分类榜（三个窗口）</td><td>10 月 24 日那期</td><td>10 月 23 日</td><td>分类候选从 10 月 23 日起才存</td></tr>
+      </tbody>
+    </table>
+    <p class="foot">连续期数最早也只数到“最早当上一期的”那一期。</p>
+  </section>
+</main>
+<script type="application/json" id="gc-data">{"account":{"name":"常浩"},"ais":[["claude-code","Claude Code"],["codex","Codex"]],"cats":["AI 应用工具","Agent／MCP","工作流自动化","知识管理与办公效率","Skill","开发框架与组件库","数据库与数据工具","开发者工具与基础设施","其他"],"windows":{"d1":{"label":"近 1 天"},"d7":{"label":"近 7 天"},"d30":{"label":"近 30 天"}},"projects":{"morluto/rea":{"repo":"morluto/rea","id":1209966933,"ownerId":76467478,"runs":{"2026-10-23_2026-10-24T02-21-25-460Z":{"seriesDay":"2026-10-23","series":[2,0,1,0,2,4,0,1,11,127,2429,3158,4291,6749,13415,22979,25032,39993,54162,44477,32916,26325,17611,16655,15373,13378,11043,9381,8268,5316],"gains":{"d1":5316,"d7":79414,"d30":373099},"total":373496}},"lang":"TypeScript","created":"2026-04-14","what":"REA 是通过 MCP 或命令行分析二进制、应用及运行行为的本地逆向工程工具。","problem":"帮助人在没有应用源码时追踪功能实现，用代码和运行证据解释行为，并为重建类似功能提供依据。","conditions":["需要 Node.js 22.x（≥22.23.4）、24.x（≥24.22.1）或 ≥26.12.1，以及 npm。"],"cats":["开发者工具与基础设施","Agent／MCP"],"installable":true,"skills":[{"name":"rea-analysis-optimization","path":".agents/skills/rea-analysis-optimization","desc":"优化 REA 分析引擎和共享工作流的上下文、延迟、CPU 与内存开销，同时保留正确性和证据。"},{"name":"rea-changelog-update","path":".agents/skills/rea-changelog-update","desc":"依据固定的 Git 历史编写或重写更新日志和 GitHub 发布说明，核实贡献者致谢并同步 Release Please。"},{"name":"rea-ci-tests-audit","path":".agents/skills/rea-ci-tests-audit","desc":"审查 REA 的 CI 和测试套件，检查正确性、测试样本漂移、误通过及实测性能。"},{"name":"rea-tool-design","path":".agents/skills/rea-tool-design","desc":"设计或修改 REA 调查工具、CLI/MCP 接口契约、分析引擎能力及证据语义。"},{"name":"reverse-engineer-anything","path":".agents/skills/reverse-engineer-anything","desc":"使用 REA 对原生、托管、Electron/JavaScript、打包程序、固件和浏览器目标进行逆向分析，以解释功能、比较版本、反编译或指导重建。"}],"saved":false,"savedSkills":[]},"peach-mitao/peach":{"repo":"peach-mitao/peach","id":1339970099,"ownerId":335372553,"runs":{"2026-10-23_2026-10-24T02-21-25-460Z":{"seriesDay":"2026-10-23","series":[0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,5,94,81,40,49,21,641,3514,4236],"gains":{"d1":4236,"d7":8582,"d30":8683},"total":8687}},"lang":"Python","created":"2026-08-19","what":"Peach 是面向单用户、本地优先的私人成人媒体系统，统一管理和播放本地、网盘馆藏及创作者更新。","problem":"帮助用户集中浏览分散在硬盘、网盘和不同站点的收藏与更新，并补全资料、查找影片和记录观看情况。","conditions":["连接外部站点需拥有相应账号和访问权。","选择源码运行时，需要 Git、uv 和 Python 3.14 或更高版本。","使用 macOS 测试包时，需另行准备媒体工具。"],"cats":["其他"],"installable":true,"skills":[{"name":"peach-batch-jobs","path":".claude/skills/peach-batch-jobs","desc":"用于抽帧、刮削等批量长任务，以及限流、断点续跑、流量预算和磁盘余量相关工作。"},{"name":"peach-context-rules","path":".claude/skills/peach-context-rules","desc":"用于新增、修改或清退智能体规则、入口文件与技能。"},{"name":"peach-cross-platform","path":".claude/skills/peach-cross-platform","desc":"用于 macOS 开发、路径与挂载判定、Git 状态差异排查及向 Windows 交接改动。"},{"name":"peach-issue-delivery","path":".claude/skills/peach-issue-delivery","desc":"用于处理 GitHub issue、关联修复 PR、合并交付及判断是否可以关闭 issue。"},{"name":"peach-jav-cover-workflow","path":".claude/skills/peach-jav-cover-workflow","desc":"用于 JAV 封面获取、高清封面补全、封面刮削、重探及来源比较。"},{"name":"peach-ledger-write","path":".claude/skills/peach-ledger-write","desc":"用于真实 ledger 写入前的处理，包括迁移、实体合并、字段修改和批量删除。"},{"name":"peach-reference-evidence","path":".claude/skills/peach-reference-evidence","desc":"用于参考或复刻外部网站、应用和截图，以及追踪参考来源更新。"},{"name":"peach-reuse-first","path":".claude/skills/peach-reuse-first","desc":"用于新增、恢复或重写功能，尤其是外部协议、抓取、媒体及跨平台基础设施相关功能。"},{"name":"peach-shell-commands","path":".claude/skills/peach-shell-commands","desc":"用于编写和排查 PowerShell、Bash、rg、Python CLI 命令及相关语法和编码问题。"},{"name":"peach-surfaces","path":".claude/skills/peach-surfaces","desc":"用于界面、API、契约、数据层或文案改动后的收尾验收，以及检查遗漏和未完成改动。"},{"name":"peach-web-ui","path":".claude/skills/peach-web-ui","desc":"用于新增、修改或复核页面、控件、提示、错误反馈、数据面板及响应式视觉样式。"},{"name":"peach-worktree","path":".claude/skills/peach-worktree","desc":"用于 Peach 代码任务开始时的工作树管理，以及暂存、提交、集成和生产重启相关工作。"}],"saved":false,"savedSkills":[]},"Gathin23/cleanyourtv":{"repo":"Gathin23/cleanyourtv","id":1423101235,"ownerId":94786511,"runs":{"2026-10-23_2026-10-24T02-21-25-460Z":{"seriesDay":"2026-10-23","series":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,501,2125,4396,6844,6829,4624,2818],"gains":{"d1":2818,"d7":28137,"d30":28137},"total":28137}},"lang":"Java","created":"2026-10-17","what":"通过 Wi-Fi 为 Android TV 或 Google TV 禁用预装软件，并安装 Apple TV 风格桌面的工具。","problem":"帮助用户处理电视主页广告推荐、预装应用和遥测服务带来的干扰，并整理常用应用入口。","conditions":["完整的清理与桌面替换功能面向 Android TV 或 Google TV。","需在电视开发者选项中开启 USB 调试，并授权电脑连接。","通过电脑和编程助手操作时，电脑须与电视连接同一 Wi-Fi，助手须有 shell 访问权限。","手动运行工具需要 Python 3。"],"cats":["其他"],"installable":true,"skills":[],"saved":false,"savedSkills":[]},"YuJunZhiXue/dsh-purge":{"repo":"YuJunZhiXue/dsh-purge","id":1339256252,"ownerId":188421097,"runs":{"2026-10-23_2026-10-24T02-21-25-460Z":{"seriesDay":"2026-10-23","series":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,236,370,340,317,411,415,2547,1325,0,254,1038],"gains":{"d1":1038,"d7":5990,"d30":7253},"total":7253}},"lang":"JavaScript","created":"2026-08-19","what":"一个通过本地补丁、提示词注入和规则管理辅助安全评估的 DeepSeek Harness 插件。","problem":"帮助用户区分模型拒答与宿主策略拦截，并在本地受控环境中评估和调整默认限制。","conditions":["须预先安装官方 DeepSeek Harness。","当前版本面向 DSH 0.2.1-rc.2，也兼容 0.2.0。"],"cats":["Agent／MCP"],"installable":true,"skills":[],"saved":false,"savedSkills":[]},"Graphify-Labs/graphify":{"repo":"Graphify-Labs/graphify","id":1200597263,"ownerId":297659074,"runs":{"2026-10-23_2026-10-24T02-21-25-460Z":{"seriesDay":"2026-10-23","series":[248,248,225,245,282,356,308,291,264,231,269,276,367,301,314,300,280,300,329,327,394,391,356,590,688,795,1300,1399,1348,642],"gains":{"d1":642,"d7":6762,"d30":13664},"total":133929}},"lang":"Python","created":"2026-04-03","what":"将代码库及文档等资料转成可查询、可视化的知识图谱，支持追踪概念与依赖关系。","problem":"帮助开发者和 AI 编程助手定位相关代码、理解跨文件依赖及设计依据，减少逐个文件翻查。","conditions":["需要 Python 3.10 或更高版本。"],"cats":["Skill","开发者工具与基础设施"],"installable":true,"skills":[],"saved":false,"savedSkills":[]},"debpalash/VoiceStudio":{"repo":"debpalash/VoiceStudio","id":1206390571,"ownerId":4178343,"runs":{"2026-10-23_2026-10-24T02-21-25-460Z":{"seriesDay":"2026-10-23","series":[324,265,2181,3129,4328,3694,1828,783,572,694,573,625,471,464,698,1069,1069,1579,1702,3325,2985,2457,2090,2121,2356,1812,1472,1476,1294,1380],"gains":{"d1":1380,"d7":11911,"d30":48816},"total":83438}},"lang":"Python","created":"2026-04-09","what":"一个在本地完成语音克隆、声音设计、视频配音、听写、转写和有声书制作的开源工具。","problem":"帮助用户在自己的设备上用保存或设计的声音生成旁白、转写录音并制作视频配音，还可接入智能体工作流。","conditions":["若后端启用了 OMNIVOICE_API_KEY，非本机 HTTP 和 WebSocket 请求须提供认可的凭据。","生成语音前需要按提示安装所需模型。"],"cats":["AI 应用工具"],"installable":true,"skills":[{"name":"fastapi-python","path":".agents/skills/fastapi-python","desc":"指导 FastAPI Python 开发，涵盖 API 和异步操作的最佳实践。"},{"name":"vite","path":".agents/skills/vite","desc":"指导 Vite 开发，涵盖现代构建工具、热更新、框架集成和性能优化。"},{"name":"voicestudio-maintainer","path":"skills/voicestudio-maintainer","desc":"维护 VoiceStudio 仓库，包括分诊 GitHub 问题、审查贡献者 PR、诊断 CI 和准备明确要求的版本发布。"},{"name":"voicestudio","path":"skills/voicestudio","desc":"通过 VoiceStudio REST API 或 MCP 生成本地语音、转写音频、自动化配音或旁白流程，并连接智能体或自动化。"}],"saved":false,"savedSkills":[]},"xerj-org/xerj":{"repo":"xerj-org/xerj","id":1284653133,"ownerId":297525353,"runs":{"2026-10-23_2026-10-24T02-21-25-460Z":{"seriesDay":"2026-10-23","series":[53,27,18,20,10,21,32,20,16,32,22,30,84,356,271,60,81,82,111,167,688,1357,1180,851,649,2092,1810,400,359,1032],"gains":{"d1":1032,"d7":7193,"d30":11931},"total":14226}},"lang":"Rust","created":"2026-06-30","what":"面向 AI 智能体的本地优先搜索引擎与 MCP 服务器，支持全文、向量、混合检索和长期记忆。","problem":"让智能体从代码、文档和日志中检索相关片段，解决逐个读取文件占用上下文、难以定位实现的问题。","conditions":["默认开启认证；使用 autoindex 时须传入同一 API Key，使用 --insecure 启动时除外。","预编译版本面向 Linux、macOS 和 Windows，支持 x86-64 与 arm64 架构。","x86-64 版本要求处理器支持 x86-64-v2（SSE4.2）。"],"cats":["Agent／MCP","数据库与数据工具"],"installable":true,"skills":[{"name":"xerj-security-audit","path":"docs/case-studies/wordpress-security-audit/skill","desc":"使用 XERJ 与 tree-sitter AST 枚举危险调用、检索和分析代码，并对照 grep 检查覆盖缺口，将安全审计发现整理为可查询台账。"},{"name":"xerj-code","path":"tools/xerj-code","desc":"克隆并索引已解决类似问题的开源库，在使用陌生 API、移植算法或反复报错时检索具体实现，辅助参考式编程。"}],"saved":false,"savedSkills":[]}},"run":"2026-10-23_2026-10-24T02-21-25-460Z","overview":"10 月 23 日，近 1 天第 1 名是 morluto/rea（+5,316），近 7 天第 1 名 morluto/rea（+79,414），近 30 天第 1 名 morluto/rea（+373,099）。三个榜的前 10 共 21 个项目，其中 6 个不止上了一个榜。10 个项目在所在时间窗口内发了正式版本。近 1 天前 10 里有 5 个上一期不在前 10，morluto/rea 连续 2 期第 1。"}</script>
+<script src="assets/icons.js"></script>
+<script src="assets/gc.js"></script>
+<script src="assets/board.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "fetchedAt": "2026-10-24T02:43:59.616Z",
+  "items": {
+    "morluto/rea": {
+      "state": "ok",
+      "tag": "rea-agents-6.7.0",
+      "day": "2026-10-18",
+      "url": "https://github.com/morluto/rea/releases/tag/rea-agents-6.7.0"
+    },
+    "YuJunZhiXue/dsh-purge": {
+      "state": "ok",
+      "tag": "v1.1.77",
+      "day": "2026-10-23",
+      "url": "https://github.com/YuJunZhiXue/dsh-purge/releases/tag/v1.1.77"
+    },
+    "Graphify-Labs/graphify": {
+      "state": "ok",
+      "tag": "v0.9.95",
+      "day": "2026-10-23",
+      "url": "https://github.com/Graphify-Labs/graphify/releases/tag/v0.9.95"
+    },
+    "peach-mitao/peach": {
+      "state": "none"
+    }
+  }
+}
