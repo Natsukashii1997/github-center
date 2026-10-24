@@ -30,7 +30,8 @@ export function openStore(dataDir, runId) {
   };
 }
 
-function writeOnce(dataDir, path, text) {
+// 按路径只写一次：已存在就不覆盖（快照、候选、日报都用）。
+export function writeOnce(dataDir, path, text) {
   mkdirSync(dirname(join(dataDir, path)), { recursive: true });
   try {
     writeFileSync(join(dataDir, path), text + '\n', { flag: 'wx' });
