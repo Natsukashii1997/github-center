@@ -10,6 +10,7 @@ import { findSnapshot, readJson, writeOnce, writeAtomic, openStore } from '../ra
 import { windowDays } from '../ranking/stat-day.js';
 import { githubClient, RELEASES_PER_PAGE } from '../ranking/github.js';
 import { mapLimit } from '../ranking/rank-day.js';
+import { rankHistory } from '../ranking/moves.js';
 import { readProfile, findProfile, currentGenerated } from '../profiles/index.js';
 import { windowStatus } from '../web/home.js';
 import { feishuMarkdown } from './feishu.js';
@@ -111,6 +112,26 @@ function overviewOf(day, windows, projects) {
   return parts.join('');
 }
 
+// 概览末尾加一句名次变化（#17）：每个有可比上一期的窗口，前 10 里几个上一期不在前 10、谁连续第 1；列表行不加记号。
+// 不用“新进”二字：榜单行里的“新进”指上一期不在前 20，这里数的是前 10（批准的 signals-r1 T1b 第 3 条）。
+function movesLine(dataDir, windows) {
+  const history = rankHistory(dataDir, () => null);
+  const parts = Object.keys(WINDOWS).flatMap((w) => {
+    const { statDay, entries } = windows[w];
+    const mv = statDay && entries.length ? history.moves(w, null, statDay) : null;
+    if (!mv) return [];
+    const raw = entries.map((e) => ({ projectId: e.id, fullName: e.repo, rank: e.rank }));
+    const fresh = raw.filter((e) => {
+      const m = mv(e);
+      return m.kind === 'new' || e.rank + (m.kind === 'up' ? m.n : m.kind === 'down' ? -m.n : 0) > TOP;
+    }).length;
+    const firsts = raw.filter((e) => e.rank === 1).map((e) => [e.fullName, history.streak(w, null, statDay, e)]).filter(([, s]) => s?.endsWith('第 1'));
+    const head = fresh ? `${label(w)}前 ${TOP} 里有 ${fresh} 个上一期不在前 ${TOP}` : `${label(w)}前 ${TOP} 的项目上一期都在前 ${TOP}`;
+    return [`${head}${firsts.length ? `，${firsts.map(([repo, s]) => `${repo} ${s}`).join('、')}` : ''}`];
+  });
+  return parts.length ? `${parts.join('；')}。` : '';
+}
+
 // 飞书消息内容跟着日报写：日报先写（只写一次），写成了再写消息文件；消息文件不在（中途断掉）就照日报补上。
 function ensureFeishu(dataDir, day, daily) {
   const path = dailyPath(day, 'feishu.md');
@@ -156,7 +177,7 @@ export async function buildDaily({ dataDir, fetch = globalThis.fetch, token, now
   const unknown = Object.entries(projects).filter(([, p]) => p.lookup !== 'ok');
   if (unknown.length) notes.push({ icon: 'warn', title: '版本发布没查全', text: `${unknown.length} 个项目的官方 Release 没查全（${unknown.map(([r]) => r).join('、')}），这几个项目没写版本发布。` });
 
-  const daily = { statDay: day, generatedAt: now().toISOString(), runId, overview: overviewOf(day, windows, projects), notes, windows, projects, requests: gh.stats.releases };
+  const daily = { statDay: day, generatedAt: now().toISOString(), runId, overview: overviewOf(day, windows, projects) + movesLine(dataDir, windows), notes, windows, projects, requests: gh.stats.releases };
   const written = writeOnce(dataDir, path, JSON.stringify(daily, null, 2));
   if (written.status === 'exists') return { status: 'exists', statDay: day, path, feishuPath: ensureFeishu(dataDir, day) };
   return { status: 'published', statDay: day, path, feishuPath: ensureFeishu(dataDir, day, daily), daily };

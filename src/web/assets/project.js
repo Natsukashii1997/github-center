@@ -16,9 +16,12 @@
   // 不在涨星榜上时没有那次运行的数字，只有榜单快照里的总 Star。
   const p = D.projects[pg.repo], run = pg.run ? p.runs[pg.run] : pg.total != null ? { total: pg.total } : null;
   let target = D.ais[0][0], win = pg.win;
+  // 维护信号（#18）：名字下面第二行，只写事实，不打分；查不到写“未知”。
+  const day = (d) => GC.md(GC.utc(d)), mt = pg.maint, rel = mt.release;
+  const maint = `<span>最近推送 ${mt.pushed ? day(mt.pushed) : '未知'}</span><span>${rel.state === 'ok' ? `最新版本 <a href="${esc(rel.url)}" target="_blank" rel="noopener"><code>${esc(rel.tag)}</code></a>（${day(rel.publishedAt.slice(0, 10))}）` : rel.state === 'none' ? '还没发过正式版' : '最新版本 未知'}</span>`;
   main.innerHTML = `<a class="back" href="${href}">${I.back}<span>${label}</span></a>
-    <div class="title">${avImg(p, 112)}<div><h2>${name(p)}</h2><div class="meta">${p.cats.length ? cats(p) : '<span>还没归类</span>'}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}${p.created ? `<span>创建于 ${GC.md(GC.utc(p.created))}</span>` : ''}</div></div></div>
-    <div class="ranks">${pg.ranks.length ? pg.ranks.map((r) => `<span>${r.label}第 ${r.rank} 名${r.tie ? '（并列）' : ''}</span>`).join('') : '<span>不在当前三个涨星榜的前 20 名里</span>'}</div>
+    <div class="title">${avImg(p, 112)}<div><h2>${name(p)}</h2><div class="meta">${p.cats.length ? cats(p) : '<span>还没归类</span>'}${p.lang ? `<span>${esc(p.lang)}</span>` : ''}${p.created ? `<span>创建于 ${GC.md(GC.utc(p.created))}</span>` : ''}</div><div class="meta maint">${maint}</div></div></div>
+    <div class="ranks">${pg.ranks.length ? pg.ranks.map((r) => `<span class="rank-grp"><span class="rank-pill"><span>${r.label}第 ${r.rank} 名${r.tie ? '（并列）' : ''}</span>${GC.mvHTML(r.mv, true)}</span>${r.streak ? `<span class="streak">${r.streak}</span>` : ''}</span>`).join('') : '<span>不在当前三个涨星榜的前 20 名里</span>'}</div>
     ${readOf(p, pg)}${condList(p, pg)}${skillList(p, pg)}${sources(pg)}`;
   side.innerHTML = `${statStrip(run, win)}${chartOf(run, win)}
     <div><span class="k">安装到</span><div data-target></div></div>

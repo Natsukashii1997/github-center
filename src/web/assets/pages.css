@@ -142,3 +142,18 @@
 
 /* 项目页“资料还没读到”：和“简介生成中”同一条形，但图标不用强调色（强调色只给生成中的闪光） */
 .gen[data-tone="muted"] svg { color: var(--c-ink-3); }
+
+/* ── 项目页名次胶囊（#17）：胶囊里是“近 1 天第 1 名 ▲2”，连续期数紧跟在胶囊外（组内 4px、组间 12px） ── */
+.pj1 .ranks { align-items: center; gap: var(--sp-2) var(--sp-3); }
+.pj1 .ranks .rank-grp { display: inline-flex; align-items: center; gap: 4px; padding: 0; border-radius: 0; background: none; }
+.pj1 .ranks .rank-pill { display: inline-flex; align-items: baseline; gap: 6px; }
+.pj1 .ranks .rank-pill span { padding: 0; border-radius: 0; background: none; }
+.pj1 .ranks .rank-pill .mv { display: inline; }
+.pj1 .ranks .streak { font-size: var(--fs-micro); padding: 3px 8px; background: var(--c-sunk); color: var(--c-ink-3); }
+
+/* ── 维护信号（#18）：项目名下面第二行，和分类、语言、创建日期同一套小字 ── */
+.meta.maint { margin-top: 2px; }
+.meta.maint code { font-family: var(--font-code); font-size: var(--fs-micro); }
+.meta.maint a { color: inherit; text-decoration: underline; text-decoration-color: var(--c-line-2); text-underline-offset: 3px; }
+.meta.maint a:hover { text-decoration-color: currentColor; }
+.meta.maint a:focus-visible { outline: var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }

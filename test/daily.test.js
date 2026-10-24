@@ -218,3 +218,19 @@ test('日报页：显示生成的那份日报（和飞书消息同一份），�
   put(dir, 'status.json', { boards: { d1: { day: '2026-10-24', at: '2026-10-25T02:10:00.000Z', status: 'failed', error: '官方热门日榜返回 503' } } });
   assert.deepEqual((await page()).notes[0], { tone: 'bad', icon: 'error', title: '近 1 天更新失败', text: '10 月 24 日的更新失败：官方热门日榜返回 503。下面是 10 月 22 日的日报。' });
 });
+
+test('名次变化（#17）：概览末尾加一句，有可比上一期的窗口说前 10 里几个上一期不在前 10、谁连续第 1；列表行不加记号', async () => {
+  const dir = dataDir();
+  const day = '2026-10-23';
+  const D1b = [entry(1, 1, 'acme/rocket', 950), entry(2, 2, 'acme/notes', 820), ...[3, 4, 5, 6, 7, 8].map((r) => entry(r, r, `acme/p${r}`, 800 - r * 50)),
+    entry(9, 12, 'acme/p12', 300), entry(10, 99, 'acme/fresh', 250), entry(11, 9, 'acme/p9', 200)];
+  put(dir, `snapshots/d1/${day}.json`, snapshot('d1', day, D1b));
+  // 近 7、30 天 10-23 那期还不到起始期（10-24），不说。
+  put(dir, `snapshots/d7/${day}.json`, snapshot('d7', day, D7));
+  put(dir, `snapshots/d30/${day}.json`, snapshot('d30', day, D30));
+  const r = await buildDaily({ dataDir: dir, fetch: fakeGitHub().fetch, token: 't', now: () => new Date('2026-10-24T02:40:00Z'), sleep: async () => {} });
+  assert.equal(r.daily.statDay, day);
+  assert.match(r.daily.overview, /。近 1 天前 10 里有 2 个上一期不在前 10，acme\/rocket 连续 2 期第 1。$/);
+  assert.doesNotMatch(r.daily.overview, /新进|近 7 天前 10 里/);
+  assert.ok(!JSON.stringify(r.daily.windows).includes('"mv"'));
+});

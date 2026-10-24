@@ -13,7 +13,8 @@
   const W = () => D.windows[win];
   // 当前显示的那份榜：选了分类就是这个窗口的分类榜（窗口还没有榜单时没有分类榜，照窗口显示）。
   const B = () => (cat && W().byCat?.[cat]) || W();
-  const eyebrow = (r) => `<span>第 ${r.rank} 名${r.tie ? '（并列）' : ''} · ${W().label}</span><span class="num">+${GC.num(r.gain)}</span>`;
+  // 阅读卡顶行：名次、连续期数（#17，N≥2 才有）、新增
+  const eyebrow = (r) => `<span>第 ${r.rank} 名${r.tie ? '（并列）' : ''} · ${W().label}</span>${r.streak ? `<span class="streak">${r.streak}</span>` : ''}<span class="num">+${GC.num(r.gain)}</span>`;
   // 刷新后停在同一个窗口、分类和项目上
   const remember = () => {
     const u = new URL(location.href);

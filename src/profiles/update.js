@@ -137,13 +137,27 @@ function keepGrounded(result, material) {
   return { what, problem, conditions, droppedConditions: all.length - conditions.length, skillPurposes };
 }
 
+// 项目页维护信号（#18）：最新正式版。每次补资料都重查（每项目 1 次官方请求），只写事实：
+// 有 → 版本号、发布时间、链接；没有正式版 → none；查失败 → unknown（不沿用旧的，免得把过时的当成最新）。
+async function latestRelease(gh, info) {
+  try {
+    const res = await gh.latestRelease({ id: info.id, name: info.full_name });
+    if (!res) return { state: 'none' };
+    const r = JSON.parse(res.body);
+    return { state: 'ok', tag: r.tag_name, publishedAt: r.published_at, url: r.html_url };
+  } catch {
+    return { state: 'unknown' };
+  }
+}
+
 async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
   const res = await gh.project(c);
   if (!res) return { name: c.name, status: 'missing' };
   const info = JSON.parse(res.body);
   const old = readProfile(dataDir, info.id);
   const at = now().toISOString();
-  const base = { projectId: info.id, fullName: info.full_name, htmlUrl: info.html_url, description: info.description, defaultBranch: info.default_branch, pushedAt: info.pushed_at, checkedAt: at };
+  const release = await latestRelease(gh, info);
+  const base = { projectId: info.id, fullName: info.full_name, htmlUrl: info.html_url, description: info.description, defaultBranch: info.default_branch, pushedAt: info.pushed_at, release, checkedAt: at };
   const upToDate = (g, hash) => g && g.materialHash === hash && g.version === generator.version;
   // 没有新提交，GitHub 上的简介、topics、默认分支也没变，资料就没变。
   const sameSource = old?.material && old.pushedAt === info.pushed_at && old.defaultBranch === info.default_branch
@@ -157,7 +171,7 @@ async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
     read = await readMaterial({ info, gh, fetch, store });
   } catch (e) {
     // 资料读不全：保留上一次的资料和简介，来源信息也不更新，下次运行重读。
-    if (old) saveProfile(dataDir, { ...old, checkedAt: at, lastError: { at, message: e.message } });
+    if (old) saveProfile(dataDir, { ...old, release, checkedAt: at, lastError: { at, message: e.message } });
     return { name: info.full_name, status: 'error', error: e.message };
   }
   const { material, evidence } = read;

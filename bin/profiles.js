@@ -16,5 +16,5 @@ const count = (s) => r.results.filter((x) => x.status === s).length;
 console.log(`项目 ${r.results.length} 个：${Object.entries(NAMES).map(([s, n]) => `${n} ${count(s)}`).join('，')}`);
 for (const x of r.results.filter((x) => x.error)) console.log(`  ${x.name}：${NAMES[x.status]}，${x.error}`);
 const q = r.requests;
-console.log(`官方接口请求 ${q.project + q.readme + q.tree} 次（项目信息 ${q.project}，README ${q.readme}，仓库目录 ${q.tree}）；耗时 ${((performance.now() - t0) / 1000).toFixed(1)} 秒`);
+console.log(`官方接口请求 ${q.project + q.readme + q.tree + q.releases} 次（项目信息 ${q.project}，README ${q.readme}，仓库目录 ${q.tree}，最新正式版 ${q.releases}）；耗时 ${((performance.now() - t0) / 1000).toFixed(1)} 秒`);
 if (count('failed') || count('error')) process.exitCode = 1;

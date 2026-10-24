@@ -9,6 +9,7 @@ import { readJson, readCandidates } from '../ranking/store.js';
 import { CATEGORIES, readCategories, gainersInCategory } from '../categories/index.js';
 import { bucketOf, windowDays } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';
+import { rankHistory, markRows } from '../ranking/moves.js';
 import { readProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
 import { boardProjects } from '../profiles/store.js';
 
@@ -99,7 +100,8 @@ export const categoryOnly = (card, entry) => ({ ...card, catOnly: true, desc: en
 
 // 一个窗口的 9 个分类榜（#10）。提示条：完整性下限以下的从第几名起（所有者 2026-10-23 决定照样列出、用提示条写明）、
 // 不足 20 个、还有够得上名单却没归类的项目。这一期出榜时还没另存候选的，分类榜如实说明还没有。
-function categoryBoards(w, snapshot, candidates, find) {
+// 名次变化与连续期数（#17）按分类榜自己算：分类榜第 3 名旁边写总榜的“连续第 1”会矛盾。
+function categoryBoards(w, snapshot, candidates, find, history) {
   return Object.fromEntries(CATEGORIES.map((cat) => {
     if (!candidates) return [cat, { entries: [], notes: [], empty: { title: '这一期还没有分类榜', text: '这一期出榜时还没另存全部已核数的候选，分类筛选从下一期起可用。' } }];
     const r = gainersInCategory({ candidates, find, category: cat });
@@ -111,11 +113,13 @@ function categoryBoards(w, snapshot, candidates, find) {
     }
     if (r.entries.length && r.entries.length < 20) notes.push({ icon: 'tag', title: '不足 20 个', text: `「${cat}」在${label(w)}只核出 ${r.entries.length} 个项目，全部列出。` });
     if (r.unclassified) notes.push({ icon: 'sparkle', title: '还没归类', text: `还有 ${r.unclassified} 个涨星够得上这份名单的项目没归类，归好后补进来。` });
-    return [cat, { entries: rowsOf(r.entries, snapshot), notes, empty: r.entries.length ? null : { title: '这个分类当期没有核出项目', text: '换个时间窗口，或者看看别的分类。' }, raw: r.entries }];
+    const entries = rowsOf(r.entries, snapshot);
+    markRows(history, { w, cat, day: snapshot.statDay, rows: entries, raw: r.entries, notes });
+    return [cat, { entries, notes, empty: r.entries.length ? null : { title: '这个分类当期没有核出项目', text: '换个时间窗口，或者看看别的分类。' }, raw: r.entries }];
   }));
 }
 
-function board(w, snapshot, status, candidates, find) {
+function board(w, snapshot, status, candidates, find, history) {
   const { top, notes } = windowStatus(snapshot, newerFailure(status, w, snapshot));
   if (!snapshot) return { label: label(w), top, notes, entries: [], empty: { title: `还没有${label(w)}的榜单`, text: '每天统计日结束后自动生成。' } };
   return {
@@ -127,10 +131,17 @@ function board(w, snapshot, status, candidates, find) {
       candidates: snapshot.candidates.total,
       checks: snapshot.requests.history + snapshot.requests.project,
     },
-    entries: rowsOf(snapshot.entries, snapshot),
+    entries: marked(history, w, snapshot, notes),
     empty: snapshot.entries.length ? null : { title: '这一期没有核出项目', text: '换个时间窗口看看。' },
-    byCat: categoryBoards(w, snapshot, candidates, find),
+    byCat: categoryBoards(w, snapshot, candidates, find, history),
   };
+}
+
+// 总榜的行加上名次变化和连续期数（#17）；没有可比的上一期时提示条写在这个窗口的提示条后面。
+function marked(history, w, snapshot, notes) {
+  const rows = rowsOf(snapshot.entries, snapshot);
+  markRows(history, { w, day: snapshot.statDay, rows, raw: snapshot.entries, notes });
+  return rows;
 }
 
 // 一个上榜项目在卡片上要的全部内容。onBoards：它出现在哪些窗口的快照里，最新生成的在前；语言、创建日期取最新存下的项目信息，
@@ -166,7 +177,8 @@ export function homeData(dataDir, ctx) {
   const status = readStatus(dataDir);
   const find = readCategories(dataDir).get;
   const snapshots = Object.fromEntries(Object.keys(WINDOWS).map((w) => [w, readLatestSnapshot(dataDir, w)]));
-  const windows = Object.fromEntries(Object.entries(snapshots).map(([w, s]) => [w, board(w, s, status, s && readCandidates(dataDir, w, s.statDay), find)]));
+  const history = rankHistory(dataDir, find);
+  const windows = Object.fromEntries(Object.entries(snapshots).map(([w, s]) => [w, board(w, s, status, s && readCandidates(dataDir, w, s.statDay), find, history)]));
   // 卡片要的项目：涨星榜上的，加上分类榜上的（同一窗口里涨星榜上已有的不重复记）。
   const seen = new Map();
   const add = (w, snapshot, entry) => {

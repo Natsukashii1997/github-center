@@ -179,6 +179,11 @@ window.GC = (() => {
     return place;
   }
 
+  // ── 名次变化（#17）：▲n 升、▼n 降、新进、– 持平；没有可比的上一期时不标（mv 为空）。读屏读完整说法。
+  // 持平在榜单行里写“–”（名次栏只有 34px 宽）；项目页胶囊里跟在“第 n 名”后面，写成“持平”（wide）。 ──
+  const MV = { up: (n) => [`▲${n}`, `比上一期升 ${n} 名`], down: (n) => [`▼${n}`, `比上一期降 ${n} 名`], new: () => ['新进', '上一期不在前 20'], flat: (n, wide) => [wide ? '持平' : '–', '和上一期名次相同'] };
+  const mvHTML = (mv, wide) => { if (!mv) return ''; const [t, say] = MV[mv.kind](mv.n, wide); return `<span class="mv" data-mv="${mv.kind}"><span aria-hidden="true">${t}</span><span class="sr">${say}</span></span>`; };
+
   // ── 榜单行 ──
   // r：快照里的一条（名次、并列、窗口新增）并上项目资料；第三行是项目的分类（#10），还没归类的留空。
   function rowCreate(r, onPick) {
@@ -188,7 +193,7 @@ window.GC = (() => {
     li.setAttribute('role', 'option');
     li.tabIndex = -1;
     const ds = p.what ?? (p.catOnly ? p.desc ?? '只上了分类榜，不生成简介' : '简介生成中');
-    li.innerHTML = `<div class="rk"><b></b><i hidden>并列</i></div>
+    li.innerHTML = `<div class="rk"><b></b><i hidden>并列</i><span class="mv-slot"></span></div>
       <img class="av" alt="" loading="lazy" referrerpolicy="no-referrer" src="${avatar(p, 56)}">
       <div class="tx"><div class="nm" title="${esc(p.repo)}"><span class="o">${esc(ownerOf(p))}/</span><span class="n">${esc(nameOf(p))}</span></div><div class="ds" title="${esc(ds)}">${esc(ds)}</div><div class="tg"></div></div>
       <div class="nums"><div class="g"></div><div class="t"></div></div>
@@ -203,6 +208,7 @@ window.GC = (() => {
     const p = D.projects[r.repo], run = p.runs[r.run];
     $('.rk b', li).textContent = r.rank;
     $('.rk i', li).hidden = !r.tie;
+    $('.mv-slot', li).innerHTML = mvHTML(r.mv);
     li.toggleAttribute('data-top', r.rank <= 3);
     $('.tg', li).innerHTML = p.cats.map((c) => `<span>${esc(c)}</span>`).join('');
     swap($('.g', li), `<small>+</small>${num(r.gain)}`);
@@ -303,5 +309,5 @@ window.GC = (() => {
   }, true);
 
   const q = new URLSearchParams(location.search);
-  return { D, I, WINDOWS, CATS, SPAN, AI, $, $$, esc, num, wan, md, mdShort, reduced, anim, reconcile, swap, toast, favs, favSkills, toggleFav, setFavBtn, copyInstall, topbar, setStatus, notes, tabs, chips, seg, rowCreate, rowUpdate, placeSel, cardHTML, chartHTML, wireCard, growBars, sweepBars, emptyHTML, avatar, ownerOf, nameOf, pageOf, dayAt, utc, q };
+  return { D, I, WINDOWS, CATS, SPAN, AI, $, $$, esc, num, wan, md, mdShort, reduced, anim, reconcile, swap, toast, favs, favSkills, toggleFav, setFavBtn, copyInstall, topbar, setStatus, notes, tabs, chips, seg, rowCreate, rowUpdate, mvHTML, placeSel, cardHTML, chartHTML, wireCard, growBars, sweepBars, emptyHTML, avatar, ownerOf, nameOf, pageOf, dayAt, utc, q };
 })();

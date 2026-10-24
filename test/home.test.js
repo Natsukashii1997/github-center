@@ -71,8 +71,8 @@ test('首页嵌入近 1 天榜单：名次、并列、新增、总 Star、统计
   const run = d1.entries[0].run;
   assert.equal(data.projects['php/php-src'].runs[run].total, 193409);
   assert.equal(data.account.name, 'tester');
-  // 这份快照生成于自检上线之前，页面如实说明。
-  assert.deepEqual(d1.notes.map((n) => n.title), ['未做自检']);
+  // 这份快照生成于自检上线之前，页面如实说明；10-22 早于名次变化的起始期（#17），提示条写没有上一期。
+  assert.deepEqual(d1.notes.map((n) => n.title), ['未做自检', '没有上一期']);
   assert.match(d1.notes[0].text, /没有做完整性自检/);
 });
 
@@ -109,7 +109,7 @@ test('近 7、30 天的榜单一起嵌进页面，写明统计的起止日期；
   assert.equal(data.windows.d7.label, '近 7 天');
   assert.equal(data.windows.d7.lede.span, '统计 10 月 16 日至 10 月 22 日（UTC）');
   assert.equal(data.windows.d30.lede.span, '统计 9 月 23 日至 10 月 22 日（UTC）');
-  assert.deepEqual(data.windows.d7.notes, []);
+  assert.deepEqual(data.windows.d7.notes.map((n) => n.title), ['没有上一期']);
   assert.equal((await visit(dir, '?w=d7')).status, 200);
   assert.equal((await visit(dir, '?w=d3')).status, 404);
 });
@@ -122,7 +122,7 @@ test('自检不通过或有候选核数失败时，标“可能不完整”并�
     incomplete: true,
   });
   const { body, data } = await home(dir);
-  assert.deepEqual(data.windows.d1.notes, [{ tone: 'warn', icon: 'warn', title: '可能不完整', text: '自检未通过，估计漏掉一个该上榜项目的概率约万分之 1.1（要求小于百万分之一）；1 个候选的官方核数失败，名次可能有出入。' }]);
+  assert.deepEqual(data.windows.d1.notes, [{ tone: 'warn', icon: 'warn', title: '可能不完整', text: '自检未通过，估计漏掉一个该上榜项目的概率约万分之 1.1（要求小于百万分之一）；1 个候选的官方核数失败，名次可能有出入。' }, { icon: 'calendar', title: '没有上一期', text: '暂不显示名次变化。' }]);
   assert.deepEqual(data.windows.d1.top, { tone: 'warn', text: '可能不完整 · 10 月 22 日数据' });
   // 事件记录次数和候选门槛只用于自检，不上页面。
   assert.doesNotMatch(body, /3891|门槛/);

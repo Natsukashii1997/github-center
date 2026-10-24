@@ -60,7 +60,7 @@ test('首页嵌入 9 个分类和每个窗口的分类榜：在已核数候选�
   // 一个项目跨两个分类，两个分类榜里都有它。
   assert.equal(data.windows.d1.byCat['开发者工具与基础设施'].entries[0].repo, 'php/php-src');
   // 提示条：第 3 名起低于完整性下限、不足 20 个、还有够得上名单却没归类的项目（z/not-yet）。
-  assert.deepEqual(skill.notes.map((n) => n.title), ['可能有漏', '不足 20 个', '还没归类']);
+  assert.deepEqual(skill.notes.map((n) => n.title), ['可能有漏', '不足 20 个', '还没归类', '没有上一期']);
   assert.equal(skill.notes[0].text, '第 3 名起涨星低于完整性下限 +1,500：涨星比下限少的项目，事件数据可能没记到，名单可能不全。');
   assert.equal(skill.notes[1].text, '「Skill」在近 1 天只核出 3 个项目，全部列出。');
   assert.equal(skill.notes[2].text, '还有 1 个涨星够得上这份名单的项目没归类，归好后补进来。');

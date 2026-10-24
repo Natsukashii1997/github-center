@@ -7,6 +7,7 @@ import { readProfile, findProfile, currentGenerated, skillPurpose, INSTALL_AIS }
 import { boardProjects } from '../profiles/store.js';
 import { windowStatus, project as projectCard, embed, categoryListed, categoryOnly } from './home.js';
 import { findSnapshot } from '../ranking/store.js';
+import { rankHistory } from '../ranking/moves.js';
 import { readLatestDaily } from '../daily/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -87,7 +88,12 @@ export function projectData(dataDir, fullName, ctx) {
     const e = s?.entries.find((x) => (id ? x.projectId === id : x.fullName.toLowerCase() === name.toLowerCase()));
     return e ? [{ w, snapshot: s, entry: e }] : [];
   });
-  const ranks = onBoards.map(({ w, snapshot, entry }) => ({ w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1 }));
+  // 名次胶囊带名次变化和连续期数（#17），按总榜算。
+  const history = rankHistory(dataDir, find);
+  const ranks = onBoards.map(({ w, snapshot, entry }) => {
+    const mv = history.moves(w, null, snapshot.statDay);
+    return { w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1, mv: mv ? mv(entry) : null, streak: history.streak(w, null, snapshot.statDay, entry) };
+  });
   const newest = [...(onBoards.length ? onBoards : onCategory ?? [])].sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
   const shown = newest.length ? projectCard(dataDir, newest, ctx, find) : brief(dataDir, { id, fullName: name }, ctx, find, profile);
   const card = catOnly ? categoryOnly(shown, newest[0].entry) : shown;
@@ -97,6 +103,8 @@ export function projectData(dataDir, fullName, ctx) {
     // 侧栏默认高亮它所在的第一个涨星榜（方案默认近 1 天）；数字取最新一期那次运行，三个窗口都有。
     repo: card.repo, id, ranks, run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? newest[0]?.w ?? 'd1',
     hasProfile: Boolean(profile), catOnly,
+    // 维护信号（#18）：最近推送取资料里的 pushedAt，最新正式版取补资料时查的 releases/latest；查不到都写“未知”。
+    maint: { pushed: profile?.pushedAt?.slice(0, 10) ?? null, release: profile?.release ?? { state: 'unknown' } },
     conditions: g ? g.conditions.map(({ kind, text, quote }) => ({ kind, text, quote })) : [],
     dropped: g?.droppedConditions ?? 0,
     truncatedDocs: Boolean(m && (m.readme?.truncated || m.docs.some((d) => d.truncated))),

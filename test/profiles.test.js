@@ -5,6 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { updateProfiles, codexGenerator, parseSkill } from '../src/profiles/index.js';
+import { readProfile } from '../src/profiles/store.js';
 import { visit, dataOf } from './helpers/web.js';
 
 // #14 起项目页由页面脚本画出，这里看嵌入的数据：page 是页面本身的，projects[名字] 是这个项目的简介、Skill 等。
@@ -68,6 +69,12 @@ function fakeGitHub(list) {
       const paths = Object.keys(r.files);
       const dirs = [...new Set(paths.filter((p) => p.includes('/')).map((p) => p.split('/')[0]))];
       return json({ sha: 't', truncated: false, tree: [...dirs.map((path) => ({ path, type: 'tree' })), ...paths.map((path) => ({ path, type: 'blob' }))] });
+    }
+    // 最新正式版（#18）：release 有就回它，releaseFails 时回 500，都没有就是还没发过正式版（404）。
+    if ((m = url.match(/^https:\/\/api\.github\.com\/(?:repositories\/(\d+)|repos\/([^/]+\/[^/]+?))\/releases\/latest$/))) {
+      const r = find(m[1], m[2]);
+      if (r?.releaseFails) return new Response('{"message":"Server Error"}', { status: 500 });
+      return r?.release ? json(r.release) : new Response('{"message":"Not Found"}', { status: 404 });
     }
     if ((m = url.match(/^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/main\/(.+)$/))) {
       const r = find(null, m[1]);
@@ -322,4 +329,21 @@ test('Codex 生成器：非交互、结构化输出、只读沙箱、关掉执�
   await assert.rejects(codexGenerator({ bin: broken }).generate(material), /Codex 生成失败（退出码 1）：Error: Not logged in/);
   const slow = fakeCodex(fresh(), 'setTimeout(() => {}, 10000);');
   await assert.rejects(codexGenerator({ bin: slow, timeoutMs: 200 }).generate(material), /超时被停止/);
+});
+
+test('维护信号（#18）：每次补资料都查最新正式版；有就记版本号、发布时间和链接，没发过记 none，查失败记 unknown', async () => {
+  const dataDir = dataDirWithBoard();
+  const list = repos();
+  list[0].release = { tag_name: 'v1.2.0', published_at: '2026-10-20T08:00:00Z', html_url: 'https://github.com/acme/agent-kit/releases/tag/v1.2.0' };
+  await run(dataDir, { upstream: fakeGitHub(list) });
+  assert.deepEqual(readProfile(dataDir, 101).release, { state: 'ok', tag: 'v1.2.0', publishedAt: '2026-10-20T08:00:00Z', url: 'https://github.com/acme/agent-kit/releases/tag/v1.2.0' });
+  assert.deepEqual(readProfile(dataDir, 202).release, { state: 'none' });
+  assert.equal(readProfile(dataDir, 101).pushedAt, '2026-10-22T01:00:00Z');
+  // 资料没变（不重读不重生成）也重查版本；查失败不沿用旧的。
+  list[0].releaseFails = true;
+  const upstream = fakeGitHub(list);
+  const r = await run(dataDir, { upstream });
+  assert.deepEqual(r.results.map((x) => x.status), ['unchanged', 'unchanged']);
+  assert.deepEqual(readProfile(dataDir, 101).release, { state: 'unknown' });
+  assert.ok(upstream.calls.some((u) => u.endsWith('/releases/latest')));
 });

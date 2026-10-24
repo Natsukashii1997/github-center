@@ -69,5 +69,7 @@ export function githubClient({ fetch, token, sleep = realSleep, now = Date.now, 
     graphql: (query) => get('graphql', '/graphql', JSON.stringify({ query })),
     // 最近 100 个 Release（按 created_at 从新到旧，含草稿和预发布版，由调用方筛）。
     releases: (c) => get('releases', `${path(c)}/releases?per_page=${RELEASES_PER_PAGE}`),
+    // 最新正式版（#18）：GitHub 自己排除草稿和预发布版；没有正式版回 404（这里返回 null）。
+    latestRelease: (c) => get('releases', `${path(c)}/releases/latest`),
   };
 }
