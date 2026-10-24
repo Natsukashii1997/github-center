@@ -7,7 +7,7 @@ import { readProfile, findProfile, currentGenerated, skillPurpose, INSTALL_AIS }
 import { boardProjects } from '../profiles/store.js';
 import { windowStatus, project as projectCard, embed, categoryListed, categoryOnly } from './home.js';
 import { findSnapshot } from '../ranking/store.js';
-import { rankHistory } from '../ranking/moves.js';
+import { rankHistory, streakText } from '../ranking/moves.js';
 import { readLatestDaily } from '../daily/index.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -92,7 +92,7 @@ export function projectData(dataDir, fullName, ctx) {
   const history = rankHistory(dataDir, find);
   const ranks = onBoards.map(({ w, snapshot, entry }) => {
     const mv = history.moves(w, null, snapshot.statDay);
-    return { w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1, mv: mv ? mv(entry) : null, streak: history.streak(w, null, snapshot.statDay, entry) };
+    return { w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1, mv: mv ? mv(entry) : null, streak: streakText(history.streak(w, null, snapshot.statDay, entry)) };
   });
   const newest = [...(onBoards.length ? onBoards : onCategory ?? [])].sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
   const shown = newest.length ? projectCard(dataDir, newest, ctx, find) : brief(dataDir, { id, fullName: name }, ctx, find, profile);

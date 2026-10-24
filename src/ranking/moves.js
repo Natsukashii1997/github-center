@@ -2,6 +2,7 @@
 // 只做涨星榜（近 1/7/30 天的总榜和分类榜）；“一期”是一个统计日的快照，上一期是前一个统计日。
 // 视觉照批准的 signals-r1（design/candidates/signals/，原型在那里的 build.mjs）。
 import { join } from 'node:path';
+import { existsSync, statSync } from 'node:fs';
 import { readJson } from './store.js';
 import { gainersInCategory } from '../categories/boards.js';
 
@@ -14,12 +15,21 @@ export const prevDay = (day) => new Date(Date.parse(`${day}T00:00:00Z`) - 86400e
 // 项目身份：快照条目用 projectId，候选用 id，都没有才用小写名字（和首页卡片同一套认法）。
 export const keyOf = (e) => String(e.projectId ?? e.id ?? e.fullName.toLowerCase());
 
-// 快照和候选按统计日只写一次，写出来就不再变：读过的留在内存里，下次打开页面不重读。还没写出来的（null）不留。
+// 快照和候选按统计日只写一次：读过的留在内存里，下次打开页面不重读；按修改时间认，万一被人工重写也会重读。
+// 还没写出来的（null）不留。网站常驻运行，最多留 FILE_CACHE 份（约三个窗口各 60 天），满了先丢最早读的。
+const FILE_CACHE = 400;
 const files = new Map();
 function readOnce(path) {
-  if (files.has(path)) return files.get(path);
+  const mtime = existsSync(path) ? statSync(path).mtimeMs : null;
+  if (mtime === null) return null;
+  const hit = files.get(path);
+  if (hit?.mtime === mtime) return hit.v;
   const v = readJson(path);
-  if (v) files.set(path, v);
+  if (v) {
+    files.delete(path);
+    if (files.size >= FILE_CACHE) files.delete(files.keys().next().value);
+    files.set(path, { mtime, v });
+  }
   return v;
 }
 
@@ -54,7 +64,7 @@ export function rankHistory(dataDir, find) {
       };
     },
     // 从这一期往前一天一天数：在第 1 名（并列第 1 也算）/ 在前 20 就加一，中间缺一期（没有榜，或不在榜上）就停。
-    // N≥2 才写，第 1 优先；返回页面上的那句话或 null。
+    // N≥2 才算，第 1 优先：返回 { kind: 'first' | 'top', n } 或 null，页面上的说法用 streakText。
     streak(w, cat, day, e) {
       const k = keyOf(e), earliest = prevDay(fromOf(w, cat));
       let first = 0, top = 0, stillFirst = true;
@@ -64,12 +74,14 @@ export function rankHistory(dataDir, find) {
         top++;
         if (stillFirst && r === 1) first++; else stillFirst = false;
       }
-      if (first >= 2) return `连续 ${first} 期第 1`;
-      if (top >= 2) return `连续 ${top} 期前 20`;
+      if (first >= 2) return { kind: 'first', n: first };
+      if (top >= 2) return { kind: 'top', n: top };
       return null;
     },
   };
 }
+
+export const streakText = (s) => (s ? `连续 ${s.n} 期${s.kind === 'first' ? '第 1' : '前 20'}` : null);
 
 // 页面提示条：这份榜还没有可比的上一期。
 export const NO_PREV = { icon: 'calendar', title: '没有上一期', text: '暂不显示名次变化。' };
@@ -81,7 +93,7 @@ export function markRows(history, { w, cat = null, day, rows, raw, notes }) {
   if (!mv && rows.length) notes.push(NO_PREV);
   rows.forEach((r, i) => {
     if (mv) r.mv = mv(raw[i]);
-    const s = history.streak(w, cat, day, raw[i]);
+    const s = streakText(history.streak(w, cat, day, raw[i]));
     if (s) r.streak = s;
   });
 }

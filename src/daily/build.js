@@ -10,7 +10,7 @@ import { findSnapshot, readJson, writeOnce, writeAtomic, openStore } from '../ra
 import { windowDays } from '../ranking/stat-day.js';
 import { githubClient, RELEASES_PER_PAGE } from '../ranking/github.js';
 import { mapLimit } from '../ranking/rank-day.js';
-import { rankHistory } from '../ranking/moves.js';
+import { rankHistory, streakText } from '../ranking/moves.js';
 import { readProfile, findProfile, currentGenerated } from '../profiles/index.js';
 import { windowStatus } from '../web/home.js';
 import { feishuMarkdown } from './feishu.js';
@@ -125,9 +125,9 @@ function movesLine(dataDir, windows) {
       const m = mv(e);
       return m.kind === 'new' || e.rank + (m.kind === 'up' ? m.n : m.kind === 'down' ? -m.n : 0) > TOP;
     }).length;
-    const firsts = raw.filter((e) => e.rank === 1).map((e) => [e.fullName, history.streak(w, null, statDay, e)]).filter(([, s]) => s?.endsWith('第 1'));
+    const firsts = raw.filter((e) => e.rank === 1).map((e) => [e.fullName, history.streak(w, null, statDay, e)]).filter(([, s]) => s?.kind === 'first');
     const head = fresh ? `${label(w)}前 ${TOP} 里有 ${fresh} 个上一期不在前 ${TOP}` : `${label(w)}前 ${TOP} 的项目上一期都在前 ${TOP}`;
-    return [`${head}${firsts.length ? `，${firsts.map(([repo, s]) => `${repo} ${s}`).join('、')}` : ''}`];
+    return [`${head}${firsts.length ? `，${firsts.map(([repo, s]) => `${repo} ${streakText(s)}`).join('、')}` : ''}`];
   });
   return parts.length ? `${parts.join('；')}。` : '';
 }

@@ -170,7 +170,7 @@ async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
   try {
     read = await readMaterial({ info, gh, fetch, store });
   } catch (e) {
-    // 资料读不全：保留上一次的资料和简介，来源信息也不更新，下次运行重读。
+    // 资料读不全：保留上一次的资料和简介，来源信息也不更新，下次运行重读（最新正式版照这次查到的写）。
     if (old) saveProfile(dataDir, { ...old, release, checkedAt: at, lastError: { at, message: e.message } });
     return { name: info.full_name, status: 'error', error: e.message };
   }

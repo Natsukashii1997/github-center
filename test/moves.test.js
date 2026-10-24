@@ -2,10 +2,10 @@
 // 项目页维护信号（#18）的数据也在这里测（取数在 profiles.test.js）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { rankHistory, markRows, prevDay, NO_PREV } from '../src/ranking/moves.js';
+import { rankHistory, markRows, prevDay, NO_PREV, streakText } from '../src/ranking/moves.js';
 import { saveProfile } from '../src/profiles/store.js';
 import { visit } from './helpers/web.js';
 
@@ -58,9 +58,9 @@ test('连续期数：第 1 优先、N≥2 才写、中间缺一期断开、最�
   snap(dir, 'd1', '2026-10-27', [e(1, 2), e(3, 3)]);
   const h = rankHistory(dir, none);
   // 10-21 及更早不算（近 1 天起始期 10-23，最早数到 10-22）。
-  assert.equal(h.streak('d1', null, '2026-10-24', e(1, 1)), '连续 3 期第 1');
-  assert.equal(h.streak('d1', null, '2026-10-25', e(1, 2)), '连续 4 期前 20');
-  assert.equal(h.streak('d1', null, '2026-10-25', e(2, 1)), '连续 4 期前 20');
+  assert.equal(streakText(h.streak('d1', null, '2026-10-24', e(1, 1))), '连续 3 期第 1');
+  assert.equal(streakText(h.streak('d1', null, '2026-10-25', e(1, 2))), '连续 4 期前 20');
+  assert.equal(streakText(h.streak('d1', null, '2026-10-25', e(2, 1))), '连续 4 期前 20');
   assert.equal(h.streak('d1', null, '2026-10-22', e(1, 1)), null, '只有一期');
   assert.equal(h.streak('d1', null, '2026-10-27', e(1, 2)), null, '10-26 缺一期，断开重算');
 });
@@ -77,7 +77,7 @@ test('分类榜按这一期的候选和现在的分类重算往期，从 10-24 �
   assert.deepEqual(mv({ id: 2, rank: 1 }), { kind: 'up', n: 1 });
   assert.deepEqual(mv({ id: 1, rank: 2 }), { kind: 'down', n: 1 });
   assert.deepEqual(mv({ id: 4, rank: 3 }), { kind: 'new' });
-  assert.equal(h.streak('d1', 'Skill', '2026-10-24', { id: 1 }), '连续 2 期前 20');
+  assert.equal(streakText(h.streak('d1', 'Skill', '2026-10-24', { id: 1 })), '连续 2 期前 20');
 });
 
 // 网站：近 1 天 10-22、10-23 两期（#2 的快照素材改出第二期）。
@@ -118,4 +118,14 @@ test('项目页：名次胶囊带名次变化和连续期数；维护信号查�
   assert.deepEqual(page.maint, { pushed: '2026-10-23', release });
   saveProfile(dir, { projectId: 1903522, fullName: 'php/php-src', pushedAt: '2026-10-23T05:00:00Z', release: { state: 'none' } });
   assert.deepEqual(dataOf((await visit(dir, 'p/php/php-src')).body).page.maint.release, { state: 'none' });
+});
+
+test('读过的快照留在内存里，文件被重写（修改时间变了）就重读', () => {
+  const dir = tmp();
+  snap(dir, 'd1', '2026-10-22', [e(1, 1)]);
+  snap(dir, 'd1', '2026-10-23', [e(1, 1)]);
+  assert.deepEqual(rankHistory(dir, none).moves('d1', null, '2026-10-23')(e(1, 1)), { kind: 'flat' });
+  snap(dir, 'd1', '2026-10-22', [e(1, 2), e(2, 1)]);
+  utimesSync(join(dir, 'snapshots/d1/2026-10-22.json'), new Date(), new Date(Date.now() + 5000));
+  assert.deepEqual(rankHistory(dir, none).moves('d1', null, '2026-10-23')(e(1, 1)), { kind: 'up', n: 1 });
 });
