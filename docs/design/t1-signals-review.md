@@ -8,6 +8,8 @@ T1a（方向）：**DIRECTION_READY**。T1b（实现就绪）共 12 条发现：
 
 请所有者批准的确切版本：**signals-r1，整包 sha256 `92fdbe50ec4567d537f68faa6bdc35b4aedce4b5ad9f9df40f23d2bbecaa35f3`**（清单与算法见“权威包清单”）。
 
+**所有者已于 2026-10-24 批准 signals-r1，这一版冻结**（批准记录见文末）。#17 按这一版实现名次变化与连续上榜，#18 按这一版实现项目页维护信号。
+
 ## Gate 1 design-taste review record
 
 ```md
@@ -23,7 +25,7 @@ Design Read: 私人涨星榜上三类“事实型”小信号，加在已冻结�
 Preserve: 冻结稿一个字不动；榜单行高、名次栏宽、“并列”字样位置不变；全站一个强调色，状态色只用于状态；名字是真正的链接；明暗共用同一套变量；只动 transform 与 opacity。
 Deferred dimensions: 见下文“延后项”
 Recommendation: READY_FOR_USER_APPROVAL
-Next owner: 所有者（批准 signals-r1 的确切版本）；批准后 #17（等 #10 关单）、#18 按这一版实现
+Next owner: primary workflow（所有者已批准；#17、#18 按这一版实现）
 Freshness: CURRENT for signals-r1 / 92fdbe50ec4567d537f68faa6bdc35b4aedce4b5ad9f9df40f23d2bbecaa35f3
 ```
 
@@ -123,8 +125,9 @@ cd design && find candidates/signals -type f | LC_ALL=C sort | xargs shasum -a 2
 ## 常浩 visual-direction approval record
 
 ```md
-Decision: 待批准
-Approved package: signals-r1 / 92fdbe50ec4567d537f68faa6bdc35b4aedce4b5ad9f9df40f23d2bbecaa35f3
-Date:
-Conversation evidence:
+Decision: APPROVED
+Approved package: signals-r1 / 92fdbe50ec4567d537f68faa6bdc35b4aedce4b5ad9f9df40f23d2bbecaa35f3（提交 56ab42c；批准时复核整包 sha256 未变）
+Date: 2026-10-24
+Conversation evidence: 所有者在本会话原话“批准 signals-r1，整包 sha256 92fdbe50ec4567d537f68faa6bdc35b4aedce4b5ad9f9df40f23d2bbecaa35f3。”
+Freeze: design/candidates/signals/ 自此冻结；任何文件改动（包括用新一期数据重新拼装）都使批准失效，需重新过 T1b 并重新批准
 ```
