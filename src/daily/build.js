@@ -2,16 +2,17 @@
 // 内容：一段概览（只按当天榜单的数字拼，不经过 AI）、近 1/7/30 天各前 10（末位并列一起列出）。同一项目按近 1、7、30 天的顺序
 // 只介绍一次，后面再出现记下第一次出现的位置（页面和消息里写“见上”）。一句话简介取项目资料里已生成的简介。
 // 背景只写有据的：项目在它第一次出现的那个时间窗口内发的正式版本（GitHub 官方 Release，跳过草稿和预发布版），附链接；
-// 没有就不写，不凭涨星猜原因。按统计日只写一次，已存在就不重写、不再请求上游。
+// 没有就不写，不凭涨星猜原因。按统计日只写一次，已存在就不重写、不再请求上游。飞书消息内容（feishu.js）跟着写成文件。
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { WINDOWS, readLatestSnapshot, readStatus } from '../ranking/index.js';
-import { findSnapshot, readJson, writeOnce, openStore } from '../ranking/store.js';
+import { findSnapshot, readJson, writeOnce, writeAtomic, openStore } from '../ranking/store.js';
 import { windowDays } from '../ranking/stat-day.js';
 import { githubClient } from '../ranking/github.js';
 import { mapLimit } from '../ranking/rank-day.js';
 import { readProfile, findProfile, currentGenerated } from '../profiles/index.js';
 import { windowStatus } from '../web/home.js';
+import { feishuMarkdown } from './feishu.js';
 
 // 日报每个时间窗口放前 10（需求第 5 条），末位并列一起列出。
 export const TOP = 10;
@@ -105,13 +106,20 @@ function overviewOf(day, windows, projects) {
   return parts.join('');
 }
 
+// 飞书消息内容跟着日报写：日报先写（只写一次），写成了再写消息文件；消息文件不在（中途断掉）就照日报补上。
+function ensureFeishu(dataDir, day, daily) {
+  const path = dailyPath(day, 'feishu.md');
+  if (!existsSync(join(dataDir, path))) writeAtomic(join(dataDir, path), feishuMarkdown(daily ?? readDaily(dataDir, day)));
+  return path;
+}
+
 // 生成一份日报。statDay 取近 1 天最新一期；已有就不重写。返回 status：published | exists | missing。
 export async function buildDaily({ dataDir, fetch = globalThis.fetch, token, now = () => new Date(), sleep }) {
   const d1 = readLatestSnapshot(dataDir, 'd1');
   if (!d1) return { status: 'missing' };
   const day = d1.statDay;
   const path = dailyPath(day);
-  if (existsSync(join(dataDir, path))) return { status: 'exists', statDay: day, path };
+  if (existsSync(join(dataDir, path))) return { status: 'exists', statDay: day, path, feishuPath: ensureFeishu(dataDir, day) };
 
   const status = readStatus(dataDir);
   const snapshots = Object.fromEntries(Object.keys(WINDOWS).map((w) => [w, snapshotFor(dataDir, w, day)]));
@@ -145,6 +153,6 @@ export async function buildDaily({ dataDir, fetch = globalThis.fetch, token, now
 
   const daily = { statDay: day, generatedAt: now().toISOString(), runId, overview: overviewOf(day, windows, projects), notes, windows, projects, requests: gh.stats.releases };
   const written = writeOnce(dataDir, path, JSON.stringify(daily, null, 2));
-  if (written.status === 'exists') return { status: 'exists', statDay: day, path };
-  return { status: 'published', statDay: day, path, daily };
+  if (written.status === 'exists') return { status: 'exists', statDay: day, path, feishuPath: ensureFeishu(dataDir, day) };
+  return { status: 'published', statDay: day, path, feishuPath: ensureFeishu(dataDir, day, daily), daily };
 }

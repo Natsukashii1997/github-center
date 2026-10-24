@@ -2,10 +2,10 @@
 // 概览只按榜单数字拼。上游只回放假的 Release 接口，不碰真实网络。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildDaily, readLatestDaily } from '../src/daily/index.js';
+import { buildDaily, readLatestDaily, feishuMarkdown } from '../src/daily/index.js';
 
 const DAY = '2026-10-22';
 const put = (dir, path, obj) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), JSON.stringify(obj)); };
@@ -132,4 +132,40 @@ test('某个窗口当天没出：用更早的一期并写明（更新失败写�
   // 近 7 天自检未通过：提示条同网站。
   const partial = (await build(dataDir())).daily;
   assert.equal(partial.notes[0].title, '近 7 天可能不完整');
+});
+
+test('飞书消息内容：同一份日报写成 Markdown 文件（本仓库不发送）；同一项目只介绍一次，项目链到本机项目页并附 GitHub 链接', async () => {
+  const dir = dataDir();
+  const r = await build(dir);
+  assert.equal(r.feishuPath, `daily/${DAY}.feishu.md`);
+  const text = readFileSync(join(dir, r.feishuPath), 'utf8');
+  assert.equal(text, feishuMarkdown(r.daily));
+  assert.match(text, /^## GitHub 快速中心日报 · 10 月 22 日\n\n统计日 10 月 22 日（UTC），10 月 23 日 10:40（北京时间）生成。\n\n10 月 22 日，近 1 天第 1 名是 acme\/rocket/);
+  assert.ok(text.includes(r.daily.overview));
+  for (const n of r.daily.notes) assert.ok(text.includes(`- ${n.title}：${n.text}`), n.title);
+  // 第一次出现：名次、本机项目页、新增、GitHub 链接、一句话简介、有就写版本发布。
+  assert.ok(text.includes('**1. [acme/rocket](http://127.0.0.1:5310/p/acme/rocket?from=daily)**　+900　[GitHub](https://github.com/acme/rocket)\nacme/rocket 把脚本打包成命令行工具。\n版本发布：10 月 22 日 [v2.0.0](https://github.com/acme/x/releases/tag/v2.0.0)'));
+  assert.equal(text.split('acme/rocket 把脚本打包成命令行工具。').length, 2, '简介只出现一次');
+  // 再出现：只写名次、新增和“见上”。
+  assert.ok(text.includes('**1. [acme/rocket](http://127.0.0.1:5310/p/acme/rocket?from=daily)**　+5,000　见上（近 1 天第 1 名）'));
+  assert.ok(text.includes('**3. [acme/weekly](http://127.0.0.1:5310/p/acme/weekly?from=daily)**　+9,000　见上（近 7 天第 2 名）'));
+  assert.ok(text.includes('**10. [acme/tie-a](http://127.0.0.1:5310/p/acme/tie-a?from=daily)**（并列）　+100'));
+  // 没有版本发布的不写背景；简介没生成好的写“简介生成中”。
+  assert.equal(text.match(/^版本发布：/gm).length, 2);
+  assert.match(text, /\[GitHub\]\(https:\/\/github\.com\/acme\/notes\)\n简介生成中。\n\n/);
+  // 每个项目都链到项目页。
+  for (const repo of Object.keys(r.daily.projects)) assert.ok(text.includes(`](http://127.0.0.1:5310/p/${repo}?from=daily)`), repo);
+});
+
+test('消息文件中途没写成：再跑时照已有的日报补上，不重新生成日报；已有的消息文件不动', async () => {
+  const dir = dataDir();
+  const first = await build(dir);
+  rmSync(join(dir, first.feishuPath));
+  const again = fakeGitHub();
+  const r = await build(dir, again);
+  assert.deepEqual([r.status, again.calls.length], ['exists', 0]);
+  assert.equal(readFileSync(join(dir, r.feishuPath), 'utf8'), feishuMarkdown(first.daily));
+  writeFileSync(join(dir, r.feishuPath), '已经交给机器人的版本');
+  await build(dir);
+  assert.equal(readFileSync(join(dir, r.feishuPath), 'utf8'), '已经交给机器人的版本');
 });
