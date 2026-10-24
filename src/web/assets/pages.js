@@ -8,7 +8,8 @@ window.GP = (() => {
   const avImg = (p, s) => `<img class="av" alt="" loading="lazy" referrerpolicy="no-referrer" data-key="${esc(p.repo)}" src="${avatar(p, s)}">`;
   const name = (p) => `<span class="o">${esc(ownerOf(p))}/</span><span class="n">${esc(nameOf(p))}</span>`;
   const link = (p, href, external) => `<a href="${esc(href)}"${external ? ' target="_blank" rel="noopener"' : ''}>${name(p)}</a>`;
-  const ds = (p) => (p.what == null ? '简介生成中' : p.what);
+  // 只上了分类榜的项目（#10）不生成简介，用 GitHub 上的描述
+  const ds = (p) => (p.what != null ? p.what : p.catOnly ? p.desc ?? '只上了分类榜，不生成简介' : '简介生成中');
   // 北京时间：M/D HH:MM（收藏时间）与 M 月 D 日 HH:MM（依据行）
   const bj = (iso) => new Date(Date.parse(iso) + 8 * 3600e3);
   const when = (iso) => { const d = bj(iso); return `收藏于 <span class="num">${d.getUTCMonth() + 1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}</span>`; };
@@ -67,8 +68,10 @@ window.GP = (() => {
   }
   // 近 30 天走势（和首页阅读卡同一画法，含读屏摘要）
   const chartOf = (run, win) => (run?.series ? chartHTML(run, SPAN[win]) : '<div class="chart"><div class="chart-k"><span>近 30 天每日新增</span><span>暂缺</span></div><div class="spark-none">没有这个项目的官方星数历史。</div></div>');
-  // 简介两句；没生成好是“生成中”，资料没读到另说明
-  const readOf = (p, page) => (!page.hasProfile
+  // 简介两句；没生成好是“生成中”，资料没读到另说明；只上了分类榜的不生成，写明并列出 GitHub 上的描述
+  const readOf = (p, page) => (page.catOnly
+    ? `<div class="gen" data-tone="muted">${I.inbox}<span>只上了分类榜的项目不生成简介、使用条件和 Skill 列表；旁边的数字已是官方数据。</span></div>${p.desc ? `<div class="read"><div><div class="k">GitHub 上的描述</div><p>${esc(p.desc)}</p></div></div>` : ''}`
+    : !page.hasProfile
     ? `<div class="gen" data-tone="muted">${I.inbox}<span>项目资料还没读到，简介、使用条件和 Skill 列表会在每天出榜后补上；旁边的数字已是官方数据。</span></div>`
     : p.what == null
       ? `<div class="gen">${I.sparkle}<span>简介生成中，通常几分钟内完成；旁边的数字已是官方数据。</span></div><div class="gen-lines"><span class="sk" style="width:92%;height:14px"></span><span class="sk" style="width:76%;height:14px"></span></div>`

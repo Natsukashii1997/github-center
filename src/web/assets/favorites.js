@@ -15,7 +15,7 @@
     const p = P(f.repo);
     const href = f.openable ? project(f.repo, 'favorites') : `https://github.com/${f.repo}`;
     if (f.skill) return gridCard(p, { href: f.skill.missing || !f.openable ? href : `${href}#skill-${encodeURIComponent(f.skill.path)}`, at: f.at, skill: { ...f.skill, desc: f.skill.desc ?? '' }, warn: !f.openable ? '项目资料已不在，站内页面打不开；可以在 GitHub 打开，或取消收藏。' : f.skill.missing ? '这个 Skill 已不在仓库里，可能改名或删除了；可以取消收藏。' : '', noCopy: f.skill.missing || !p.installable, external: !f.openable });
-    const warn = !f.openable ? '项目资料已不在，站内页面打不开；可以在 GitHub 打开，或取消收藏。' : f.renamed ? `收藏时叫 ${f.savedName}，项目已改名；点进去看的是新名字的页面。` : !f.hasProfile ? '项目资料还没读到，简介和 Skill 列表会在每天出榜后补上。' : '';
+    const warn = !f.openable ? '项目资料已不在，站内页面打不开；可以在 GitHub 打开，或取消收藏。' : f.renamed ? `收藏时叫 ${f.savedName}，项目已改名；点进去看的是新名字的页面。` : f.catOnly ? '只上了分类榜的项目不生成简介和 Skill 列表。' : !f.hasProfile ? '项目资料还没读到，简介和 Skill 列表会在每天出榜后补上。' : '';
     return gridCard(p, { href, at: f.at, warn, noCopy: !p.installable, external: !f.openable, label: `总 Star ${f.total == null ? '暂缺' : GC.wan(f.total)}` });
   };
   function render() {

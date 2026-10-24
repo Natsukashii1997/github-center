@@ -8,7 +8,7 @@ import { openAccounts, SESSION_DAYS } from './accounts.js';
 import { openFavorites } from './favorites.js';
 import { WINDOWS, SINCES } from '../ranking/index.js';
 import { readProfile, findOnBoards, installInstruction, INSTALL_AIS } from '../profiles/index.js';
-import { homeData, homePage } from './home.js';
+import { homeData, homePage, categoryListed } from './home.js';
 import { boardsData, boardsPage, projectData, projectMissing, projectPage, dailyData, dailyPage, favoritesData, favoritesPage, loginPage } from './pages.js';
 
 // 登录（#5）：除登录页外，所有页面和接口都要先登录。会话令牌放在 HttpOnly Cookie 里。
@@ -34,8 +34,12 @@ function sameOrigin(req) {
   return !origin || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}`;
 }
 
-// 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上就行；
-// 取消不用查，资料没了也能取消。成功返回 null，否则返回拒绝的 { status, error }。
+// 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上
+// （含分类榜，#10）就行；取消不用查，资料没了也能取消。成功返回 null，否则返回拒绝的 { status, error }。
+const onCategoryBoard = (dataDir, id) => {
+  const entry = [...categoryListed(dataDir).values()].flat().find((b) => b.entry.projectId === id)?.entry;
+  return entry ? { id, name: entry.fullName } : undefined;
+};
 function changeFavorite(dataDir, favorites, account, form) {
   const projectId = Number(form.get('project_id'));
   const skillPath = form.get('skill') ?? '';
@@ -46,7 +50,7 @@ function changeFavorite(dataDir, favorites, account, form) {
   if (form.get('action') !== 'add') return { status: 400, error: '不认识的操作' };
   const known = Number.isSafeInteger(projectId) && projectId > 0;
   const profile = known ? readProfile(dataDir, projectId) : null;
-  const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) : null;
+  const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) ?? onCategoryBoard(dataDir, projectId) : null;
   const skill = skillPath && profile?.material?.skills.find((s) => s.path === skillPath);
   if (skillPath ? !skill : !profile && !listed) return { status: 404, error: '没有这个项目或 Skill 的资料' };
   favorites.add(account.id, { projectId, fullName: profile?.fullName ?? listed.name, skillPath, skillName: skill?.name ?? '' });

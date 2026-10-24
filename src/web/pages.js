@@ -5,7 +5,7 @@ import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, LISTS, SINCES } 
 import { CATEGORIES, readCategories } from '../categories/index.js';
 import { readProfile, findProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
 import { boardProjects } from '../profiles/store.js';
-import { windowStatus, project as projectCard, embed } from './home.js';
+import { windowStatus, project as projectCard, embed, categoryListed, categoryOnly } from './home.js';
 import { findSnapshot } from '../ranking/store.js';
 import { readLatestDaily } from '../daily/index.js';
 
@@ -73,9 +73,12 @@ export function boardsData(dataDir, ctx) {
 export function projectData(dataDir, fullName, ctx) {
   const profile = findProfile(dataDir, fullName);
   const listed = profile ? null : boardProjects(dataDir).find((p) => p.name.toLowerCase() === fullName.toLowerCase());
-  if (!profile && !listed) return null;
-  const id = profile?.projectId ?? listed.id;
-  const name = profile?.fullName ?? listed.name;
+  // 只上了分类榜的项目（#10，不生成项目资料）：数字和描述取它所在分类榜的候选。
+  const onCategory = listed ? null : categoryListed(dataDir).get(fullName.toLowerCase()) ?? null;
+  if (!profile && !listed && !onCategory) return null;
+  const id = profile?.projectId ?? listed?.id ?? onCategory[0].entry.projectId;
+  const name = profile?.fullName ?? listed?.name ?? onCategory[0].entry.fullName;
+  const catOnly = !profile && !listed;
   const find = readCategories(dataDir).get;
   const status = readStatus(dataDir);
   // 它在哪些涨星榜上（按窗口顺序），卡片数字取最新生成的那一期的运行。
@@ -85,14 +88,15 @@ export function projectData(dataDir, fullName, ctx) {
     return e ? [{ w, snapshot: s, entry: e }] : [];
   });
   const ranks = onBoards.map(({ w, snapshot, entry }) => ({ w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1 }));
-  const newest = [...onBoards].sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
-  const card = newest.length ? projectCard(dataDir, newest, ctx, find) : brief(dataDir, { id, fullName: name }, ctx, find, profile);
+  const newest = [...(onBoards.length ? onBoards : onCategory ?? [])].sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
+  const shown = newest.length ? projectCard(dataDir, newest, ctx, find) : brief(dataDir, { id, fullName: name }, ctx, find, profile);
+  const card = catOnly ? categoryOnly(shown, newest[0].entry) : shown;
   const g = currentGenerated(profile), m = profile?.material ?? null;
   const d1 = readLatestSnapshot(dataDir, 'd1');
   const page = {
     // 侧栏默认高亮它所在的第一个涨星榜（方案默认近 1 天）；数字取最新一期那次运行，三个窗口都有。
-    repo: card.repo, id, ranks, run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? 'd1',
-    hasProfile: Boolean(profile),
+    repo: card.repo, id, ranks, run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? newest[0]?.w ?? 'd1',
+    hasProfile: Boolean(profile), catOnly,
     conditions: g ? g.conditions.map(({ kind, text, quote }) => ({ kind, text, quote })) : [],
     dropped: g?.droppedConditions ?? 0,
     truncatedDocs: Boolean(m && (m.readme?.truncated || m.docs.some((d) => d.truncated))),
@@ -147,15 +151,21 @@ export function dailyData(dataDir, ctx) {
 export function favoritesData(dataDir, ctx) {
   const find = readCategories(dataDir).get;
   const listed = boardProjects(dataDir);
+  // 只上了分类榜的项目（#10）：不生成项目资料，站内页面照样打得开，总 Star 和描述取分类榜候选里的。
+  const onCategory = new Map([...categoryListed(dataDir).values()].map(([b]) => [b.entry.projectId, b.entry]));
   // 总 Star：各榜最新快照里这个项目的数字（更新时的数字），都没有就“暂缺”。
   const totals = listTotals(dataDir);
   const projects = {};
   const items = ctx.favorites.list(ctx.account.id).map((f) => {
     const profile = readProfile(dataDir, f.projectId);
     const repo = profile?.fullName ?? f.fullName;
-    projects[repo] ??= brief(dataDir, { id: f.projectId, fullName: repo }, ctx, find, profile);
+    const catEntry = !profile && !listed.some((p) => p.id === f.projectId) ? onCategory.get(f.projectId) : null;
+    if (!projects[repo]) {
+      const card = brief(dataDir, { id: f.projectId, fullName: repo }, ctx, find, profile);
+      projects[repo] = catEntry ? categoryOnly(card, catEntry) : card;
+    }
     const skill = f.skillPath ? { path: f.skillPath, name: f.skillName || f.skillPath.split('/').pop(), desc: projects[repo].skills.find((s) => s.path === f.skillPath)?.desc ?? '', missing: !profile?.material?.skills.some((s) => s.path === f.skillPath) } : null;
-    return { repo, id: f.projectId, savedName: f.fullName, renamed: Boolean(profile && profile.fullName !== f.fullName), skill, at: f.createdAt, hasProfile: Boolean(profile), openable: Boolean(profile || listed.some((p) => p.id === f.projectId)), total: totals.of(f.projectId, repo) };
+    return { repo, id: f.projectId, savedName: f.fullName, renamed: Boolean(profile && profile.fullName !== f.fullName), skill, at: f.createdAt, hasProfile: Boolean(profile), catOnly: Boolean(catEntry), openable: Boolean(profile || catEntry || listed.some((p) => p.id === f.projectId)), total: totals.of(f.projectId, repo) ?? catEntry?.total ?? null };
   });
   return { ...base(ctx), top: siteTop(dataDir), items, projects };
 }

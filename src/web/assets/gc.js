@@ -187,7 +187,7 @@ window.GC = (() => {
     li.className = 'row';
     li.setAttribute('role', 'option');
     li.tabIndex = -1;
-    const ds = p.what ?? '简介生成中';
+    const ds = p.what ?? (p.catOnly ? p.desc ?? '只上了分类榜，不生成简介' : '简介生成中');
     li.innerHTML = `<div class="rk"><b></b><i hidden>并列</i></div>
       <img class="av" alt="" loading="lazy" referrerpolicy="no-referrer" src="${avatar(p, 56)}">
       <div class="tx"><div class="nm" title="${esc(p.repo)}"><span class="o">${esc(ownerOf(p))}/</span><span class="n">${esc(nameOf(p))}</span></div><div class="ds" title="${esc(ds)}">${esc(ds)}</div><div class="tg"></div></div>
@@ -224,7 +224,10 @@ window.GC = (() => {
     const span = ctx.win ? SPAN[ctx.win] : 0, run = p.runs[ctx.run];
     const tag = ctx.mode === 'page' ? 'button' : 'div';
     const stats = WINDOWS.map((w) => `<${tag} class="stat"${tag === 'button' ? ` type="button" data-win="${w.id}" aria-pressed="${w.id === ctx.win}"` : ''}${w.id === ctx.win ? ' data-on' : ''}><span class="k">${w.label}新增</span><span class="v">${run.gains[w.id] == null ? '暂缺' : `+${num(run.gains[w.id])}`}</span></${tag}>`).join('');
-    const read = p.what == null
+    // 只上了分类榜的项目（#10）不生成简介：用同一个两栏写明，并列出 GitHub 上的描述
+    const read = p.what == null && p.catOnly
+      ? `<div class="read"><div><div class="k">GitHub 上的描述</div><p>${esc(p.desc ?? '仓库没有填写描述。')}</p></div><div><div class="k">没有简介</div><p>只上了分类榜的项目不生成简介和 Skill 列表；下面的数字已是官方数据。</p></div></div>`
+      : p.what == null
       ? `<div class="gen">${I.sparkle}<span>简介生成中，通常几分钟内完成；下面的数字已是官方数据。</span></div><div class="gen-lines"><span class="sk" style="width:92%;height:14px"></span><span class="sk" style="width:76%;height:14px"></span><span class="sk" style="width:84%;height:14px"></span></div>`
       : `<div class="read"><div><div class="k">它是做什么的</div><p>${esc(p.what)}</p></div><div><div class="k">解决什么问题</div><p>${esc(p.problem)}</p></div></div>`;
     const chart = run.series ? chartHTML(run, span) : '';
@@ -245,7 +248,7 @@ window.GC = (() => {
     </div>
     <div class="dock" role="group" aria-label="安装与收藏">
       <span class="k">安装到</span><div data-target></div>
-      <button class="btn btn-p" type="button" data-copy${p.installable ? '' : ' disabled title="项目资料还没读到，暂时不能生成安装指令"'}>${I.copy}<span>复制安装指令</span></button>
+      <button class="btn btn-p" type="button" data-copy${p.installable ? '' : ` disabled title="${p.catOnly ? '只上了分类榜的项目不生成项目资料，没有安装指令' : '项目资料还没读到，暂时不能生成安装指令'}"`}>${I.copy}<span>复制安装指令</span></button>
       <span class="sp"></span>
       <button class="btn btn-g" type="button" data-fav data-fav-text data-fav-id="${esc(p.repo)}">${I.star}<span>收藏</span></button>
       <a class="btn btn-g btn-i" href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener" title="在 GitHub 打开" aria-label="在 GitHub 打开">${I.external}</a>

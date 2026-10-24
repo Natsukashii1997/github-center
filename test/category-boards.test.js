@@ -1,7 +1,7 @@
-// 按分类筛选榜单（#10）：涨星榜在已核数候选里按分类重新取前 20，完整性下限以下的标出来；其他榜单在榜内过滤。
+// 按分类筛选涨星榜（#10）：在已核数候选里按分类重新取前 20，完整性下限以下的标出来。其他榜单在页面里榜内过滤，见 category-web.test.js。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gainersInCategory, listInCategory } from '../src/categories/boards.js';
+import { gainersInCategory } from '../src/categories/boards.js';
 import { lookup } from '../src/categories/store.js';
 
 // n 个候选，涨星从 base 起每个少 10；cats(i) 给第 i 个的分类（null 表示还没归类）。
@@ -15,7 +15,7 @@ function setup({ n, base = 5000, floor = 1000, cats }) {
   return { candidates: { check: { completenessFloor: floor }, items }, find: lookup(records) };
 }
 
-test('分类里已核数的项目够多：重新取前 20，名次在分类里重排，不看总榜名次', () => {
+test('分类里已核数的项目够多：重新取前 20，名次在分类里重排，不看涨星榜名次', () => {
   const { candidates, find } = setup({ n: 60, cats: (i) => (i % 2 ? ['Skill'] : ['其他']) });
   const r = gainersInCategory({ candidates, find, category: 'Skill' });
   assert.equal(r.entries.length, 20);
@@ -72,19 +72,4 @@ test('还没归类的项目：只数涨星够得上这份名单的', () => {
   assert.equal(r.unclassified, 1);
   const few = setup({ n: 10, cats: (i) => (i < 2 ? ['Skill'] : i === 9 ? null : ['其他']) });
   assert.equal(gainersInCategory({ ...few, category: 'Skill' }).unclassified, 1);
-});
-
-test('其他三个榜单在榜内过滤：新项目榜、累计高星榜按总 Star 重排名次，官方热门榜保持原样顺序', () => {
-  const find = lookup({ 1: { id: 1, fullName: 'a/x', categories: ['Skill'] }, 3: { id: 3, fullName: 'c/z', categories: ['Skill', '其他'] }, 4: { id: 4, fullName: 'd/w', categories: ['其他'] } });
-  const entries = [
-    { rank: 1, projectId: 1, fullName: 'a/x', total: 900 },
-    { rank: 2, projectId: 2, fullName: 'b/y', total: 800 },
-    { rank: 3, projectId: 3, fullName: 'c/z', total: 900 },
-    { rank: 4, projectId: 4, fullName: 'd/w', total: 100 },
-  ];
-  const top = listInCategory({ entries, find, category: 'Skill', byTotal: true });
-  assert.deepEqual(top.entries.map((e) => [e.rank, e.fullName]), [[1, 'a/x'], [1, 'c/z']]);
-  assert.equal(top.unclassified, 1);
-  const hot = listInCategory({ entries: [entries[3], entries[2]], find, category: '其他', byTotal: false });
-  assert.deepEqual(hot.entries.map((e) => [e.rank, e.fullName]), [[1, 'd/w'], [2, 'c/z']]);
 });

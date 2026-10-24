@@ -22,7 +22,7 @@
     ${readOf(p, pg)}${condList(p, pg)}${skillList(p, pg)}${sources(pg)}`;
   side.innerHTML = `${statStrip(run, win)}${chartOf(run, win)}
     <div><span class="k">安装到</span><div data-target></div></div>
-    <button class="btn btn-p btn-w" type="button" data-copy${p.installable ? '' : ' disabled title="项目资料还没读到，暂时不能生成安装指令"'}>${I.copy}<span>复制安装指令</span></button>
+    <button class="btn btn-p btn-w" type="button" data-copy${p.installable ? '' : ` disabled title="${p.catOnly ? '只上了分类榜的项目不生成项目资料，没有安装指令' : '项目资料还没读到，暂时不能生成安装指令'}"`}>${I.copy}<span>复制安装指令</span></button>
     <div class="acts"><button class="btn btn-g" type="button" data-fav data-fav-text data-fav-id="${esc(p.repo)}"${p.id ? '' : ' disabled title="这个项目还没核出 GitHub 编号，暂时不能收藏"'}>${I.star}<span>收藏</span></button><a class="btn btn-g btn-i" href="https://github.com/${esc(p.repo)}" target="_blank" rel="noopener" title="在 GitHub 打开" aria-label="在 GitHub 打开">${I.external}</a></div>`;
   GC.seg($('[data-target]', side), D.ais, target, (t) => { target = t; }, 160);
   const copy = $('[data-copy]', side);

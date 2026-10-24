@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } fro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CATEGORIES } from '../src/categories/index.js';
-import { visit } from './helpers/web.js';
+import { visit, serve, http, form } from './helpers/web.js';
 
 const day = '2026-10-22';
 const fixture = new URL('./fixtures/snapshot-d1-2026-10-22.json', import.meta.url);
@@ -17,7 +17,7 @@ const dataOf = (body) => JSON.parse(body.match(/<script type="application\/json"
 const WEEK = (d) => Date.parse(`${d}T00:00:00Z`) / 1000;
 const weeks = [0, 1, 2, 3, 4, 5].map((i) => ({ week: WEEK('2026-10-18') - i * 7 * 86400, days: [1, 1, 1, 1, 1, 1, 1] }));
 
-// 近 1 天快照（#2 的素材）加上这一期的候选和分类：php/php-src 在总榜第 1；x/skill-only 只在候选里。
+// 近 1 天快照（#2 的素材）加上这一期的候选和分类：php/php-src 在涨星榜第 1；x/skill-only 只在候选里。
 function seed({ candidates = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'gc-catweb-'));
   mkdirSync(join(dir, 'snapshots', 'd1'), { recursive: true });
@@ -68,7 +68,34 @@ test('首页嵌入 9 个分类和每个窗口的分类榜：在已核数候选�
   assert.ok(!JSON.stringify(data).includes('"raw"'));
 });
 
-test('这一期出榜时还没另存候选：分类榜如实说明还没有，总榜照常', async () => {
+test('只上了分类榜的项目不生成项目资料（所有者 2026-10-24 选 B）：卡片不写“简介生成中”，项目页打得开，能收藏', async () => {
+  const dir = seed();
+  const site = await serve(dir);
+  try {
+    const home = dataOf((await site.get()).body);
+    assert.deepEqual([home.projects['x/skill-only'].catOnly, home.projects['x/skill-only'].desc], [true, 'skills']);
+    assert.equal(home.projects['php/php-src'].catOnly, undefined);
+    // 项目页：数字取它所在分类榜那次运行，侧栏没有涨星榜名次，写明不生成简介。
+    const page = await site.get('p/x/skill-only');
+    assert.equal(page.status, 200);
+    const data = dataOf(page.body);
+    assert.deepEqual([data.page.catOnly, data.page.hasProfile, data.page.ranks, data.page.win], [true, false, [], 'd1']);
+    const card = data.projects['x/skill-only'];
+    assert.deepEqual([card.catOnly, card.desc, card.runs[data.page.run].total], [true, 'skills', 2400]);
+    // 收藏：分类榜上的项目也能收，收藏页里能点进站内页面，总 Star 取候选里的。
+    const saved = await http(site.url + 'api/favorites', form({ action: 'add', project_id: '777' }, { cookie: site.cookie }));
+    assert.equal(saved.status, 200);
+    const fav = dataOf((await site.get('favorites')).body);
+    assert.deepEqual(fav.items.map((f) => [f.repo, f.catOnly, f.openable, f.total]), [['x/skill-only', true, true, 2400]]);
+    assert.equal(fav.projects['x/skill-only'].desc, 'skills');
+    // 不在任何榜单上的仍然找不到。
+    assert.equal((await site.get('p/nobody/nothing')).status, 404);
+  } finally {
+    site.close();
+  }
+});
+
+test('这一期出榜时还没另存候选：分类榜如实说明还没有，涨星榜照常', async () => {
   const data = dataOf((await visit(seed({ candidates: false }))).body);
   assert.equal(data.windows.d1.entries.length, 7);
   const b = data.windows.d1.byCat.Skill;

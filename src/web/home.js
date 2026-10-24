@@ -10,6 +10,7 @@ import { CATEGORIES, readCategories, gainersInCategory } from '../categories/ind
 import { bucketOf, windowDays } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';
 import { readProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
+import { boardProjects } from '../profiles/store.js';
 
 const SERIES_DAYS = 30;
 const label = (w) => `近 ${WINDOWS[w].days} 天`;
@@ -73,7 +74,28 @@ const rowsOf = (entries, snapshot) => {
 };
 
 // 候选当成榜单条目用（卡片按它这次运行存下的官方星数历史取数字）。
-const candidateEntry = (c) => ({ projectId: c.id, fullName: c.fullName, gain: c.gain, total: c.total, evidence: { history: { path: c.evidence.history } } });
+const candidateEntry = (c) => ({ projectId: c.id, fullName: c.fullName, gain: c.gain, total: c.total, description: c.description ?? null, evidence: { history: { path: c.evidence.history } } });
+
+// 最新一期各窗口分类榜上的项目（#10），按小写名字索引，值和首页卡片的 onBoards 同形（每个窗口一条）。
+// 只上了分类榜、不在其他榜单上的项目不生成项目资料（所有者 2026-10-24 选 B）：项目页、阅读卡和收藏靠它认出来，用候选里的描述和数字。
+export function categoryListed(dataDir) {
+  const find = readCategories(dataDir).get;
+  const byName = new Map();
+  for (const w of Object.keys(WINDOWS)) {
+    const snapshot = readLatestSnapshot(dataDir, w);
+    const candidates = snapshot && readCandidates(dataDir, w, snapshot.statDay);
+    if (!candidates) continue;
+    for (const category of CATEGORIES) for (const c of gainersInCategory({ candidates, find, category }).entries) {
+      const key = c.fullName.toLowerCase();
+      if (!byName.has(key)) byName.set(key, []);
+      if (!byName.get(key).some((b) => b.w === w)) byName.get(key).push({ w, snapshot, entry: candidateEntry(c) });
+    }
+  }
+  return byName;
+}
+
+// 只上了分类榜的项目：卡片标出来（不写“简介生成中”），描述取候选里 GitHub 上的那句。
+export const categoryOnly = (card, entry) => ({ ...card, catOnly: true, desc: entry.description ?? null });
 
 // 一个窗口的 9 个分类榜（#10）。提示条：完整性下限以下的从第几名起（所有者 2026-10-23 决定照样列出、用提示条写明）、
 // 不足 20 个、还有够得上名单却没归类的项目。这一期出榜时还没另存候选的，分类榜如实说明还没有。
@@ -145,7 +167,7 @@ export function homeData(dataDir, ctx) {
   const find = readCategories(dataDir).get;
   const snapshots = Object.fromEntries(Object.keys(WINDOWS).map((w) => [w, readLatestSnapshot(dataDir, w)]));
   const windows = Object.fromEntries(Object.entries(snapshots).map(([w, s]) => [w, board(w, s, status, s && readCandidates(dataDir, w, s.statDay), find)]));
-  // 卡片要的项目：总榜上的，加上分类榜上的（同一窗口里总榜上已有的不重复记）。
+  // 卡片要的项目：涨星榜上的，加上分类榜上的（同一窗口里涨星榜上已有的不重复记）。
   const seen = new Map();
   const add = (w, snapshot, entry) => {
     if (!seen.has(entry.fullName)) seen.set(entry.fullName, []);
@@ -158,12 +180,16 @@ export function homeData(dataDir, ctx) {
   }
   for (const b of Object.values(windows).flatMap((x) => Object.values(x.byCat ?? {}))) delete b.raw;
   for (const list of seen.values()) list.sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
+  const listed = new Set(boardProjects(dataDir).map((p) => p.name.toLowerCase()));
   return {
     account: { name: ctx.account.name },
     ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]),
     cats: CATEGORIES,
     windows,
-    projects: Object.fromEntries([...seen].map(([name, list]) => [name, project(dataDir, list, ctx, find)])),
+    projects: Object.fromEntries([...seen].map(([name, list]) => {
+      const card = project(dataDir, list, ctx, find);
+      return [name, listed.has(name.toLowerCase()) || (card.id && readProfile(dataDir, card.id)) ? card : categoryOnly(card, list[0].entry)];
+    })),
   };
 }
 
