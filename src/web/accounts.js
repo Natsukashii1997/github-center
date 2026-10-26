@@ -45,6 +45,8 @@ export function openAccounts(dataDir) {
       return password;
     },
     list: () => db.prepare('SELECT name, role, created_at FROM accounts ORDER BY id').all(),
+    // 按名字找账号（id、名字和身份），没有返回 null；免登录分享时用（见 server.js 的 guest）。
+    find: (name) => db.prepare('SELECT id, name, role FROM accounts WHERE name = ?').get(name) ?? null,
     // 账号密码对就返回新会话令牌，不对返回 null。
     login(name, password, now = Date.now()) {
       const account = byName.get(name);

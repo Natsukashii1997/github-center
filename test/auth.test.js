@@ -220,3 +220,40 @@ test('本机命令：开所有者和伙伴账号、重置密码、列出账号�
     accounts.close();
   }
 });
+
+test('免登录（guest）：不带 Cookie 也直接当作共用账号，登录页回首页；账号不存在就起不来', async () => {
+  const dataDir = fresh();
+  testAccount(dataDir, '大家');
+  const { server, url } = await startServer({ dataDir, port: 0, guest: '大家' });
+  try {
+    const home = await http(url);
+    assert.equal(home.status, 200);
+    assert.equal(dataOf(home.body).account.name, '大家');
+    const login = await http(url + 'login');
+    assert.equal(login.status, 303);
+    assert.equal(login.headers.location, '/');
+    assert.equal((await http(url + 'favorites')).status, 200);
+  } finally {
+    server.close();
+  }
+  assert.throws(() => startServer({ dataDir: fresh(), port: 0, guest: '没有这人' }), /没有账号 没有这人/);
+});
+
+test('对局域网开放（host 0.0.0.0）时，用本机 IP 打开提交的表单算本站；只监听本机时照旧拒绝', async () => {
+  const dataDir = fresh();
+  const lanSite = await startServer({ dataDir, port: 0, host: '0.0.0.0' });
+  const local = await startServer({ dataDir, port: 0 });
+  const viaIp = (url) => {
+    const host = `192.168.1.5:${new URL(url).port}`;
+    return http(url + 'logout', { method: 'POST', headers: { host, origin: `http://${host}` } });
+  };
+  try {
+    assert.equal((await viaIp(lanSite.url)).status, 303);
+    assert.equal((await viaIp(local.url)).status, 403);
+    // 别的网站照样挡住。
+    assert.equal((await http(lanSite.url + 'logout', { method: 'POST', headers: { origin: 'http://evil.example' } })).status, 403);
+  } finally {
+    lanSite.server.close();
+    local.server.close();
+  }
+});

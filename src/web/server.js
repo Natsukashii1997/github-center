@@ -1,4 +1,4 @@
-// 本机网站：只监听 127.0.0.1；登录后才能看（#5）。页面只读快照和更新记录，访问时不调用任何外部接口。
+// 本机网站：默认只监听 127.0.0.1，登录后才能看（#5）；所有者 2026-10-26 要分享给同一 Wi-Fi 的人看，可改监听地址、免登录共用一个账号（见 startServer）。页面只读快照和更新记录，访问时不调用任何外部接口。
 // 首页是涨星榜（近 1/7/30 天，#13 起按冻结的视觉方案 t1b-r2，见 home.js）；其他榜单（新项目榜、官方热门榜、累计高星榜并排）、项目页、
 // 日报、我的收藏、登录自 #14 起按冻结的视觉方案 t1b-pages-r1（见 pages.js）。点开榜单上的项目进入项目页（#6），项目页能复制安装指令（#7）、
 // 收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。三个榜单都能按分类筛选，在榜内过滤（#10），项目页写明分类。
@@ -28,10 +28,11 @@ function safeNext(next) {
 }
 // 表单只接受本站这个端口提交的（没有 Origin，或 Origin 正是本站），挡住别的网站，也挡住本机别的端口上的网页代为提交：
 // 会话 Cookie 不分端口，本机其他端口的网页发来的请求浏览器也会带上它（#5 审查记下、#8 收紧）。
-function sameOrigin(req) {
+// 对局域网开放时，别人用本机 IP 打开，Origin 是那个地址，和请求里的 Host 一致才算本站。
+function sameOrigin(req, lan) {
   const { origin } = req.headers;
   const port = req.socket.localPort;
-  return !origin || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}`;
+  return !origin || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}` || (lan && origin === `http://${req.headers.host}`);
 }
 
 // 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上
@@ -80,8 +81,15 @@ function readForm(req) {
   });
 }
 
-export function startServer({ dataDir, port = 5310 }) {
+// host：监听地址，默认只本机；'0.0.0.0' 让同一 Wi-Fi 的人能打开。guest：免登录，所有人都当作这个已有账号（共用收藏），登录页直接回首页。
+export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest }) {
   const accounts = openAccounts(dataDir);
+  const guestAccount = guest ? accounts.find(guest) : null;
+  if (guest && !guestAccount) {
+    accounts.close();
+    throw new Error(`没有账号 ${guest}，先运行 npm run account -- add ${guest} --partner`);
+  }
+  const lan = host !== '127.0.0.1';
   const favorites = openFavorites(dataDir);
   const handle = async (req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
@@ -96,11 +104,11 @@ export function startServer({ dataDir, port = 5310 }) {
     const sendAsset = () => send(200, { 'content-type': `${ASSETS[asset]}; charset=utf-8`, 'cache-control': 'no-cache' }, assetFile(asset));
     if (LOGIN_ASSETS.has(asset) && (req.method === 'GET' || req.method === 'HEAD')) return sendAsset();
     if (url.pathname === '/login' && (req.method === 'GET' || req.method === 'HEAD')) {
-      return accounts.session(cookieOf(req)) ? send(303, { location: '/' }) : html(200, loginPage(safeNext(url.searchParams.get('next'))));
+      return guestAccount || accounts.session(cookieOf(req)) ? send(303, { location: '/' }) : html(200, loginPage(safeNext(url.searchParams.get('next'))));
     }
     if (url.pathname === '/login' || url.pathname === '/logout') {
       if (req.method !== 'POST') return send(405, {});
-      if (!sameOrigin(req)) return text(403, '只接受本站提交的表单');
+      if (!sameOrigin(req, lan)) return text(403, '只接受本站提交的表单');
       if (url.pathname === '/logout') {
         accounts.logout(cookieOf(req));
         return send(303, { location: '/login', 'set-cookie': sessionCookie('', 0) });
@@ -112,7 +120,7 @@ export function startServer({ dataDir, port = 5310 }) {
       return send(303, { location: safeNext(form.get('next')), 'set-cookie': sessionCookie(token, SESSION_DAYS * 86400) });
     }
 
-    const account = accounts.session(cookieOf(req));
+    const account = guestAccount ?? accounts.session(cookieOf(req));
     if (!account) {
       if (url.pathname.startsWith('/api/')) return json(401, { error: '未登录' });
       return send(303, { location: `/login?next=${encodeURIComponent(url.pathname + url.search)}` });
@@ -121,7 +129,7 @@ export function startServer({ dataDir, port = 5310 }) {
     if ((url.pathname === '/favorites' || url.pathname === '/api/favorites') && req.method === 'POST') {
       const api = url.pathname === '/api/favorites';
       const refuse = ({ status, error }) => (api ? json(status, { error }) : text(status, error));
-      if (!sameOrigin(req)) return refuse({ status: 403, error: '只接受本站提交的表单' });
+      if (!sameOrigin(req, lan)) return refuse({ status: 403, error: '只接受本站提交的表单' });
       const form = await readForm(req).catch(() => null);
       if (!form) return api ? json(413, { error: '表单太大' }, { connection: 'close' }) : tooBig();
       const refused = changeFavorite(dataDir, favorites, account, form);
@@ -179,6 +187,6 @@ export function startServer({ dataDir, port = 5310 }) {
   });
   return new Promise((resolve, reject) => {
     server.once('error', reject);
-    server.listen(port, '127.0.0.1', () => resolve({ server, url: `http://127.0.0.1:${server.address().port}/` }));
+    server.listen(port, host, () => resolve({ server, url: `http://127.0.0.1:${server.address().port}/` }));
   });
 }
