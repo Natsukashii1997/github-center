@@ -21,3 +21,5 @@
 ### Domain docs
 
 使用 single-context：根目录 `GLOSSARY.md` 与 `docs/adr/`。见 `docs/agents/domain.md`。
+
+改动怎么走、分支怎么起名、交接写在哪、怎么合并：见 `/Users/nat/Documents/ChatGPT/个人/work/agent-kit/工程流程.md`。
