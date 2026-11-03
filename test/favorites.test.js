@@ -61,7 +61,7 @@ test('收藏和取消收藏项目、单个 Skill；“我的收藏”列出全�
     assert.deepEqual(savedOn(page.body), { saved: true, skills: ['skills/pdf'] });
 
     const mine = await site.get('favorites');
-    assert.match(mine.body, /<h1>我的收藏<\/h1>/);
+    assert.match(mine.body, /<title>我的收藏 · GitHub 快速中心<\/title>/);
     // 新收藏的在前；都能在站内打开（页面脚本把 Skill 链到项目页上那一条 #skill-<路径>）。
     const items = dataOf(mine.body).items;
     assert.deepEqual(favs(mine.body), [['acme/agent-kit', 'skills/pdf'], ['acme/agent-kit', '']]);
@@ -215,6 +215,47 @@ test('收藏接口（首页上的收藏按钮用）：收藏和取消回 JSON，
     assert.deepEqual([missing.status, JSON.parse(missing.body)], [404, { error: '没有这个项目或 Skill 的资料' }]);
     const odd = await api({ project_id: '101', skill: '', action: 'add' }, { origin: 'http://127.0.0.1:5999' });
     assert.deepEqual([odd.status, JSON.parse(odd.body)], [403, { error: '只接受本站提交的表单' }]);
+  } finally {
+    site.close();
+  }
+});
+
+test('我的收藏按类别分组（#22 收藏架）：项目归第一个分类，Skill 收藏全归「Skill」组；组按收藏数从多到少；卡片一句话取补资料，没生成就空着', async () => {
+  const dataDir = dataDirWithProfile();
+  // 101 已生成一句话等短字段；303 是旧版生成（没有一句话）；202 在榜上、还没资料。
+  const profile = JSON.parse(readFileSync(profilePath(dataDir), 'utf8'));
+  profile.generated = { materialHash: 'h1', what: '做什么', problem: '解决什么', conditions: [], skillPurposes: {}, line: '给智能体配一套工具', use: ['读 PDF'], scene: ['整理资料'], tag: '智能体工具', type: 'Skill' };
+  writeFileSync(profilePath(dataDir), JSON.stringify(profile));
+  writeFileSync(join(dataDir, 'profiles', '303.json'), JSON.stringify({ ...profile, projectId: 303, fullName: 'acme/flow', generated: { materialHash: 'h1', what: '旧版', problem: '旧版', conditions: [], skillPurposes: {} } }));
+  writeFileSync(join(dataDir, 'categories.json'), JSON.stringify({ items: {
+    101: { id: 101, fullName: 'acme/agent-kit', categories: ['Agent／MCP', 'Skill'], source: 'batch' },
+    202: { id: 202, fullName: 'acme/tiny', categories: ['Agent／MCP'], source: 'batch' },
+    303: { id: 303, fullName: 'acme/flow', categories: ['工作流自动化'], source: 'batch' },
+  } }));
+  const site = await serve(dataDir);
+  try {
+    for (const [id, skill] of [['303', ''], ['101', ''], ['101', 'skills/pdf'], ['101', 'skills/notes'], ['202', '']]) await post(site, { project_id: id, skill, action: 'add' });
+    const d = dataOf((await site.get('favorites')).body);
+    // 新收藏的在前；两组一样多时最近收藏的组在前。
+    assert.deepEqual(d.items.map((x) => [x.repo, x.skill?.path ?? '', x.shelf, x.cat, x.line]), [
+      ['acme/tiny', '', 'Agent／MCP', 'Agent／MCP', null],
+      ['acme/agent-kit', 'skills/notes', 'Skill', 'Agent／MCP', 'Take notes.'],
+      ['acme/agent-kit', 'skills/pdf', 'Skill', 'Agent／MCP', 'Read PDFs.'],
+      ['acme/agent-kit', '', 'Agent／MCP', 'Agent／MCP', '给智能体配一套工具'],
+      ['acme/flow', '', '工作流自动化', '工作流自动化', null],
+    ]);
+    assert.deepEqual(d.shelves, [{ name: 'Agent／MCP', n: 2 }, { name: 'Skill', n: 2 }, { name: '工作流自动化', n: 1 }]);
+    // 详情栏要的：说明标签、定义标签等短字段跟着项目走；在涨星榜上的带名次，统计格高亮那个窗口。
+    const kit = d.projects['acme/agent-kit'];
+    assert.deepEqual([kit.tag, kit.type, kit.use, kit.scene], ['智能体工具', 'Skill', ['读 PDF'], ['整理资料']]);
+    assert.deepEqual([d.projects['acme/flow'].line, d.projects['acme/flow'].tag, d.projects['acme/flow'].type], [null, null, null]);
+    assert.deepEqual([d.views['acme/tiny'].win, d.views['acme/tiny'].ranks.map((r) => r.rank)], ['d1', [1]]);
+    assert.deepEqual([d.views['acme/agent-kit'].win, d.views['acme/agent-kit'].ranks], [null, []]);
+    // Skill 从仓库删掉：照样在「Skill」组，标成已不在仓库。
+    profile.material.skills = profile.material.skills.filter((s) => s.path !== 'skills/pdf');
+    writeFileSync(profilePath(dataDir), JSON.stringify(profile));
+    const after = dataOf((await site.get('favorites')).body).items.find((x) => x.skill?.path === 'skills/pdf');
+    assert.deepEqual([after.shelf, after.skill.missing], ['Skill', true]);
   } finally {
     site.close();
   }

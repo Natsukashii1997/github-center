@@ -61,8 +61,8 @@ window.BW = (() => {
   }
   // 首页一行：快照里的名次、并列、本期新增、名次变化与连续期数（#17）
   const item = (w, e) => view(e.repo, e.run, { e, w, rank: e.rank, tie: e.tie, gain: e.gain, st: status(e), mv: move(e.mv) });
-  // 简介没有时如实说明：不在各榜单前 20 的项目不生成项目资料（catOnly）；资料还没读到；资料读到了、简介还在生成
-  const gen = (it) => (it.catOnly ? `这个项目不在各榜单前 20 里，不生成简介和 Skill 列表。${it.desc ? `GitHub 上的描述：${it.desc}` : ''}` : it.installable ? '简介生成中，通常几分钟内完成；数字已是官方数据。' : '项目资料还没读到，简介和 Skill 列表会在每天出榜后补上；数字已是官方数据。');
+  // 简介没有时如实说明：不在各榜单前 20 的项目不生成项目资料（catOnly）；分类榜上还没生成中文简介的先给 GitHub 上的描述（ghDesc）；资料还没读到；资料读到了、简介还在生成
+  const gen = (it) => (it.catOnly ? `这个项目不在各榜单前 20 里，不生成简介和 Skill 列表。${it.desc ? `GitHub 上的描述：${it.desc}` : ''}` : it.ghDesc ? `中文简介还没生成。GitHub 上的描述：${it.ghDesc}` : it.installable ? '简介生成中，通常几分钟内完成；数字已是官方数据。' : '项目资料还没读到，简介和 Skill 列表会在每天出榜后补上；数字已是官方数据。');
   // 复制按钮：没有项目资料就不能生成安装指令，按钮禁用并写明原因（行、详情栏、Skill 行共用）
   const noCopy = (it) => (it.installable ? '' : ` disabled title="${it.catOnly ? '这个项目不生成项目资料，没有安装指令' : '项目资料还没读到，暂时不能生成安装指令'}"`);
 

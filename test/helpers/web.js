@@ -28,8 +28,9 @@ export function testAccount(dataDir, name = 'tester') {
   }
 }
 
-export async function serve(dataDir) {
-  const { server, url } = await startServer({ dataDir, port: 0 });
+// opts 原样交给 startServer（如 lookupRepo）。
+export async function serve(dataDir, opts = {}) {
+  const { server, url } = await startServer({ dataDir, port: 0, ...opts });
   const login = await http(url + 'login', form({ name: 'tester', password: testAccount(dataDir) }));
   const cookie = login.headers['set-cookie'][0].split(';')[0];
   return { server, url, cookie, get: (path = '') => http(url + path, { headers: { cookie } }), close: () => server.close() };
