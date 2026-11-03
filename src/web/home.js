@@ -184,11 +184,11 @@ export function homeData(dataDir, ctx) {
 export const embed = (data) => JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
 // 白雾外壳（2026-11-03 重设计，定稿原型 design/candidates/redesign/r7.html）：白底、反色 ASCII 鲨鱼背景、顶栏只有涨星榜／分类榜／我的收藏。
-// 分类榜见 categories.js（#27）。css、js 是这一页另要的样式和脚本（shell.css 放最后，外壳的底色优先于我的收藏还在用的旧样式）；
-// one 为真时整页不滚动，只在盒子里滚（首页）。
+// 分类榜见 categories.js（#27）。css、js 是这一页另要的样式和脚本（shell.css 放最后，外壳的底色优先于我的收藏还在用的旧样式）。
+// 三页都整页滚动、顶栏吸顶。
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const NAV = [['/', '涨星榜'], ['/categories', '分类榜'], ['/favorites', '我的收藏']];
-export const frame = ({ title, active, ctx, css = [], js = [], data, body, bar = '', one }) => `<!doctype html>
+export const frame = ({ title, active, ctx, css = [], js = [], data, body, bar = '' }) => `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -196,7 +196,7 @@ export const frame = ({ title, active, ctx, css = [], js = [], data, body, bar =
 <title>${title} · GitHub 快速中心</title>
 ${[...css, 'shell.css'].map((f) => `<link rel="stylesheet" href="/assets/${f}">`).join('\n')}
 </head>
-<body${one ? ' class="one"' : ''}>
+<body>
 <canvas class="sea" id="sea" aria-hidden="true"></canvas>
 <div class="fog"></div>
 <div class="app">
@@ -216,7 +216,8 @@ ${js.map((f) => `<script src="/assets/${f}"></script>`).join('\n')}
 `;
 
 // 首页涨星榜：报头、筛选条、前三卡、其余上榜的行，点项目从右侧滑出详情栏（assets/home.js 画）。
-export const homePage = (data, ctx) => frame({ title: '涨星榜', active: '涨星榜', ctx, css: ['bw.css'], js: ['bw.js', 'home.js'], data, one: true,
+// 和分类榜一样整页滚动、顶栏吸顶、底部留 30vh 空白（所有者 2026-11-03 改，原来是整页不滚、只有榜单盒子内部滚）。
+export const homePage = (data, ctx) => frame({ title: '涨星榜', active: '涨星榜', ctx, css: ['bw.css'], js: ['bw.js', 'home.js'], data,
   bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="搜项目名、标签、用途"><span class="kbd">/</span></label>',
   body: `  <div class="wrap">
     <section class="hero-box" id="head"></section>
