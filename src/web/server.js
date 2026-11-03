@@ -2,6 +2,7 @@
 // 2026-11-03 起（#21）按白雾定稿重做：导航只有涨星榜（首页，近 1/7/30 天，见 home.js）／分类榜（/categories，#27，见 categories.js）／我的收藏。点首页上的项目从右侧滑出
 // 详情栏，项目页 /p/作者/仓库名 是同一份内容（#6）：能复制安装指令（#7）、收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。
 // 日报页、其他榜单页删除，旧地址 /daily、/new、/top、/trending、/boards 跳首页。
+// 2026-11-03 加设置页 /settings（见 settings.js），只有所有者能改。
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { openAccounts, SESSION_DAYS } from './accounts.js';
@@ -12,6 +13,7 @@ import { homeData, homePage, categoryListed } from './home.js';
 import { projectData, projectMissing, projectPage, favoritesData, favoritesPage, loginPage } from './pages.js';
 import { categoriesData, categoriesPage, picksApi, onCategoriesPage } from './categories.js';
 import { openPicks, PicksError } from '../boards/index.js';
+import { settingsData, settingsPage, changeSettings, SettingsError } from './settings.js';
 
 // 登录（#5）：除登录页外，所有页面和接口都要先登录。会话令牌放在 HttpOnly Cookie 里。
 const COOKIE = 'gc_session';
@@ -61,7 +63,7 @@ function changeFavorite(dataDir, favorites, picks, account, form) {
 }
 
 // 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页、项目页、我的收藏和分类榜（bw，收藏页另有 favorites，分类榜另有 categories），登录页沿用 #14 的那套。
-const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'favorites.css': 'text/css', 'categories.css': 'text/css', 'categories.js': 'text/javascript', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript' };
+const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'favorites.css': 'text/css', 'categories.css': 'text/css', 'categories.js': 'text/javascript', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript', 'settings.css': 'text/css', 'settings.js': 'text/javascript' };
 const assetFile = (name) => readFileSync(new URL(`./assets/${name}`, import.meta.url));
 // 登录页（#14）要用的样式和脚本：不登录也能取（只是设计变量、图标和组件代码，不含任何数据）；其余页面脚本登录后才给。
 const LOGIN_ASSETS = new Set(['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js', 'login.js']);
@@ -155,6 +157,20 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
         throw e;
       }
     }
+    // 设置页：改一项存一次。只有所有者能改、只接受本站提交；不合规整份不存，回原因。
+    if (url.pathname === '/api/settings') {
+      if (req.method !== 'POST') return json(405, { error: '只接受 POST' });
+      if (!sameOrigin(req, lan)) return json(403, { error: '只接受本站提交的表单' });
+      if (account.role !== 'owner') return json(403, { error: '只有所有者能改设置' });
+      const form = await readForm(req).catch(() => null);
+      if (!form) return json(413, { error: '表单太大' }, { connection: 'close' });
+      try {
+        return json(200, { settings: changeSettings(dataDir, form) });
+      } catch (e) {
+        if (e instanceof SettingsError) return json(400, { error: e.message });
+        throw e;
+      }
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
     if (asset && Object.hasOwn(ASSETS, asset)) return sendAsset();
     const ctx = { account, favorites, guest: Boolean(guestAccount) };
@@ -176,6 +192,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
     if (['/daily', '/new', '/top', '/trending', '/boards'].includes(url.pathname)) return send(303, { location: '/' });
     if (url.pathname === '/favorites') return html(200, favoritesPage(favoritesData(dataDir, ctx), ctx));
     if (url.pathname === '/categories') return html(200, categoriesPage(categoriesData(dataDir, ctx, picks), ctx));
+    if (url.pathname === '/settings') return html(200, settingsPage(settingsData(dataDir, ctx), ctx));
     const project = url.pathname.match(/^\/p\/([\w.-]+\/[\w.-]+)$/);
     if (project) {
       // 只给有资料或正在榜单上的项目出页面；别的回 404，页面照方案写“找不到这个项目”。
