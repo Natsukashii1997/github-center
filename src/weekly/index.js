@@ -9,8 +9,9 @@ import { readJson, writeOnce, writeAtomic } from '../ranking/store.js';
 import { windowDays } from '../ranking/stat-day.js';
 import { readProfile, findProfile, currentGenerated } from '../profiles/index.js';
 import { windowStatus } from '../web/home.js';
-import { SITE } from '../daily/feishu.js';
 
+// 本机网站（npm run serve 的默认端口，也是常驻服务的端口）。
+export const SITE = 'http://127.0.0.1:5310';
 export const TOP = 10;
 const md = (day) => `${Number(day.slice(5, 7))} 月 ${Number(day.slice(8, 10))} 日`;
 const num = (n) => n.toLocaleString('en-US');
