@@ -11,8 +11,9 @@
 | `center.db`：账号、会话、收藏、精选标签、换卡、投票 | 服务器的网页 | 不推、不覆盖 |
 | `center.db`：精选榜候选池和 Codex 建议的标签 | Mac 的精选榜步骤 | 先拉服务器的标签清单和固定的卡，算完写 `pick-pool.json` 推上去，服务器写库并补卡 |
 | `runs/`、`logs/`、`update-state.json` | Mac | 不推 |
+| 服务器 `center.db` 的备份 | Mac 拉回 | 每日更新最后一步推完后，存 `data/backups/center-<日期>.db`，留 14 份（#48） |
 
-代码在 `src/remote/`、`bin/push.js`、`scripts/server.sh`。
+代码在 `src/remote/`、`bin/push.js`、`bin/health.js`、`scripts/server.sh`。
 
 ## 服务器布局
 
@@ -47,6 +48,21 @@ ssh -i ~/.ssh/github_center_aliyun root@47.100.185.175 'cd /srv/tidings && runus
 ```
 
 看网站日志：`journalctl -u tidings -n 50`。
+
+健康检查（#48，猛鬼兽每天 09:50 工程自检调用，没问题不输出）：
+
+```bash
+node bin/health.js
+```
+
+检查每日更新多久没跑、有没有卡住或失败的步骤、服务器上的网站在不在跑、库的备份是否超过 2 天。Mac 一直关机时这条也跑不了，靠网站上写明的数据日期。
+
+从备份恢复服务器的库（先停网站）：
+
+```bash
+scp -i ~/.ssh/github_center_aliyun data/backups/center-<日期>.db root@47.100.185.175:/srv/tidings/data/center.db.restore
+ssh -i ~/.ssh/github_center_aliyun root@47.100.185.175 'cd /srv/tidings/data && systemctl stop tidings && rm -f center.db-wal center.db-shm && mv center.db.restore center.db && chown tidings:tidings center.db && systemctl start tidings'
+```
 
 ## 注意
 
