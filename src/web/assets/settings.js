@@ -23,7 +23,7 @@
   const inUse = () => D.sources.filter((s) => s.fixed || S.sources[s.key]).length;
   function mast() {
     const r = D.run;
-    const last = !r ? ['—', ''] : r.running ? [when(r.startedAt), '<small>正在更新</small>'] : r.off ? [when(r.startedAt), '<small>已关掉</small>'] : [when(r.startedAt), r.failed.length ? `<small class="bad">失败 ${r.failed.length} 步</small>` : '<small class="ok">全部成功</small>'];
+    const last = !r ? ['—', ''] : r.running ? [when(r.startedAt), '<small>正在更新</small>'] : [when(r.startedAt), r.failed.length ? `<small class="bad">失败 ${r.failed.length} 步</small>` : '<small class="ok">全部成功</small>'];
     const tick = [['上次更新', ...last], ['下次更新', S.daily.on ? `${D.next.today ? '今天' : '明天'} ${D.next.at}` : '已关掉', ''], ['数据源', inUse(), `<small>/ ${D.sources.length} 在用</small>`]];
     $('mast').innerHTML = `<div><div class="kick"><span>数据源 · 定时 · 智能体 · 接入</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Settings</span><b>设置页</b></span></h1></div>
       <div class="tick">${tick.map(([k, v, s]) => `<div><div class="k">${k}</div><div class="v">${v}${s}</div></div>`).join('')}</div><div class="band"></div>`;
@@ -50,7 +50,7 @@
     const cards = [
       ['s-src', '数据源', `${inUse()}/${D.sources.length}`, `数据源 <small>每天跟着每日更新一起抓；关掉的来源不再抓，网站上用到它的部分沿用最后一次的数据</small>`, D.sources.map(sourceRow).join('')],
       ['s-time', '定时与推送', '2', '定时与推送 <small>本机 launchd 任务</small>', [
-        row(`<span class="sdot${S.daily.on ? '' : ' off'}"></span>每日更新`, `${steps}。<br>统计日按 UTC 划分、北京时间 08:00 才结束，事件文件还要晚约 1 小时，所以不能早于 ${D.earliest}；按 15 分钟一档。<span class="err" id="at-err"></span>`,
+        row(`<span class="sdot${S.daily.on ? '' : ' off'}"></span>每日更新`, `${steps}。<br>统计日按 UTC 划分、北京时间 08:00 才结束，事件文件还要晚约 1 小时，所以不能早于 ${D.earliest}；按 15 分钟一档。到点时电脑睡着的，醒来后补跑。<span class="err" id="at-err"></span>`,
           `每天<input class="sin" id="daily-at" aria-label="每日更新时间" type="time" value="${S.daily.at}" min="${D.earliest}" step="900"${lock}>${sw('daily.on', '每日更新', S.daily.on, lock)}`),
         row(`<span class="sdot off"></span>周报推送 <span class="tag t-off">未接入</span>`, '把最新一期周报（本周涨星前 10）发到飞书私聊，由猛鬼兽（Hermes）发送；猛鬼兽那边的定时还没装，开了也暂时不会发',
           `<select class="sin" id="weekly-day" aria-label="周报推送星期"${lock}>${dayOpts()}</select><input class="sin" id="weekly-at" aria-label="周报推送时间" type="time" value="${S.weekly.at}"${lock}>${sw('weekly.on', '周报推送', S.weekly.on, lock)}`),
@@ -109,7 +109,7 @@
       if (!r.ok) throw new Error(j.error ?? `保存失败（${r.status}）`);
       S = j.settings;
       draw();
-      toast(!D.timeApplied && next.daily.at !== before.daily.at ? '已保存 · 更新时间要等下一版接上定时任务才生效' : '已保存 · 下次每日更新起生效');
+      toast('已保存 · 下次每日更新起生效');
     } catch (e) {
       S = before;
       draw();

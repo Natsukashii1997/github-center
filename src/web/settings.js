@@ -2,14 +2,10 @@
 // 左边分区目录（吸顶），右边一块块设置卡：数据源、定时与推送、智能体、接入（MCP，规划中，只展示）。改一项就存一次（data/settings.json，见 ../settings/index.js）。
 // 状态只读本地文件：status.json（各榜单最近一次更新）、最新热点榜快照（HN、V2EX 各自成败）、logs/update.log（上次每日更新）。不调用任何外部接口。
 // 只有所有者能改；伙伴看得到，控件都是灰的。
-import { openSync, readSync, fstatSync, closeSync } from 'node:fs';
-import { join } from 'node:path';
 import { readStatus, readLatestSnapshot } from '../ranking/store.js';
 import { readSettings, parseSettings, saveSettings, SettingsError, EFFORTS, DAYS, EARLIEST, REQUIRED, UNAVAILABLE } from '../settings/index.js';
+import { lastRun, readRunState, ranToday } from '../update-steps.js';
 import { frame } from './home.js';
-
-// 每日更新的定时现在还写死在 scripts/schedule.sh 里（北京时间 10:00）；批 3 改成读设置里的时间（之前页面上改时间只存不用）。
-export const SCHEDULED_AT = '10:00';
 
 // 数据源，按原型 A 的顺序。board：状态取 status.json 里哪个榜单；hot：取最新热点榜快照里这个来源的成败。
 // GitHub API 不能关（官方核数、全站 Star 前 100、热点榜认仓库都靠它），只展示。
@@ -49,47 +45,8 @@ function sourceStatus(dataDir) {
   };
 }
 
-// 日志只读最后 64KB：够找到最近一次每日更新的开始、各步退出码和结束行。
-function logTail(file, bytes = 65_536) {
-  let fd;
-  try {
-    fd = openSync(file, 'r');
-    const size = fstatSync(fd).size;
-    const start = Math.max(0, size - bytes);
-    const buf = Buffer.alloc(size - start);
-    readSync(fd, buf, 0, buf.length, start);
-    return buf.toString('utf8');
-  } catch {
-    return '';
-  } finally {
-    if (fd !== undefined) closeSync(fd);
-  }
-}
-
-// 最近一次每日更新（bin/update.js 的日志格式）：开始时刻、结束时刻、结果、失败的步骤；还没结束的算正在更新。
-export function lastRun(log) {
-  const lines = log.split('\n');
-  const startAt = lines.findLastIndex((l) => / 每日更新开始$/.test(l));
-  if (startAt < 0) return null;
-  const run = { startedAt: lines[startAt].split(' ')[0], failed: [] };
-  for (const l of lines.slice(startAt + 1)) {
-    const step = l.match(/^\S+ (.+) 退出码 (\d+)/);
-    if (step && step[2] !== '0') run.failed.push(step[1]);
-    const end = l.match(/^(\S+) 每日更新结束：(.*)$/);
-    if (end) {
-      run.endedAt = end[1];
-      if (end[2] === '已关掉') run.off = true;
-    }
-  }
-  run.running = !run.endedAt;
-  return run;
-}
-
-// 下次每日更新：北京时间今天这个点还没到就是今天，过了就是明天。
-export function nextRun(now, at = SCHEDULED_AT) {
-  const bj = new Date(now.getTime() + 8 * 3600_000).toISOString().slice(11, 16);
-  return { at, today: bj < at };
-}
+// 下次每日更新：今天（北京时间）已经跑过就是明天，没跑过就是今天（过了设置的时间还没跑的，下一次定时叫醒就跑）。
+export const nextRun = (now, at, state) => ({ at, today: !ranToday(state, now) });
 
 export function settingsData(dataDir, ctx, now = new Date()) {
   const statusOf = sourceStatus(dataDir);
@@ -98,12 +55,10 @@ export function settingsData(dataDir, ctx, now = new Date()) {
     me: ctx.account.name,
     canEdit: ctx.account.role === 'owner',
     guest: ctx.guest,
-    // 数据源开关、思考强度、每日更新开关已接到每日更新上（批 2）；更新时间要等批 3 接到 launchd。
-    timeApplied: false,
     settings,
     sources: SOURCE_ROWS.map(({ board, hot, ...row }) => ({ ...row, required: REQUIRED.has(row.key), unavailable: UNAVAILABLE.has(row.key), status: statusOf({ key: row.key, board, hot }) })),
-    run: lastRun(logTail(join(dataDir, 'logs', 'update.log'))),
-    next: nextRun(now),
+    run: lastRun(dataDir),
+    next: nextRun(now, settings.daily.at, readRunState(dataDir)),
     efforts: EFFORTS,
     days: DAYS,
     earliest: EARLIEST,
