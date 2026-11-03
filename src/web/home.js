@@ -2,7 +2,7 @@
 // 整理成一份数据嵌进页面，页面脚本（assets/bw.js、assets/home.js）画出来，切换窗口不再请求服务端。
 // 名次、新增和总 Star 只取快照。卡片上的数字和 30 天走势取这一期榜单那次运行存下的官方原始响应：三个窗口的快照可能出自
 // 不同次运行（某个窗口失败后重跑），同一张卡上的数字和柱子来自同一份响应才对得上。缺数据的那天留空位，不补零。
-// 首页不再按分类筛选（分类榜另成一页，后续批次）；只上了分类榜的项目仍由 categoryListed 认出来，项目页和收藏用。
+// 首页按定义标签筛选，不按分类（分类榜另成一页，后续批次）；只上了分类榜的项目仍由 categoryListed 认出来，项目页和收藏用。
 import { join } from 'node:path';
 import { readLatestSnapshot, readStatus, newerFailure, WINDOWS } from '../ranking/index.js';
 import { readJson, readCandidates } from '../ranking/store.js';
@@ -10,7 +10,7 @@ import { CATEGORIES, readCategories, gainersInCategory } from '../categories/ind
 import { bucketOf, windowDays } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';
 import { rankHistory, markRows } from '../ranking/moves.js';
-import { readProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
+import { readProfile, currentGenerated, skillPurpose, INSTALL_AIS, PROJECT_TYPES } from '../profiles/index.js';
 
 const SERIES_DAYS = 30;
 const label = (w) => `近 ${WINDOWS[w].days} 天`;
@@ -121,8 +121,10 @@ function marked(history, w, snapshot, notes) {
   return rows;
 }
 
-// 使用条件：每条带类别、整理后的一句话和原文摘录（#6）。
+// 使用条件：每条带类别、整理后的一句话和原文摘录（#6）。详情栏、项目页不再显示（白雾定稿），项目页数据里照旧带着。
 export const conditionsOf = (g) => (g ? g.conditions.map(({ kind, text, quote }) => ({ kind, text, quote })) : []);
+// 首页短字段（#23，补资料时由 Codex 生成）：一句话、主要用途、使用场景、说明标签、定义标签。还没按新版重新生成的资料没有这些，页面上那一格留空。
+export const shortOf = (g) => ({ line: g?.line ?? null, use: g?.use ?? [], scene: g?.scene ?? [], tag: g?.tag ?? null, type: g?.type ?? null });
 // 维护信号（#18）：最近推送取资料里的 pushedAt，最新正式版取补资料时查的 releases/latest；查不到都写“未知”。详情栏里写成“最近更新时间”和最新版本。
 export const maintOf = (profile) => ({ pushed: profile?.pushedAt?.slice(0, 10) ?? null, release: profile?.release ?? { state: 'unknown' } });
 
@@ -146,7 +148,7 @@ export function project(dataDir, onBoards, { account, favorites }, find) {
     created: info?.created_at?.slice(0, 10) ?? null,
     what: g?.what ?? null,
     problem: g?.problem ?? null,
-    conditions: conditionsOf(g),
+    ...shortOf(g),
     cats: find({ id: entry.projectId, fullName: entry.fullName })?.categories ?? [],
     maint: maintOf(profile),
     installable: Boolean(profile?.material),
@@ -172,6 +174,7 @@ export function homeData(dataDir, ctx) {
   return {
     account: { name: ctx.account.name },
     ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]),
+    types: PROJECT_TYPES,
     windows,
     projects: Object.fromEntries([...seen].map(([name, list]) => [name, project(dataDir, list, ctx, find)])),
   };
@@ -214,7 +217,7 @@ ${js.map((f) => `<script src="/assets/${f}"></script>`).join('\n')}
 
 // 首页涨星榜：报头、筛选条、前三卡、其余上榜的行，点项目从右侧滑出详情栏（assets/home.js 画）。
 export const homePage = (data, ctx) => frame({ title: '涨星榜', active: '涨星榜', ctx, css: ['bw.css'], js: ['bw.js', 'home.js'], data, one: true,
-  bar: '<label class="search"><span>⌕</span><input data-q placeholder="在本榜里找项目名、简介" aria-label="在本榜里找项目"><span class="kbd">/</span></label>',
+  bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="搜项目名、标签、用途"><span class="kbd">/</span></label>',
   body: `  <div class="wrap">
     <section class="hero-box" id="head"></section>
     <section class="box">
