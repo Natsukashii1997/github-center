@@ -224,3 +224,8 @@ test('页面脚本登录后才能取（登录页用的样式和组件脚本除�
     site.close();
   }
 });
+
+test('日报页已删（#21）：/daily 跳首页，旧链接不出错', async () => {
+  const r = await visit(dataDirWithSnapshot(), 'daily');
+  assert.deepEqual([r.status, r.headers.location], [303, '/']);
+});

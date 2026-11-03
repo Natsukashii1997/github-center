@@ -5,8 +5,7 @@
 ## 什么时候发、发给谁
 
 - 每周一 11:30（Asia/Shanghai），发到所有者本人的飞书私聊。只发这一处，不发群聊。
-- 本仓库的每日定时任务在北京时间 10:00 起跑：出榜、补资料、归类，然后跑 `npm run weekly` 写出当天的周报文件，11:30 前已就绪。
-  （定时脚本正在另行重写；`npm run weekly` 这一步要在重写时加进去，见 #28 PR 说明。）
+- 本仓库的每日定时任务（`scripts/schedule.sh` 装的 launchd 任务 `cn.github-center.update`）在北京时间 10:00 起跑 `npm run update`：出榜、历史榜、热点榜、精选榜、补资料、归类，然后 `npm run weekly` 写出当天的周报文件。平时 15 分钟左右跑完，11:30 前已就绪；日志 `data/logs/update.log`，最后一行是 `exit N`。
 
 ## 文件在哪
 

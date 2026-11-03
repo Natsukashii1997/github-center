@@ -1,62 +1,89 @@
 #!/bin/bash
-# 每日出榜定时任务（本机 launchd）：bash scripts/schedule.sh install | uninstall | status
-# 属于本机常驻配置，安装前须所有者同意。
-# 每天北京时间 10:00 跑一次 npm run rank：统计日按 UTC 划分，北京时间 08:00 才结束，事件文件还要晚 1 小时左右才齐。
-# 只出最近一个已结束的统计日；已发布的榜单不重跑，和手动重跑撞上也安全。电脑在 10:00 睡着时，醒来后补跑。
-# 出完榜接着跑 npm run profiles：给榜单上首次出现或资料有变的项目生成项目资料（用本机已登录的 Codex CLI）。
-# 再跑 npm run classify：给这一期各榜单涉及的项目归类，榜上项目用项目页资料复核（#10，同样用本机 Codex CLI）。
-# 再跑 npm run daily：按近 1 天这一期写日报和飞书消息内容（#11，查上榜项目的官方 Release；本仓库不发送）。
-# 最后跑 npm run calibrate：严格方案有新结果就出校准报告（只读严格实验目录）。
+# 本机 launchd 的两个任务：bash scripts/schedule.sh install | uninstall | status
+# 属于本机常驻配置，安装前须所有者同意（2026-11-03 已同意）。
+#
+# 1. 每日更新 cn.github-center.update：每天北京时间 10:00 跑 npm run update（bin/update.js）：
+#    出榜 → 历史榜 → 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准报告，一步失败照样跑后面的。
+#    统计日按 UTC 划分，北京时间 08:00 才结束，事件文件还要晚 1 小时左右才齐，所以定在 10:00。
+#    各步都能安全重跑；电脑在 10:00 睡着时，醒来后补跑。日志 data/logs/update.log，第一行开始时间、最后一行 `exit N`。
+# 2. 网站 cn.github-center.web：npm run serve 常驻在 5310，只监听本机，免登录（所有人都当作所有者账号 GUEST，默认 Nat）；
+#    开机（登录）就起，出错退出自动重启。日志 data/logs/web.log。
+#
+# launchd 直接启动 node，不经过 /bin/sh、/bin/bash：launchd 起的 shell 读不了「文稿」目录（全局坑 G-05）。
+# 装好后用 launchctl kickstart 真实触发一次再看日志；如果日志里是 Operation not permitted，
+# 要在「系统设置 → 隐私与安全性 → 完全磁盘访问权限」里加上这个 node（路径见 status）。
 set -euo pipefail
 
-LABEL=cn.github-center.rank
+UPDATE=cn.github-center.update
+WEB=cn.github-center.web
+OLD=cn.github-center.rank
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+AGENTS="$HOME/Library/LaunchAgents"
 DOMAIN="gui/$(id -u)"
+GUEST=${GUEST:-Nat}
+
+plist() { # plist <label> <其余 dict 内容>
+  cat > "$AGENTS/$1.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$1</string>
+  <key>WorkingDirectory</key><string>$ROOT</string>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>$PATHS</string>$PROXY</dict>
+$2
+</dict>
+</plist>
+EOF
+  launchctl bootout "$DOMAIN/$1" 2>/dev/null || true
+  launchctl bootstrap "$DOMAIN" "$AGENTS/$1.plist"
+  echo "已安装：$AGENTS/$1.plist"
+}
 
 case "${1:-}" in
   install)
     NODE=$(command -v node)
-    GH=$(command -v gh)
-    CODEX=$(command -v codex)
-    mkdir -p "$ROOT/data/logs" "$(dirname "$PLIST")"
+    # gh 给出榜、历史榜、热点榜和联网查 GitHub 取 token；codex 给补资料、归类、精选榜用。
+    PATHS="$(dirname "$NODE"):$(dirname "$(command -v gh)"):$(dirname "$(command -v codex)"):/usr/bin:/bin"
     # 本机代理（装的时候有就带上）：直连 GitHub 和 GH Archive 慢且时断时续，走代理快约 10 倍。
     PROXY=""
     for v in HTTPS_PROXY HTTP_PROXY NO_PROXY; do
       if [ -n "${!v:-}" ]; then PROXY="$PROXY<key>$v</key><string>${!v}</string>"; fi
     done
-    cat > "$PLIST" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>$LABEL</string>
-  <key>ProgramArguments</key>
-  <array><string>/bin/sh</string><string>-c</string><string>'$NODE' --use-env-proxy bin/rank-day.js; '$NODE' --use-env-proxy bin/profiles.js; '$NODE' --use-env-proxy bin/classify.js; '$NODE' --use-env-proxy bin/daily.js; '$NODE' bin/calibrate.js</string></array>
-  <key>WorkingDirectory</key><string>$ROOT</string>
-  <key>EnvironmentVariables</key>
-  <dict><key>PATH</key><string>$(dirname "$NODE"):$(dirname "$GH"):$(dirname "$CODEX"):/usr/bin:/bin</string>$PROXY</dict>
+    mkdir -p "$ROOT/data/logs" "$AGENTS"
+    # 旧的每日出榜任务（只装过脚本、没装进 launchd 的话这里什么都不做）
+    launchctl bootout "$DOMAIN/$OLD" 2>/dev/null || true
+    rm -f "$AGENTS/$OLD.plist"
+    plist "$UPDATE" "  <key>ProgramArguments</key>
+  <array><string>$NODE</string><string>bin/update.js</string></array>
   <key>StartCalendarInterval</key>
   <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>
-  <key>StandardOutPath</key><string>$ROOT/data/logs/rank.log</string>
-  <key>StandardErrorPath</key><string>$ROOT/data/logs/rank.err.log</string>
-</dict>
-</plist>
-EOF
-    launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
-    launchctl bootstrap "$DOMAIN" "$PLIST"
-    echo "已安装：$PLIST"
+  <key>StandardOutPath</key><string>$ROOT/data/logs/update.log</string>
+  <key>StandardErrorPath</key><string>$ROOT/data/logs/update.log</string>"
+    plist "$WEB" "  <key>ProgramArguments</key>
+  <array><string>$NODE</string><string>--use-env-proxy</string><string>bin/serve.js</string><string>--port</string><string>5310</string><string>--guest</string><string>$GUEST</string></array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>StandardOutPath</key><string>$ROOT/data/logs/web.log</string>
+  <key>StandardErrorPath</key><string>$ROOT/data/logs/web.log</string>"
     ;;
   uninstall)
-    launchctl bootout "$DOMAIN/$LABEL" 2>/dev/null || true
-    rm -f "$PLIST"
-    echo "已卸载：$LABEL"
+    for l in "$UPDATE" "$WEB" "$OLD"; do
+      launchctl bootout "$DOMAIN/$l" 2>/dev/null || true
+      rm -f "$AGENTS/$l.plist"
+    done
+    echo "已卸载：$UPDATE、$WEB"
     ;;
   status)
-    launchctl print "$DOMAIN/$LABEL" | grep -E 'state =|last exit code|path =|Hour|Minute' || echo "没有安装：$LABEL"
+    for l in "$UPDATE" "$WEB"; do
+      echo "== $l"
+      launchctl print "$DOMAIN/$l" 2>/dev/null | grep -E 'state =|last exit code|pid =|program =|Hour|Minute' || echo "没有安装"
+    done
     ;;
   *)
-    echo "用法：bash scripts/schedule.sh install | uninstall | status" >&2
+    echo "用法：[GUEST=账号名] bash scripts/schedule.sh install | uninstall | status" >&2
     exit 2
     ;;
 esac
