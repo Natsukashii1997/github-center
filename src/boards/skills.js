@@ -43,14 +43,25 @@ export function parseSkills(html) {
 
 // 按来源合成一行（entries 已按安装量倒序）：名字和安装量取最高的那个 Skill，count 是这个来源上榜的 Skill 个数。
 // 一个来源只有一个 Skill 时链到这个 Skill 的页面，有几个时链到 skills.sh 上这个来源的页面。
+// 同一套 Skill 放在好几个来源的（如飞书 lark 同时在 open.feishu.cn 和 larksuite/cli，superpowers 的几个副本仓库）：
+// 两个来源的 Skill 名单有 80% 以上相同（按少的那份算，至少 3 个），就并进安装量更高的那个来源，mirrors 记并进来几个（所有者 2026-11-03 定）。
+const SAME_SET = 0.8;
+const MIN_SET = 3;
 export function groupBySource(entries) {
   const bySource = new Map();
   for (const e of entries) {
-    const g = bySource.get(e.source.toLowerCase());
-    if (g) g.count++;
-    else bySource.set(e.source.toLowerCase(), { skill: e.skill, source: e.source, repo: e.repo, installs: e.installs, count: 1, url: e.url });
+    const g = bySource.get(e.source.toLowerCase()), id = (e.skillId ?? e.skill).toLowerCase();
+    if (g) { g.count++; g.ids.add(id); }
+    else bySource.set(e.source.toLowerCase(), { skill: e.skill, source: e.source, repo: e.repo, installs: e.installs, count: 1, url: e.url, ids: new Set([id]) });
   }
-  return [...bySource.values()].map((g, n) => ({
+  const kept = [];
+  for (const g of bySource.values()) {
+    const same = (k) => Math.min(k.ids.size, g.ids.size) >= MIN_SET && [...g.ids].filter((id) => k.ids.has(id)).length >= SAME_SET * Math.min(k.ids.size, g.ids.size);
+    const main = kept.find(same);
+    if (main) main.mirrors++;
+    else kept.push({ ...g, mirrors: 0 });
+  }
+  return kept.map(({ ids, ...g }, n) => ({
     rank: n + 1,
     ...g,
     url: g.count > 1 ? `https://skills.sh/${g.repo ? '' : 'site/'}${g.source}` : g.url,

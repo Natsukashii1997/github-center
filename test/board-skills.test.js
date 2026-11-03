@@ -31,10 +31,23 @@ test('同一来源合成一行：名字和安装量取最高的那个，注明�
   const e = (skill, source, installs, repo = source) => ({ skill, source, repo, installs, url: `https://skills.sh/${repo ? '' : 'site/'}${source}/${skill}` });
   const g = groupBySource([e('lark-doc', 'open.feishu.cn', 900, null), e('grill-me', 'm/skills', 800), e('lark-im', 'open.feishu.cn', 850, null), e('solo', 'a/b', 700), e('tdd', 'M/Skills', 600)]);
   assert.deepEqual(g, [
-    { rank: 1, skill: 'lark-doc', source: 'open.feishu.cn', repo: null, installs: 900, count: 2, url: 'https://skills.sh/site/open.feishu.cn' },
-    { rank: 2, skill: 'grill-me', source: 'm/skills', repo: 'm/skills', installs: 800, count: 2, url: 'https://skills.sh/m/skills' },
-    { rank: 3, skill: 'solo', source: 'a/b', repo: 'a/b', installs: 700, count: 1, url: 'https://skills.sh/a/b/solo' },
+    { rank: 1, skill: 'lark-doc', source: 'open.feishu.cn', repo: null, installs: 900, count: 2, url: 'https://skills.sh/site/open.feishu.cn', mirrors: 0 },
+    { rank: 2, skill: 'grill-me', source: 'm/skills', repo: 'm/skills', installs: 800, count: 2, url: 'https://skills.sh/m/skills', mirrors: 0 },
+    { rank: 3, skill: 'solo', source: 'a/b', repo: 'a/b', installs: 700, count: 1, url: 'https://skills.sh/a/b/solo', mirrors: 0 },
   ]);
+});
+
+test('同一套 Skill 放在几个来源：名单 80% 以上相同（至少 3 个）就并进安装量更高的来源；只同名一两个的不并', () => {
+  const e = (skill, source, installs) => ({ skill, skillId: skill, source, repo: source.includes('/') ? source : null, installs, url: '' });
+  const set = (source, base, names) => names.map((n, i) => e(n, source, base - i));
+  const g = groupBySource([
+    ...set('open.feishu.cn', 900, ['lark-doc', 'lark-im', 'lark-base', 'lark-wiki', 'lark-mail']),
+    ...set('mirror/a', 800, ['p1', 'p2', 'p3']),
+    ...set('larksuite/cli', 700, ['lark-doc', 'lark-im', 'lark-base', 'lark-wiki']),
+    ...set('mirror/b', 600, ['p1', 'p2', 'p3']),
+    ...set('other/x', 500, ['lark-doc', 'own-1']),
+  ].sort((a, b) => b.installs - a.installs));
+  assert.deepEqual(g.map((x) => [x.rank, x.source, x.count, x.mirrors]), [[1, 'open.feishu.cn', 5, 1], [2, 'mirror/a', 3, 1], [3, 'other/x', 2, 0]]);
 });
 
 test('每天一次：存当天快照和原始页面，网站读前 50；同一天重跑不再请求', async () => {
