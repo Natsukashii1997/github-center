@@ -1,11 +1,13 @@
 #!/bin/bash
 # 本机 launchd 的两个任务：bash scripts/schedule.sh install | uninstall | status
-# 属于本机常驻配置，安装前须所有者同意（2026-11-03 已同意）。
+# 属于本机常驻配置，安装前须所有者同意（2026-11-03 已同意；同日设置页批 3 改成每 15 分钟叫醒，所有者再次同意）。
 #
-# 1. 每日更新 cn.github-center.update：每天北京时间 10:00 跑 npm run update（bin/update.js）：
+# 1. 每日更新 cn.github-center.update：北京时间每天 09:00–23:45 每 15 分钟叫醒一次 `node bin/update.js --scheduled`，
+#    到了设置页里的更新时间（data/settings.json，默认 10:00）、今天还没跑过才真跑（src/update-steps.js），没到点什么都不写。
+#    改更新时间只改设置，不用重装这里（2026-11-03 设置页批 3 起；之前是写死每天 10:00）。
 #    出榜 → 全站 Star 前 100 → 历史榜（Skill 安装量）→ 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准报告，一步失败照样跑后面的。
-#    统计日按 UTC 划分，北京时间 08:00 才结束，事件文件还要晚 1 小时左右才齐，所以定在 10:00。
-#    各步都能安全重跑；电脑在 10:00 睡着时，醒来后补跑。日志 data/logs/update.log，第一行开始时间、最后一行 `exit N`。
+#    统计日按 UTC 划分，北京时间 08:00 才结束，事件文件还要晚 1 小时左右才齐，所以最早 09:00。
+#    各步都能安全重跑；到点时电脑睡着的，醒来后补跑。日志 data/logs/update.log，第一行开始时间、最后一行 `exit N`。
 # 2. 网站 cn.github-center.web：npm run serve 常驻在 5310，只监听本机，免登录（所有人都当作所有者账号 GUEST，默认 Nat）；
 #    开机（登录）就起，出错退出自动重启。日志 data/logs/web.log。
 #
@@ -55,10 +57,15 @@ case "${1:-}" in
     # 旧的每日出榜任务（只装过脚本、没装进 launchd 的话这里什么都不做）
     launchctl bootout "$DOMAIN/$OLD" 2>/dev/null || true
     rm -f "$AGENTS/$OLD.plist"
+    # 09:00–23:45 每 15 分钟一个叫醒点，共 60 个
+    TIMES=""
+    for h in $(seq 9 23); do
+      for m in 0 15 30 45; do TIMES="$TIMES<dict><key>Hour</key><integer>$h</integer><key>Minute</key><integer>$m</integer></dict>"; done
+    done
     plist "$UPDATE" "  <key>ProgramArguments</key>
-  <array><string>$NODE</string><string>bin/update.js</string></array>
+  <array><string>$NODE</string><string>bin/update.js</string><string>--scheduled</string></array>
   <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>0</integer></dict>
+  <array>$TIMES</array>
   <key>StandardOutPath</key><string>$ROOT/data/logs/update.log</string>
   <key>StandardErrorPath</key><string>$ROOT/data/logs/update.log</string>"
     plist "$WEB" "  <key>ProgramArguments</key>
@@ -79,8 +86,9 @@ case "${1:-}" in
   status)
     for l in "$UPDATE" "$WEB"; do
       echo "== $l"
-      launchctl print "$DOMAIN/$l" 2>/dev/null | grep -E 'state =|last exit code|pid =|program =|Hour|Minute' || echo "没有安装"
+      launchctl print "$DOMAIN/$l" 2>/dev/null | grep -E 'state =|last exit code|pid =|program =' || echo "没有安装"
     done
+    echo "每日更新时间看设置页（data/settings.json，默认 10:00）；今天跑过没有看 data/update-state.json"
     ;;
   *)
     echo "用法：[GUEST=账号名] bash scripts/schedule.sh install | uninstall | status" >&2

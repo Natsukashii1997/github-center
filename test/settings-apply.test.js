@@ -1,12 +1,11 @@
 // 设置页批 2：设置接到每日更新上。每日更新开关和整步跳过、出榜（官方热门、ClickHouse）、热点榜（HN、V2EX）、三项思考强度。网络全部模拟。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULTS } from '../src/settings/index.js';
-import { planSteps, STEPS } from '../src/update-steps.js';
-import { lastRun } from '../src/web/settings.js';
+import { planSteps, STEPS, isDue, readRunState, markRun, beijing } from '../src/update-steps.js';
 import { rankDay } from '../src/ranking/index.js';
 import { updateHot } from '../src/boards/index.js';
 import { codexGenerator } from '../src/profiles/codex.js';
@@ -17,16 +16,34 @@ import { recordedUpstream } from './helpers/recorded-upstream.js';
 const fresh = () => mkdtempSync(join(tmpdir(), 'gc-apply-'));
 const withSettings = (over) => ({ ...DEFAULTS, ...over, sources: { ...DEFAULTS.sources, ...over.sources } });
 
-test('每日更新：关掉就整次不跑；skills.sh 关掉跳过历史榜；HN、V2EX 都关才跳过热点榜', () => {
-  assert.equal(planSteps(withSettings({ daily: { on: false, at: '10:00' } })), null);
+test('每日更新：skills.sh 关掉跳过历史榜；HN、V2EX 都关才跳过热点榜', () => {
   assert.deepEqual(planSteps(DEFAULTS).map((s) => s.skip), STEPS.map(() => null));
   const skip = (sources) => Object.fromEntries(planSteps(withSettings({ sources })).filter((s) => s.skip).map((s) => [s.name, s.skip]));
   assert.deepEqual(skip({ skills: false }), { '历史榜（Skill 安装量）': '设置页里关掉了 skills.sh' });
   assert.deepEqual(skip({ hn: false }), {});
   assert.deepEqual(skip({ hn: false, v2ex: false }), { 热点榜: '设置页里关掉了 Hacker News 和 V2EX' });
-  // 关掉每日更新的那次运行，设置页上写「已关掉」，不算成功也不算失败。
-  assert.deepEqual(lastRun('2026-11-04T02:00:00.000Z 每日更新开始\n2026-11-04T02:00:00.000Z 每日更新已在设置页关掉，这次不跑\n2026-11-04T02:00:00.000Z 每日更新结束：已关掉\nexit 0\n'),
-    { startedAt: '2026-11-04T02:00:00.000Z', endedAt: '2026-11-04T02:00:00.000Z', failed: [], off: true, running: false });
+});
+
+test('定时叫醒：每日更新开着、北京时间到了设置的时间、今天还没跑过才跑；开跑记下日期', () => {
+  const at = (bj) => new Date(Date.parse(`${bj}+08:00`));
+  const s = withSettings({ daily: { on: true, at: '11:15' } });
+  assert.deepEqual(beijing(at('2026-11-04T00:30:00')), { day: '2026-11-04', time: '00:30' });
+  assert.equal(isDue(s, null, at('2026-11-04T11:00:00')), false, '没到点');
+  assert.equal(isDue(s, null, at('2026-11-04T11:15:00')), true);
+  assert.equal(isDue(s, { day: '2026-11-03' }, at('2026-11-04T14:07:00')), true, '睡过了点，醒来补跑');
+  assert.equal(isDue(s, { day: '2026-11-04' }, at('2026-11-04T11:30:00')), false, '今天跑过了');
+  assert.equal(isDue(withSettings({ daily: { on: false, at: '11:15' } }), null, at('2026-11-04T12:00:00')), false, '关掉了');
+
+  const dir = fresh();
+  assert.equal(readRunState(dir), null);
+  // 还没有记录文件：按日志里最近一次开跑的日期（北京时间）算，装好定时后当天不会再跑一次。
+  mkdirSync(join(dir, 'logs'));
+  writeFileSync(join(dir, 'logs', 'update.log'), '2026-11-03T16:30:00.000Z 每日更新开始\n2026-11-03T16:40:00.000Z 每日更新结束：全部成功\nexit 0\n');
+  assert.deepEqual(readRunState(dir), { day: '2026-11-04', startedAt: '2026-11-03T16:30:00.000Z' });
+  assert.equal(isDue(s, readRunState(dir), at('2026-11-04T12:00:00')), false);
+  markRun(dir, at('2026-11-05T11:15:00'));
+  assert.ok(existsSync(join(dir, 'update-state.json')));
+  assert.deepEqual(readRunState(dir), { day: '2026-11-05', startedAt: '2026-11-05T03:15:00.000Z' });
 });
 
 // 出榜：用录制的上游（统计日 2026-10-22），只跑近 1 天。

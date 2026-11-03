@@ -1,21 +1,21 @@
-// 每日更新：npm run update（scripts/schedule.sh 装进 launchd，每天北京时间 10:00 跑）：按顺序跑 src/update-steps.js 里的几步，一步失败照样跑后面的，最后一行写 `exit N`。
+// 每日更新：npm run update 手动跑；launchd（scripts/schedule.sh）每 15 分钟叫醒一次 `--scheduled`，到了设置页里的时间才真跑（见 src/update-steps.js）。
+// 按顺序跑 src/update-steps.js 里的几步，一步失败照样跑后面的，最后一行写 `exit N`。
 // 每一步都是用同一个 node 起的子进程（launchd 直接启动 node，不经过 /bin/sh，见全局坑 G-05）；各步本身都能安全重跑。
-// 每次开跑先读设置页的设置（data/settings.json）：每日更新关掉就不跑；关掉的数据源对应的步骤跳过。
+// 每次开跑先读设置页的设置（data/settings.json）：关掉的数据源对应的步骤跳过。手动跑不看时间和每日更新开关。
 import { spawnSync } from 'node:child_process';
 import { readSettings } from '../src/settings/index.js';
-import { planSteps } from '../src/update-steps.js';
+import { planSteps, isDue, readRunState, markRun } from '../src/update-steps.js';
+
+const settings = readSettings('data');
+const now = new Date();
+// 定时叫醒但没到点（或今天已跑过、每日更新关掉）：不写日志，直接退出。
+if (process.argv.includes('--scheduled') && !isDue(settings, readRunState('data'), now)) process.exit(0);
+markRun('data', now);
 
 const stamp = () => new Date().toISOString();
 console.log(`${stamp()} 每日更新开始`);
-const steps = planSteps(readSettings('data'));
-if (!steps) {
-  console.log(`${stamp()} 每日更新已在设置页关掉，这次不跑`);
-  console.log(`${stamp()} 每日更新结束：已关掉`);
-  console.log('exit 0');
-  process.exit(0);
-}
 const failed = [];
-for (const { name, args, skip } of steps) {
+for (const { name, args, skip } of planSteps(settings)) {
   if (skip) {
     console.log(`${stamp()} 跳过 ${name}：${skip}`);
     continue;

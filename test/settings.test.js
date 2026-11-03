@@ -5,7 +5,8 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { readSettings, parseSettings, saveSettings, checkDaily, DEFAULTS, SettingsError } from '../src/settings/index.js';
-import { lastRun, nextRun } from '../src/web/settings.js';
+import { nextRun } from '../src/web/settings.js';
+import { parseRun as lastRun } from '../src/update-steps.js';
 import { openAccounts } from '../src/web/accounts.js';
 import { http, form, serve, testAccount, dataOf } from './helpers/web.js';
 
@@ -74,7 +75,7 @@ test('存设置：整份写进 data/settings.json，带保存时刻，读回来�
   assert.equal(back.effort.profiles, 'medium');
 });
 
-test('上次每日更新从日志读：成功、有失败的步骤、还在跑；下次更新按北京时间判断今天还是明天', () => {
+test('上次每日更新从日志读：成功、有失败的步骤、还在跑；下次更新看今天（北京时间）跑过没有', () => {
   const log = (lines) => lines.join('\n') + '\n';
   assert.equal(lastRun(''), null);
   const done = lastRun(log(['2026-11-02T02:00:00Z 每日更新开始', '2026-11-02T02:30:00Z 每日更新结束：失败 出榜', 'exit 1',
@@ -84,8 +85,10 @@ test('上次每日更新从日志读：成功、有失败的步骤、还在跑�
   const running = lastRun(log(['2026-11-03T02:00:01.000Z 每日更新开始', '2026-11-03T02:10:00.000Z 出榜 退出码 0']));
   assert.equal(running.running, true);
   assert.deepEqual(running.failed, []);
-  assert.deepEqual(nextRun(new Date('2026-11-03T01:59:00Z')), { at: '10:00', today: true });
-  assert.deepEqual(nextRun(new Date('2026-11-03T02:00:00Z')), { at: '10:00', today: false });
+  // 北京时间 11/3 23:30 = UTC 11/3 15:30；11/4 00:30 = UTC 11/3 16:30。
+  assert.deepEqual(nextRun(new Date('2026-11-03T15:30:00Z'), '11:15', { day: '2026-11-03' }), { at: '11:15', today: false });
+  assert.deepEqual(nextRun(new Date('2026-11-03T16:30:00Z'), '11:15', { day: '2026-11-03' }), { at: '11:15', today: true });
+  assert.deepEqual(nextRun(new Date('2026-11-03T01:00:00Z'), '10:00', null), { at: '10:00', today: true });
 });
 
 // 有状态的数据目录：涨星榜正常、历史榜失败，最新热点榜 HN 成功、V2EX 失败，一次每日更新的日志；另有所有者 boss。
