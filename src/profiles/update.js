@@ -13,7 +13,7 @@ import { openStore } from '../ranking/store.js';
 import { mapLimit } from '../ranking/rank-day.js';
 import { isSkillFile, parseSkill } from './skills.js';
 import { boardProjects, readProfile, saveProfile } from './store.js';
-import { readHistoryBoard } from '../boards/history.js';
+import { readSkillsBoard } from '../boards/skills.js';
 import { readHotBoard } from '../boards/hot.js';
 import { openPicks } from '../boards/picks.js';
 
@@ -230,7 +230,7 @@ async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
   }
 }
 
-// 要补资料的项目：涨星榜和官方热门榜上的先补（boardProjects），再补分类榜上显示的：精选榜各标签的卡、历史榜前 50、热点榜前 15。
+// 要补资料的项目：涨星榜和官方热门榜上的先补（boardProjects），再补分类榜上显示的：精选榜各标签的卡、历史榜（Skill 安装量）前 50 所在的 GitHub 仓库、热点榜前 15。
 // 按项目 id（没有 id 的按名字，不分大小写）去重。还没有库（data/center.db）时不建库，只是没有精选卡。
 export function profileProjects(dataDir) {
   const out = boardProjects(dataDir);
@@ -249,7 +249,7 @@ export function profileProjects(dataDir) {
       picks.close();
     }
   }
-  for (const e of readHistoryBoard(dataDir)?.entries ?? []) add(e.id, e.repo);
+  for (const e of readSkillsBoard(dataDir)?.entries ?? []) if (e.repo) add(null, e.repo);
   for (const e of readHotBoard(dataDir)?.entries ?? []) add(e.id, e.repo);
   return out;
 }

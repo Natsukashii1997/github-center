@@ -1,5 +1,5 @@
 // 分类榜（#27，白雾定稿 design/candidates/redesign/cat.html：cat.js、pk2.js、all.js 落地，window.HV='c'、window.HD='a'）。
-// 数据是服务端嵌进页面的三块（src/web/categories.js）：picks（精选标签和每个标签的卡、赞踩、能不能改）、hist（历史榜前 50）、hot（热点榜前 15）；
+// 数据是服务端嵌进页面的三块（src/web/categories.js）：picks（精选标签和每个标签的卡、赞踩、能不能改）、hist（历史榜：Skill 安装量前 50）、hot（热点榜前 15）；
 // 每个项目在详情栏要的内容在 projects / views（和收藏页同一套，详情栏用 bw.js 的 drawer）。
 // 精选榜：聚光轮播 + B 说明书卡。切卡只改每张卡的位置变量，transform 过渡让卡片原地滑过去；换类别先收在中间再像发牌一样铺开。
 // 赞踩、换卡、恢复都写进库（POST /api/picks/...），写成功才改页面；换卡和恢复只有所有者看得到入口，伙伴只能投票。
@@ -26,7 +26,7 @@
   // ── 报头：右侧三格点了平滑滚到对应的榜 ──
   function mast() {
     const H = D.hist?.entries.length ?? 0, T = D.hot?.entries.length ?? 0;
-    const tk = [['pick', '精选榜', `${D.picks.tags.length} 类<small>每类最多 ${D.picks.slots} 张</small>`], ['hist', '历史榜', H ? `前 ${H}<small>历史总 Star</small>` : '暂无数据'], ['hot', '热点榜', T ? `前 ${T}<small>讨论热度</small>` : '暂无数据']];
+    const tk = [['pick', '精选榜', `${D.picks.tags.length} 类<small>每类最多 ${D.picks.slots} 张</small>`], ['hist', '历史榜', H ? `前 ${H}<small>Skill 安装量</small>` : '暂无数据'], ['hot', '热点榜', T ? `前 ${T}<small>讨论热度</small>` : '暂无数据']];
     $('mast').innerHTML = `<div><div class="kick"><span>GitHub · 分类榜${D.day ? ` · ${md(D.day)}` : ''}</span></div><h1>分类榜</h1></div>
       <div class="tick">${tk.map(([k, n, v]) => `<div data-go="${k}"><div class="k">${n}</div><div class="v">${v}</div></div>`).join('')}</div><div class="band"></div>`;
   }
@@ -183,19 +183,25 @@
   }
 
   // ── 历史榜（横条）和热点榜（C 走势线）：A 报头式栏头，两栏栏头和副行定高 ──
-  const H = D.hist?.entries ?? [], MAX = H[0]?.total || 1;
+  const H = D.hist?.entries ?? [], MAX = H[0]?.installs || 1;
   const catOf = (x) => x.cat ?? NONE;
   const CATS = [...Object.keys(CC), NONE].map((c) => [c, H.filter((x) => catOf(x) === c).length]).filter(([, n]) => n);
   let ON = '';
   const stale = (b) => (b?.failure ? `<span class="bad" title="${esc(b.failure.error)}">更新失败 · ${b.day ? `显示 ${md(b.day)} 数据` : '还没有数据'}</span> · ` : '');
   const chips = () => [['', H.length], ...CATS].map(([c, n]) => `<button class="${ON === c ? 'on' : ''}" data-hcat="${esc(c)}" style="--c:${c ? cc(c) : '#1f2328'}">${c ? '<i></i>' : ''}${esc(c ? SN[c] ?? c : '全部')}<b>${n}</b></button>`).join('');
-  const histTop = () => `<header class="ch"><div><span class="kk">ALL-TIME · 前 ${H.length}</span><h3>历史榜</h3></div><span class="nt"${D.hist?.note ? ` title="${esc(D.hist.note)}"` : ''}>${stale(D.hist)}按总 Star 排</span></header><div class="sub chips">${chips()}</div>`;
+  const histTop = () => `<header class="ch"><div><span class="kk">ALL-TIME · 前 ${H.length}</span><h3>历史榜</h3></div><span class="nt"${D.hist?.note ? ` title="${esc(D.hist.note)}"` : ''}>${stale(D.hist)}按 Skill 安装量排</span></header><div class="sub chips">${chips()}</div>`;
   function histRows() {
-    if (!D.hist?.entries.length) return '<div class="none"><b>还没有历史榜数据</b>每天抓一次 GitHub 全站总 Star 前 100。</div>';
-    const shown = H.filter((x) => (!ON || catOf(x) === ON) && hit(x.repo));
-    if (!shown.length) return '<div class="none"><b>没有符合条件的项目</b></div>';
-    return `<div class="ls">${shown.map((x) => { const [owner, name] = x.repo.split('/'); return `<div class="hb-r" data-open="${esc(x.repo)}" data-from="hist" style="--c:${cc(x.cat)};--p:${(x.total / MAX * 100).toFixed(2)}%" title="${esc(brief(x.repo))}">
-      <span class="n">${x.rank}</span><div class="hb-bar"><i></i>${AV(x.repo, 20)}<b>${esc(name)}</b><span>${esc(owner)}</span><em>${num(x.total)}</em></div></div>`; }).join('')}</div>`;
+    if (!D.hist?.entries.length) return '<div class="none"><b>还没有历史榜数据</b>每天抓一次 skills.sh 全时段排行榜。</div>';
+    const shown = H.filter((x) => (!ON || catOf(x) === ON) && ((x.repo && hit(x.repo)) || !q || `${x.skill} ${x.source}`.toLowerCase().includes(q)));
+    if (!shown.length) return '<div class="none"><b>没有符合条件的 Skill</b></div>';
+    // 每行一个 Skill：名字、来源、累计安装量。在 GitHub 上的点了打开所在仓库的详情栏；网址来源的点了去 skills.sh。
+    return `<div class="ls">${shown.map((x) => {
+      const bar = `<span class="n">${x.rank}</span><div class="hb-bar"><i></i>${x.repo ? AV(x.repo, 20) : `<span class="av ph">${esc(x.source[0].toUpperCase())}</span>`}<b>${esc(x.skill)}</b><span>${esc(x.source)}</span><em>${num(x.installs)}</em></div>`;
+      const style = `--c:${cc(x.cat)};--p:${(x.installs / MAX * 100).toFixed(2)}%`;
+      return x.repo
+        ? `<div class="hb-r" data-open="${esc(x.repo)}" data-from="hist" style="${style}" title="${esc(brief(x.repo))}">${bar}</div>`
+        : `<a class="hb-r" href="${esc(x.url)}" target="_blank" rel="noopener" style="${style}" title="在 skills.sh 上看">${bar}</a>`;
+    }).join('')}</div>`;
   }
   // 近 7 天热度小折线：纵轴从零起；那天没记就断开（不补零），末点画圆点
   function spark(series) {
