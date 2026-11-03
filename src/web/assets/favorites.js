@@ -1,10 +1,8 @@
-// 我的收藏（#14）：照冻结方案 t1b-pages-r1 的 design/t1b-pages/favorites.html。项目和 Skill 都是一张卡，卡上直接复制安装、取消收藏；
+// 我的收藏（#14）：照冻结方案 t1b-pages-r1 的 design/t1b-pages/favorites.html（2026-11-03 起顶栏由白雾外壳画，卡片重做在后续批次）。项目和 Skill 都是一张卡，卡上直接复制安装、取消收藏；
 // 胶囊按种类筛。Skill 卡直达项目页上那一条；项目改名、Skill 已不在仓库、项目资料没读到或已不在都写明（#8），也都能取消。
 (() => {
   const { $, $$, esc, I, D } = GC;
   const { P, gridCard, wireOpen, wireCopy, wireFavs, enter, project } = GP;
-  GC.topbar('我的收藏');
-  GC.setStatus(D.top);
   let kind = null, items = D.items;
   const el = $('#kinds');
   el.classList.add('chips');

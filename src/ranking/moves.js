@@ -86,14 +86,14 @@ export const streakText = (s) => (s ? `连续 ${s.n} 期${s.kind === 'first' ? '
 // 页面提示条：这份榜还没有可比的上一期。
 export const NO_PREV = { icon: 'calendar', title: '没有上一期', text: '暂不显示名次变化。' };
 
-// 给一份榜的行加上名次变化（mv）和连续期数（streak）；没有可比的上一期就往 notes 里加提示条。
+// 给一份榜的行加上名次变化（mv）和连续期数（streak，{ kind: 'first' | 'top', n }，页面自己写成说法）；没有可比的上一期就往 notes 里加提示条。
 // rows 是页面要的行，raw 是同顺序的快照条目或候选。
 export function markRows(history, { w, cat = null, day, rows, raw, notes }) {
   const mv = history.moves(w, cat, day);
   if (!mv && rows.length) notes.push(NO_PREV);
   rows.forEach((r, i) => {
     if (mv) r.mv = mv(raw[i]);
-    const s = streakText(history.streak(w, cat, day, raw[i]));
+    const s = history.streak(w, cat, day, raw[i]);
     if (s) r.streak = s;
   });
 }

@@ -53,9 +53,11 @@ const weeks = [
 test('首页嵌入近 1 天榜单：名次、并列、新增、总 Star、统计日期、更新时间', async () => {
   const { status, body, data } = await home(dataDirWithSnapshot());
   assert.equal(status, 200);
-  // 页面用视觉方案的样式和组件脚本。
-  assert.match(body, /<link rel="stylesheet" href="\/assets\/tokens\.css">/);
-  assert.match(body, /<script src="\/assets\/home\.js"><\/script>/);
+  // 白雾外壳（#21）：反色鲨鱼背景、顶栏只有涨星榜／分类榜（暂不可点）／我的收藏；首页的样式和脚本。
+  assert.match(body, /<link rel="stylesheet" href="\/assets\/bw\.css">\n<link rel="stylesheet" href="\/assets\/shell\.css">/);
+  assert.match(body, /<canvas class="sea" id="sea" aria-hidden="true"><\/canvas>/);
+  assert.match(body, /<nav class="nav" aria-label="主导航"><a href="\/" aria-current="page">涨星榜<\/a><a aria-disabled="true" title="分类榜即将上线">分类榜<\/a><a href="\/favorites">我的收藏<\/a><\/nav>/);
+  assert.match(body, /<script src="\/assets\/sharks\.js"><\/script>\n<script src="\/assets\/shell\.js"><\/script>\n<script src="\/assets\/bw\.js"><\/script>\n<script src="\/assets\/home\.js"><\/script>/);
   const d1 = data.windows.d1;
   assert.deepEqual(d1.top, { tone: 'ok', text: '10 月 22 日数据 · 16:40 更新' });
   assert.deepEqual(d1.lede, { span: '统计日 10 月 22 日（UTC）', candidates: 23, checks: 23 + 21 });
@@ -176,6 +178,8 @@ test('项目卡片：走势、三个窗口的新增和总 Star 取这一期榜�
   assert.equal(day.total, 193409);
   assert.deepEqual([p.ownerId, p.lang, p.created], [25158, 'C', '2011-06-16']);
   assert.deepEqual([p.what, p.installable, p.skills], [null, false, []]);
+  // 还没生成的短字段留空，不写替代文字。
+  assert.deepEqual([p.line, p.use, p.scene, p.tag, p.type], [null, [], [], null, null]);
   // 另一次运行没存原始响应：只有榜上的数字，别的窗口暂缺，不拿另一次运行的数字顶替。
   const week = p.runs['r-week'];
   assert.equal(data.windows.d7.entries[0].run, 'r-week');
@@ -188,13 +192,17 @@ test('嵌入的数据把 < 转义，项目文字里出现 </script> 也不会截
   saveProfile(dir, {
     projectId: snap.entries[0].projectId, fullName: 'php/php-src',
     material: { hash: 'h', skills: [], docs: [] },
-    generated: { materialHash: 'h', what: '会写 </script><b>的项目', problem: 'x', conditions: [{ kind: '环境', text: '要 PHP', quote: 'PHP' }], skillPurposes: {} },
+    generated: { materialHash: 'h', what: '会写 </script><b>的项目', problem: 'x', line: '一句话</script>', use: ['用途一', '用途二'], scene: ['场景一', '场景二'], tag: '语言运行时', type: '工具', conditions: [{ kind: '环境', text: '要 PHP', quote: 'PHP' }], skillPurposes: {} },
   });
   const { body, data } = await home(dir);
-  assert.equal((body.match(/<\/script>/g) || []).length, 4);
+  assert.equal((body.match(/<\/script>/g) || []).length, 5);
   const p = data.projects['php/php-src'];
   assert.equal(p.what, '会写 </script><b>的项目');
-  assert.deepEqual([p.conditions, p.installable], [['要 PHP'], true]);
+  assert.equal(p.installable, true);
+  // 首页短字段（#23）原样给页面；详情栏不放使用条件，卡片数据里也不再带。
+  assert.deepEqual([p.line, p.use, p.scene, p.tag, p.type], ['一句话</script>', ['用途一', '用途二'], ['场景一', '场景二'], '语言运行时', '工具']);
+  assert.equal(p.conditions, undefined);
+  assert.ok(data.types.includes('工具'));
 });
 
 test('页面脚本登录后才能取（登录页用的样式和组件脚本除外），只给登记过的文件', async () => {
@@ -209,7 +217,9 @@ test('页面脚本登录后才能取（登录页用的样式和组件脚本除�
     assert.equal((await site.get('assets/%2e%2e%2fserver.js')).status, 404);
     // 登录页（未登录时打开）要用的样式、图标、组件和登录脚本不登录也能取，其余页面脚本不行。
     for (const f of ['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js', 'login.js']) assert.equal((await http(site.url + `assets/${f}`)).status, 200, f);
-    for (const f of ['home.js', 'boards.js', 'project.js', 'daily.js', 'favorites.js', 'nope.js']) assert.equal((await http(site.url + `assets/${f}`)).status, 303, f);
+    for (const f of ['shell.css', 'bw.css', 'sharks.js', 'shell.js', 'bw.js', 'home.js', 'project.js', 'favorites.js', 'nope.js']) assert.equal((await http(site.url + `assets/${f}`)).status, 303, f);
+    // 删掉的日报、其他榜单页脚本不再给（#21）。
+    for (const f of ['boards.js', 'daily.js']) assert.equal((await site.get(`assets/${f}`)).status, 404, f);
   } finally {
     site.close();
   }
