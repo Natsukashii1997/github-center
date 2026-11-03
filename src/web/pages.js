@@ -5,7 +5,7 @@ import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, SINCES } from '.
 import { readCategories } from '../categories/index.js';
 import { readProfile, findProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
 import { boardProjects } from '../profiles/store.js';
-import { project as projectCard, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, shortOf, maintOf, frame } from './home.js';
+import { project as projectCard, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, shortOf, maintOf, frame, MARK, WORDMARK, FAVICON } from './home.js';
 import { rankHistory } from '../ranking/moves.js';
 
 const labels = () => Object.fromEntries(Object.entries(WINDOWS).map(([id, { days }]) => [id, { label: `近 ${days} 天` }]));
@@ -140,7 +140,8 @@ const shell = ({ title, body, script, data }) => `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} · GitHub 快速中心</title>
+<title>${title} · Github·Tidings</title>
+${FAVICON}
 <link rel="stylesheet" href="/assets/tokens.css">
 <link rel="stylesheet" href="/assets/components.css">
 <link rel="stylesheet" href="/assets/pages.css">
@@ -156,14 +157,14 @@ ${body}
 </html>
 `;
 
-// 项目页：和首页详情栏同一份内容，整页放在白雾外壳里。从收藏页点进来时顶栏高亮“我的收藏”。
-export const projectPage = (data, ctx, from) => frame({ title: data.page.missing ? '找不到这个项目' : esc(data.page.repo), active: from === 'favorites' ? '我的收藏' : '涨星榜', ctx, css: ['bw.css'], js: ['bw.js', 'project.js'], data,
+// 项目页：和首页详情栏同一份内容，整页放在白雾外壳里。从收藏页点进来时顶栏高亮“收藏页”。
+export const projectPage = (data, ctx, from) => frame({ title: data.page.missing ? '找不到这个项目' : esc(data.page.repo), active: from === 'favorites' ? '收藏页' : '涨星榜', ctx, css: ['bw.css'], js: ['bw.js', 'project.js'], data,
   body: '  <main class="pwrap"><article class="ppage" id="page"></article></main>' });
 
 // 我的收藏（#22，定稿 fav.html：C 收藏架 + A 书签丝带卡片 + A 侧栏只留类别目录）：报头、左侧类别目录、右侧按类别分组的卡片（assets/favorites.js 画），
 // 点项目从右侧滑出详情栏（和首页同一份内容，bw.js）。整页滚动，顶栏吸顶，底部留白给背景鲨鱼。
-export const favoritesPage = (data, ctx) => frame({ title: '我的收藏', active: '我的收藏', ctx, css: ['bw.css', 'favorites.css'], js: ['bw.js', 'favorites.js'], data,
-  bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="在我的收藏里找"><span class="kbd">/</span></label>',
+export const favoritesPage = (data, ctx) => frame({ title: '收藏页', active: '收藏页', ctx, css: ['bw.css', 'favorites.css'], js: ['bw.js', 'favorites.js'], data,
+  bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="在收藏页里找"><span class="kbd">/</span></label>',
   body: `  <div class="fwrap">
     <section class="hero-box" id="mast"></section>
     <div id="shelf"></div>
@@ -174,7 +175,7 @@ export const favoritesPage = (data, ctx) => frame({ title: '我的收藏', activ
 // 登录（#5）：表单由服务端判定；失败时输入框描边变失败色、提示条写明，用户名照填回去（密码不回填）。next 已由 safeNext 处理成本站路径。
 export const loginPage = (next, error, name = '') => shell({ title: '登录', script: 'login.js', data: { ...base({ account: { name: '' } }), projects: {} }, body: `<main class="login-split">
   <section class="intro" aria-label="这个站是做什么的">
-    <a class="brand" href="/login"><span class="mark" aria-hidden="true"></span>GitHub 快速中心</a>
+    <a class="brand" href="/login">${MARK}${WORDMARK}</a>
     <p class="claim">每天两分钟，知道 GitHub 上什么在涨、值不值得装。</p>
     <ol class="how">
       <li><span class="n">1</span><div><b>全站找候选</b>从 GitHub 全站的 Star 事件里找出当天涨得多的项目。</div></li>

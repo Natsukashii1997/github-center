@@ -70,7 +70,12 @@ a { color: inherit; }
 /* 报头（定稿 C）：大标题压在白雾上，右边一排读数用细竖线隔开 */
 /* 三页报头同一套尺寸（所有者 2026-11-03：切页时标题和色带不跳）：第一行固定 68px、标题和读数贴底；色带行固定 20px、线居中 */
 .hero-box { display: grid; grid-template-columns: auto minmax(0,1fr); grid-template-rows: 68px 20px; gap: 32px; align-items: end; padding: 6px 4px 0; position: relative; background: rgba(255,255,255,.86); border-radius: 14px; box-shadow: 0 0 36px 18px rgba(255,255,255,.86); }
-.hero-box h1 { margin: 4px 0 0; font-size: 38px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+.hero-box h1 { margin: 4px 0 0; font-size: 38px; font-weight: 800; letter-spacing: -.03em; line-height: 1; display: flex; align-items: center; height: 38px; }
+/* 叠印标题（所有者 2026-11-03 定稿）：中文标题压在一行淡蓝衬线斜体英文上，共用底线；标题下一段 26px 蓝色短线。只是装饰，不能点 */
+.hero-box h1 .tt { position: relative; display: inline-block; }
+.hero-box h1 .tt b { position: relative; z-index: 1; font-weight: inherit; }
+.hero-box h1 .tt::after { content: ""; position: absolute; z-index: 1; left: 2px; bottom: -8px; width: 26px; height: 3px; border-radius: 2px; background: var(--accent); }
+.hero-box h1 .ghost { position: absolute; z-index: 0; left: calc(100% - 22px); bottom: -10px; font: italic 400 60px/1 Georgia, "Times New Roman", serif; letter-spacing: -.01em; color: rgba(9,105,218,.12); white-space: nowrap; pointer-events: none; user-select: none; }
 .hero-box [data-open] { cursor: pointer; } .hero-box b[data-open]:hover { color: var(--accent); }
 .kick { display: flex; align-items: center; gap: 10px; height: 16px; font: 600 11px var(--mono); letter-spacing: .14em; color: var(--ink-3); text-transform: uppercase; }
 .fresh { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px var(--sans); letter-spacing: 0; text-transform: none; }

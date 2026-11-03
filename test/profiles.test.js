@@ -147,7 +147,7 @@ test('首次上榜：读 README、仓库目录和 Skill 生成项目资料；项
 
   const { status, body, page, p } = await projectPage(dataDir, 'p/acme/agent-kit');
   assert.equal(status, 200);
-  assert.match(body, /<title>acme\/agent-kit · GitHub 快速中心<\/title>/);
+  assert.match(body, /<title>acme\/agent-kit · Github·Tidings<\/title>/);
   // 页面脚本用 repo 拼原项目链接 https://github.com/<repo>。
   assert.equal(page.repo, 'acme/agent-kit');
   assert.equal(page.hasProfile, true);

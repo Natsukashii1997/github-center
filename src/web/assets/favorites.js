@@ -15,7 +15,7 @@
 
   // 报头：账号名、项目和 Skill 各几个、最近一次收藏的日期（只读）
   const nP = items.filter((x) => !x.skill).length;
-  $('mast').innerHTML = `<div><div class="kick"><span>GitHub · 我的收藏 · ${esc(D.account.name)}</span></div><h1>我的收藏</h1></div>
+  $('mast').innerHTML = `<div><div class="kick"><span>个人收藏 · 本地储存</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Clippings</span><b>收藏页</b></span></h1></div>
     <div class="tick">${[['项目', nP, '个'], ['Skill', items.length - nP, '个'], ['最近收藏', items.length ? md(items[0].at) : '—', '']].map(([k, v, u]) => `<div><div class="k">${k}</div><div class="v">${v}${u ? `<small>${u}</small>` : ''}</div></div>`).join('')}</div><div class="band"></div>`;
 
   const avatar = (p) => (p.ownerId ? `https://avatars.githubusercontent.com/u/${p.ownerId}?s=64&v=4` : `https://github.com/${p.repo.split('/')[0]}.png?size=64`);
@@ -65,7 +65,7 @@
     const v = D.views[repo], it = view(repo, v.run), host = $('drawer');
     if (it.total == null) it.total = v.total;
     host.innerHTML = drawer(it, { w: v.win, ranks: v.ranks, home: true });
-    host.querySelector('.dw-top > span').textContent = '我的收藏';
+    host.querySelector('.dw-top > span').textContent = '收藏页';
     syncStars(host);
     const body = host.querySelector('.dw-body'), hit = skill && document.getElementById(`skill-${skill}`);
     body.scrollTop = 0;
