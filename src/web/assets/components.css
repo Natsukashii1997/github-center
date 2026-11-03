@@ -1,4 +1,4 @@
-/* GitHub 快速中心 · 共用组件（T1b，方向「导读」）
+/* Github·Tidings · 共用组件（T1b，方向「导读」）
    每个组件只出现一次定义；页面只组合组件、传内容，不在页面里改组件的几何和颜色。 */
 
 * { box-sizing: border-box; }
@@ -14,8 +14,8 @@ svg { display: block; }
 
 /* ── 品牌（登录页；其余页面的顶栏由白雾外壳 shell.css 画） ── */
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
-.mark { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--c-ink); display: grid; place-items: center; }
-.mark::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c-bg); transform: translate(3px, -3px); }
+.brand .logo { flex: none; display: block; }
+.brand .wm { font: italic 400 17.5px/1 Georgia, "Times New Roman", serif; font-weight: 400; white-space: nowrap; } .brand .wm .d { font-style: normal; color: #0969da; padding: 0 4px; }
 
 /* ── 页面骨架 ─────────────────────────── */
 .phead h1 { margin: 0; font-family: var(--font-read); font-size: var(--fs-display); line-height: var(--lh-display); font-weight: 700; letter-spacing: .02em; }

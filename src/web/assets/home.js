@@ -23,9 +23,11 @@
   // 报头：数据新鲜度、第一名、新面孔、飙升最多；口径放在标题的悬停说明里。
   // 新鲜度：统计日按 UTC 划分，每天北京时间 10:00（UTC 02:00）出前一天的榜，所以此刻应有的最新一期是 26 小时前所在的 UTC 日；
   // 比它早几天就是「已 N 天没有新数据」（以前按统计日零点算，北京 20:00 以后最新一期也会误报过期）。
+  // 小字行（所有者 2026-11-03 定）：只写这一期的日期和「数据已更新／数据未更新」，几天没更新、出了什么问题放在悬停说明里。
+  const title = '<span class="tt"><span class="ghost" aria-hidden="true">Rising</span><b>涨星榜</b></span>';
   function head() {
     const { W, items } = b;
-    if (!W.day) return `<div><div class="kick"><span>GitHub · ${esc(W.label)}</span><span class="fresh ${W.top.tone === 'bad' ? 'bad' : 'warn'}"><i></i>${esc(W.top.text)}</span></div><h1>涨星榜</h1></div><div class="tick"></div>`;
+    if (!W.day) return `<div><div class="kick"><span class="fresh ${W.top.tone === 'bad' ? 'bad' : 'warn'}" title="${esc(W.top.text)}"><i></i>数据未更新</span></div><h1>${title}</h1></div><div class="tick"></div>`;
     const late = Math.max(0, Math.floor((Date.now() - 26 * 3600e3 - Date.parse(W.day)) / 864e5));
     const tone = W.top.tone === 'bad' ? 'bad' : late > 0 || W.top.tone === 'warn' ? 'warn' : '';
     const [top] = items;
@@ -33,7 +35,8 @@
     const fresh = items.filter((it) => it.e.mv?.kind === 'new');
     const rise = items.filter((it) => it.e.mv?.kind === 'up').sort((x, y) => y.e.mv.n - x.e.mv.n)[0];
     const [most] = Object.entries(b.types).sort((x, y) => y[1] - x[1]);
-    return `<div><div class="kick"><span>GitHub · ${esc(W.label)} · ${md(W.day)}</span><span class="fresh ${tone}" title="${esc(W.top.text)}"><i></i>${late <= 0 ? '数据是最新的' : `已 ${late} 天没有新数据`}</span></div><h1 title="口径：${esc(W.lede.span)}，全站 ${W.lede.candidates} 个候选，官方核数 ${W.lede.checks} 次">涨星榜</h1></div>
+    const [, mo, d] = W.day.split('-').map(Number);
+    return `<div><div class="kick"><span>${mo}月${d}日</span><span class="fresh ${tone}" title="${late > 0 ? `已 ${late} 天没有新数据。` : ''}${esc(W.top.text)}"><i></i>${tone ? '数据未更新' : '数据已更新'}</span></div><h1 title="${esc(W.label)} · 口径：${esc(W.lede.span)}，全站 ${W.lede.candidates} 个候选，官方核数 ${W.lede.checks} 次">${title}</h1></div>
       <div class="tick">${top ? `
         <div><div class="k">第一名</div><div class="v"><b data-open="${esc(top.repo)}">${esc(top.name)}</b><small>${top.st?.kind === 'crown' ? esc(top.st.text) : '本期登顶'}</small></div></div>
         <div><div class="k">新面孔</div>${hasPrev ? `<div class="v">${fresh.length} 个</div><div class="fc">${fresh.slice(0, 6).map((it) => `<span class="face" data-open="${esc(it.repo)}" title="${esc(it.repo)}">${av(it, 18)}</span>`).join('')}</div>` : '<div class="v"><small>暂无上一期</small></div>'}</div>

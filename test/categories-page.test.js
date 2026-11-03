@@ -58,7 +58,7 @@ test('分类榜页面：导航可点；精选、历史、热点三块数据和�
   try {
     const res = await site.get('categories');
     assert.equal(res.status, 200);
-    assert.match(res.body, /<title>分类榜 · GitHub 快速中心<\/title>/);
+    assert.match(res.body, /<title>分类榜 · Github·Tidings<\/title>/);
     assert.match(res.body, /<a href="\/categories" aria-current="page">分类榜<\/a>/);
     const d = dataOf(res.body);
     assert.equal(d.day, '2026-11-03');
