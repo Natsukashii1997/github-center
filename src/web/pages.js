@@ -186,7 +186,7 @@ export const loginPage = (next, error, name = '') => shell({ title: '登录', sc
   <section class="pane">
     <div class="login">
       <h1>登录</h1>
-      <p class="lede">只在这台电脑上运行，账号由所有者开通。</p>
+      <p class="lede">账号由所有者开通。</p>
       <form id="form" method="post" action="/login">
         <input type="hidden" name="next" value="${esc(next)}">
         <div class="field"${error ? ' data-error' : ''}><label for="user">用户名</label><div class="input"><input id="user" name="name"${name ? ` value="${esc(name)}"` : ''} autocomplete="username" autocapitalize="off" spellcheck="false" required autofocus></div></div>
