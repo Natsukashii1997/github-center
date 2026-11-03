@@ -1,0 +1,21 @@
+# 服务器上的网站（#46，见 docs/deploy.md）：装到 /etc/systemd/system/tidings.service。
+# 只监听本机 5310，由 Caddy 对外；要登录（不加 --guest）；网站账号 tidings 只能写 data/。
+[Unit]
+Description=Github·Tidings 网站
+After=network.target
+
+[Service]
+User=tidings
+Group=tidings
+WorkingDirectory=/srv/tidings
+ExecStart=/opt/node24/bin/node bin/serve.js --port 5310 --origin https://tidings.natsukashii.cn
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/srv/tidings/data
+
+[Install]
+WantedBy=multi-user.target

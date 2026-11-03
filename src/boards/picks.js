@@ -259,6 +259,30 @@ export function openPicks(dataDir) {
       const st = db.prepare('UPDATE pick_pool SET tags = ?, tagset = ?, version = ?, suggested_at = ? WHERE project_id = ?');
       tx(() => results.forEach((r) => st.run(JSON.stringify(pickTags(r.tags, names)), set, version, now, r.projectId)));
     },
+
+    // 放到服务器上（#46，见 ../remote）：标签清单、换卡和投票在服务器的库里改，候选池和 Codex 建议在 Mac 上算。
+    // state：服务器上的标签清单和固定的卡；mirror：Mac 算之前把服务器的标签清单和固定的卡照搬进本机库（没固定的卡等 refill 重填），本机算出的卡就和服务器补出来的一样。
+    state: () => ({
+      tags: db.prepare('SELECT id, name, color, sort, note FROM pick_tags ORDER BY sort, id').all(),
+      pinned: db.prepare('SELECT tag_id, slot, project_id, full_name, pinned_by, pinned_at FROM picks WHERE pinned = 1 ORDER BY tag_id, slot').all(),
+    }),
+    mirror({ tags: list, pinned }) {
+      tx(() => {
+        db.exec('DELETE FROM picks; DELETE FROM pick_tags;');
+        const tag = db.prepare('INSERT INTO pick_tags(id, name, color, sort, note) VALUES (?, ?, ?, ?, ?)');
+        list.forEach((t) => tag.run(t.id, t.name, t.color, t.sort, t.note ?? ''));
+        const card = db.prepare('INSERT INTO picks(tag_id, slot, project_id, full_name, pinned, pinned_by, pinned_at) VALUES (?, ?, ?, ?, 1, ?, ?)');
+        pinned.forEach((c) => card.run(c.tag_id, c.slot, c.project_id, c.full_name, c.pinned_by ?? null, c.pinned_at ?? null));
+      });
+    },
+    // exportPool / importPool：Mac 把整份候选池（含建议的标签）写成文件推上去，服务器按项目 id 覆盖进自己的库，换卡时加进来的项目保留。
+    exportPool: () => db.prepare('SELECT * FROM pick_pool ORDER BY project_id').all(),
+    importPool(rows) {
+      const up = db.prepare(`INSERT INTO pick_pool(project_id, full_name, owner_id, total, tags, tagset, version, suggested_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(project_id) DO UPDATE SET full_name = excluded.full_name, owner_id = COALESCE(excluded.owner_id, owner_id), total = excluded.total,
+        tags = excluded.tags, tagset = excluded.tagset, version = excluded.version, suggested_at = excluded.suggested_at, updated_at = excluded.updated_at`);
+      tx(() => rows.forEach((r) => up.run(r.project_id, r.full_name, r.owner_id ?? null, r.total ?? null, r.tags ?? '[]', r.tagset ?? null, r.version ?? null, r.suggested_at ?? null, r.updated_at)));
+    },
     close: () => db.close(),
   };
 }

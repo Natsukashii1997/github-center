@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { readJson, writeAtomic } from './ranking/store.js';
 
 // 每日更新的步骤（bin/update.js 按顺序跑）：先出涨星榜和全站 Star 前 100、热点榜，精选榜的候选池才齐；补资料、归类放在后面，当天新上榜的项目就能当天补上。
+// 最后一步把数据推到服务器（#46，没有 data/remote.json 时什么都不做）。
 // 设置页（../settings）关掉的数据源：一步只靠它的整步跳过（skills.sh → 历史榜；HN、V2EX 都关 → 热点榜），日志写明原因；
 // 只关掉一部分来源的步骤照跑，由那一步自己读设置跳过那个来源。
 export const STEPS = [
@@ -15,6 +16,7 @@ export const STEPS = [
   { name: '归类', args: ['--use-env-proxy', 'bin/classify.js'] },
   { name: '周报', args: ['bin/weekly.js'] },
   { name: '校准报告', args: ['bin/calibrate.js'] },
+  { name: '推到服务器', args: ['bin/push.js'] },
 ];
 
 // 这次要跑的步骤：{ name, args, skip }，skip 是跳过的原因（不跳过为 null）。

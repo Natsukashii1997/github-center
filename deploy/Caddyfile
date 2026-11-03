@@ -1,0 +1,5 @@
+# 服务器上的反向代理（#46，见 docs/deploy.md）：装到 /etc/caddy/Caddyfile。Caddy 自动申请、续期 HTTPS 证书，http 自动跳 https。
+tidings.natsukashii.cn {
+	encode gzip
+	reverse_proxy 127.0.0.1:5310
+}
