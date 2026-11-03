@@ -1,5 +1,5 @@
 // 项目归类（#10）：网站各榜单这一期涉及的项目都归上类。涨星榜是三个窗口这一期全部已核数的候选（分类榜在里面重新取前 20），
-// 其他三个榜单是榜上的项目。按名称、描述和 topics 一批批交给可替换的归类器；已归过的不重归。
+// 其他三个榜单是榜上的项目；分类榜上显示的（精选卡、历史榜前 50 所在的仓库、热点榜前 15，和补资料同一份名单 profileProjects）也归。按名称、描述和 topics 一批批交给可替换的归类器；已归过的不重归。
 // 各榜单显示的项目（每榜前 20）有了项目页资料后，再用完整资料复核一次；资料变了再复核。
 // 一批归类失败不影响其他批，这些项目算“还没归类”，下次运行再归；每归完一批就存一次，中途停下不丢已归的。
 //
@@ -9,7 +9,8 @@ import { WINDOWS } from '../ranking/stat-day.js';
 import { readLatestSnapshot, readCandidates, openStore } from '../ranking/store.js';
 import { fetchMeta } from '../ranking/meta.js';
 import { mapLimit } from '../ranking/rank-day.js';
-import { boardProjects, readProfile, currentGenerated } from '../profiles/store.js';
+import { readProfile, findProfile, currentGenerated } from '../profiles/store.js';
+import { profileProjects } from '../profiles/update.js';
 import { readCategories, saveCategories, categoryKey, pickCategories, lookup } from './store.js';
 
 const BATCH = 50;
@@ -40,6 +41,7 @@ async function targets({ dataDir, gh, now, cats }) {
     ...['new', 'top'].flatMap((l) => readLatestSnapshot(dataDir, l)?.entries ?? []),
     ...Object.values(trending?.pages ?? {}).flatMap((p) => p.entries),
   ].map((e) => ({ id: e.projectId ?? null, fullName: e.fullName, description: null, topics: null }));
+  for (const p of profileProjects(dataDir)) listed.push({ id: p.id, fullName: p.name, description: null, topics: null });
   const missing = listed.filter((x) => !cats.get(x) && add(x));
   let requests = 0;
   if (missing.length && gh) {
@@ -90,18 +92,18 @@ export async function updateCategories({ dataDir, classifier, gh, now = () => ne
   const batchTodo = list.filter((x) => !cats.get(x));
   const batchStat = await run(batchTodo, batch, false);
 
-  // 复核：榜上项目有了和当前资料对得上的简介，且还没按这份资料复核过。
+  // 复核：榜上项目（含分类榜上显示的）有了和当前资料对得上的简介，且还没按这份资料复核过。没有 id 的按名字找资料。
   const reviewTodo = [];
   const find = lookup(items);
-  for (const p of boardProjects(dataDir)) {
-    const profile = p.id ? readProfile(dataDir, p.id) : null;
+  for (const p of profileProjects(dataDir)) {
+    const profile = p.id ? readProfile(dataDir, p.id) : findProfile(dataDir, p.name);
     const gen = currentGenerated(profile);
     if (!gen) continue;
-    const done = find({ id: p.id, fullName: p.name });
+    const done = find({ id: profile.projectId, fullName: profile.fullName });
     if (done?.source === 'review' && done.profileHash === profile.material.hash) continue;
     const m = profile.material;
     reviewTodo.push({
-      id: p.id,
+      id: profile.projectId,
       fullName: profile.fullName,
       profileHash: m.hash,
       view: { fullName: profile.fullName, description: m.description, topics: m.topics, what: gen.what, problem: gen.problem, skills: m.skills.map((s) => s.name) },
