@@ -145,7 +145,7 @@
     const seq = (sw.seq = (sw.seq ?? 0) + 1);
     const res = await api('candidates', { tag: tag().id, q: text });
     if (!sw || seq !== sw.seq || !res) return;
-    Object.assign(sw, { items: res.items, missing: res.missing, already: res.already, looking: false });
+    Object.assign(sw, { items: res.items, missing: res.missing, already: res.already, looking: sw.looking && res.missing === sw.missing });
     list();
   }
   // 粘贴的地址本地没有：联网查一次这个仓库，查到就作为唯一的候选
