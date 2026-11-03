@@ -84,7 +84,8 @@ function readForm(req) {
 }
 
 // host：监听地址，默认只本机；'0.0.0.0' 让同一 Wi-Fi 的人能打开。guest：免登录，所有人都当作这个已有账号（共用收藏），登录页直接回首页。
-export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest }) {
+// lookupRepo：所有者换卡时联网查 GitHub 用（repo-lookup.js），不给就不能联网查。
+export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, lookupRepo }) {
   const accounts = openAccounts(dataDir);
   const guestAccount = guest ? accounts.find(guest) : null;
   if (guest && !guestAccount) {
@@ -94,6 +95,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
   const lan = host !== '127.0.0.1';
   const favorites = openFavorites(dataDir);
   const picks = openPicks(dataDir);
+  const fetched = new Map();
   const handle = async (req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     const send = (status, headers, body) => res.writeHead(status, headers).end(req.method === 'HEAD' ? undefined : body);
@@ -139,7 +141,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
       if (refused) return refuse(refused);
       return api ? json(200, { saved: form.get('action') === 'add' }) : send(303, { location: safeNext(form.get('next') ?? '/favorites') });
     }
-    // 精选榜（#27）：投票、换卡、恢复、换卡候选、改标签清单。只收 POST、只接受本站提交；谁能改由 boards/picks.js 判断，拒绝时回它给的状态码和原因。
+    // 精选榜（#27）：投票、换卡、恢复、换卡候选、联网查仓库、改标签清单。只收 POST、只接受本站提交；谁能改由 boards/picks.js 判断，拒绝时回它给的状态码和原因。
     const pickOp = url.pathname.match(/^\/api\/picks\/([a-z]+)$/)?.[1];
     if (pickOp) {
       if (req.method !== 'POST') return json(405, { error: '只接受 POST' });
@@ -147,7 +149,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
       const form = await readForm(req).catch(() => null);
       if (!form) return json(413, { error: '表单太大' }, { connection: 'close' });
       try {
-        return json(200, picksApi(dataDir, { account, favorites }, picks, pickOp, form));
+        return json(200, await picksApi(dataDir, { account, favorites, lookupRepo, fetched }, picks, pickOp, form));
       } catch (e) {
         if (e instanceof PicksError) return json(e.status, { error: e.message });
         throw e;

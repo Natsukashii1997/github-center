@@ -138,14 +138,25 @@
     const el = $('swl');
     if (!el) return;
     if (!sw.items) { el.innerHTML = '<p>正在找候选…</p>'; return; }
-    const note = sw.already ? `<p>「${esc(sw.already)}」已经在这一类里了。</p>` : sw.missing ? `<p>本地数据里还没有「${esc(sw.missing)}」：站内不联网查 GitHub，它进了历史榜或涨星榜候选后才能换进来。</p>` : '';
+    const note = sw.already ? `<p>「${esc(sw.already)}」已经在这一类里了。</p>` : sw.missing ? `<p>本地数据里还没有「${esc(sw.missing)}」。<button class="btn sm sw-look" data-lookup${sw.looking ? ' disabled' : ''}>${sw.looking ? '正在查…' : '联网查 GitHub'}</button></p>` : '';
     el.innerHTML = note + (sw.items.length ? sw.items.map((x) => `<button data-pick="${x.projectId}"${x.inTags >= 2 ? ' disabled title="已经在 2 个标签里了，换不进来"' : ''}>${img(x.fullName, x.ownerId, 22)}<b>${esc(x.fullName.split('/')[1])}</b><span>${esc(x.line ?? x.description ?? x.fullName)}</span><em>${x.total == null ? '—' : `★ ${wan(x.total)}`}</em></button>`).join('') : note ? '' : '<p>没有符合条件的项目。</p>');
   }
   async function search(text) {
     const seq = (sw.seq = (sw.seq ?? 0) + 1);
     const res = await api('candidates', { tag: tag().id, q: text });
     if (!sw || seq !== sw.seq || !res) return;
-    Object.assign(sw, { items: res.items, missing: res.missing, already: res.already });
+    Object.assign(sw, { items: res.items, missing: res.missing, already: res.already, looking: false });
+    list();
+  }
+  // 粘贴的地址本地没有：联网查一次这个仓库，查到就作为唯一的候选
+  async function doLookup() {
+    const q = sw.missing;
+    sw.looking = true;
+    list();
+    const res = await api('lookup', { tag: tag().id, q });
+    if (!sw || sw.missing !== q) return;
+    sw.looking = false;
+    if (res) Object.assign(sw, { items: res.item ? [res.item] : [], missing: null, already: res.already ?? null });
     list();
   }
   function openSwap() {
@@ -261,7 +272,7 @@
 
   document.addEventListener('click', (ev) => {
     if (act(ev)) return;
-    const t = ev.target.closest('[data-go],[data-cfk],[data-cfi],[data-vote],[data-swap],[data-swclose],[data-pick],[data-reset],[data-hcat],[data-close],[data-open]');
+    const t = ev.target.closest('[data-go],[data-cfk],[data-cfi],[data-vote],[data-swap],[data-swclose],[data-pick],[data-lookup],[data-reset],[data-hcat],[data-close],[data-open]');
     if (!t) return;
     const d = t.dataset;
     if (d.go) return $(`sec-${d.go}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -270,6 +281,7 @@
     if ('swap' in d) return openSwap();
     if ('swclose' in d) return closeSwap();
     if (d.pick) return doSwap(Number(d.pick));
+    if ('lookup' in d) return doLookup();
     if ('reset' in d) return doReset();
     if (d.cfi) {
       const i = Number(d.cfi);

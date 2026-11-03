@@ -1,5 +1,6 @@
 // #27 分类榜页面：/categories 嵌进页面的三块数据（精选、历史、热点）和详情栏内容；精选榜接口 POST /api/picks/<操作> 的权限、
-// 投票、换卡（只换进本地有数据的项目）、恢复、候选（含粘贴 GitHub 地址）、改标签清单；分类榜上的项目能收藏。全部走登录后的 HTTP。
+// 投票、换卡（只换进本地有数据或所有者联网查到的项目）、恢复、候选（含粘贴 GitHub 地址）、联网查仓库、改标签清单；分类榜上的项目能收藏。
+// 除 repoLookup 本身外全部走登录后的 HTTP。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -8,6 +9,7 @@ import { join } from 'node:path';
 import { http, form, serve, testAccount, dataOf } from './helpers/web.js';
 import { openAccounts } from '../src/web/accounts.js';
 import { updatePicks, DEFAULT_TAGS } from '../src/boards/index.js';
+import { repoLookup } from '../src/web/repo-lookup.js';
 
 const put = (dir, path, obj) => {
   mkdirSync(join(dir, path, '..'), { recursive: true });
@@ -173,6 +175,66 @@ test('所有者：换卡只换进本地有数据的项目（含粘贴的 GitHub 
   } finally {
     site.close();
   }
+});
+
+test('所有者换卡：粘贴的地址本地没有时联网查一次 GitHub，查到的能换进来；伙伴不能查；查不到、出错、没开联网的回原因', async () => {
+  const dir = await seed();
+  const asked = [];
+  const lookupRepo = async (repo) => {
+    asked.push(repo);
+    if (repo === 'boom/x') throw new Error('GitHub 返回 500');
+    return repo === 'fresh/one' ? { id: 5000, fullName: 'Fresh/One', ownerId: 55, total: 1234, description: 'fresh' } : repo === 'h/p3' ? { id: 3, fullName: 'h/p3', ownerId: 102, total: 98_000, description: null } : null;
+  };
+  const partner = await serve(dir, { lookupRepo });
+  const site = await asOwner(partner, dir);
+  try {
+    const agent = tagOf(dataOf((await site.get('categories')).body), AGENT).id;
+    const p = await api(partner, 'lookup', { tag: agent, q: 'https://github.com/fresh/one' });
+    assert.deepEqual([p.status, p.json.error], [403, '只有所有者能改精选标签和换卡']);
+    assert.deepEqual(asked, []);
+
+    // 先是 missing，再联网查：回一行候选（名字、总 Star、作者 id 取 GitHub）
+    assert.equal((await api(site, 'candidates', { tag: agent, q: 'https://github.com/fresh/one' })).json.missing, 'fresh/one');
+    const r = await api(site, 'lookup', { tag: agent, q: 'https://github.com/fresh/one' });
+    assert.deepEqual(r.json.item, { projectId: 5000, fullName: 'Fresh/One', ownerId: 55, total: 1234, inTags: 0, description: 'fresh', line: null });
+    assert.deepEqual(asked, ['fresh/one']);
+    const sw = await api(site, 'swap', { tag: agent, slot: 2, project: 5000 });
+    assert.equal(sw.status, 200);
+    assert.deepEqual(tagOf(sw.json, AGENT).cards[1], { slot: 2, repo: 'Fresh/One', projectId: 5000, total: 1234, pinned: true, up: 0, down: 0, mine: 0 });
+
+    // 已在这一类里的回 already；查不到 404；GitHub 出错 502；认不出地址 400
+    assert.deepEqual((await api(site, 'lookup', { tag: agent, q: 'h/p3' })).json, { already: 'h/p3' });
+    assert.deepEqual(await api(site, 'lookup', { tag: agent, q: 'no/where' }).then((x) => [x.status, x.json.error]), [404, 'GitHub 上没有公开仓库「no/where」']);
+    assert.deepEqual(await api(site, 'lookup', { tag: agent, q: 'boom/x' }).then((x) => [x.status, x.json.error]), [502, '联网查 GitHub 没成功：GitHub 返回 500']);
+    assert.equal((await api(site, 'lookup', { tag: agent, q: 'not a repo' })).status, 400);
+  } finally {
+    site.close();
+  }
+  const off = await asOwner(await serve(dir), dir);
+  try {
+    const agent = tagOf(dataOf((await off.get('categories')).body), AGENT).id;
+    assert.equal((await api(off, 'lookup', { tag: agent, q: 'fresh/one' })).status, 503);
+  } finally {
+    off.close();
+  }
+});
+
+test('repoLookup：查一个公开仓库，带 token；404 和私有仓库回 null；别的状态抛错', async () => {
+  const calls = [];
+  const reply = { 'a/b': [200, { id: 7, full_name: 'A/b', owner: { id: 70 }, stargazers_count: 12, description: 'd' }], 'p/q': [200, { id: 8, full_name: 'p/q', private: true }], 'x/y': [404, {}], 'e/e': [500, {}] };
+  const fetch = async (url, init) => {
+    calls.push([url, init.headers.authorization]);
+    const [status, body] = reply[url.split('/repos/')[1]];
+    return { status, ok: status === 200, json: async () => body };
+  };
+  const find = repoLookup({ fetch, token: 't0k' });
+  assert.deepEqual(await find('a/b'), { id: 7, fullName: 'A/b', ownerId: 70, total: 12, description: 'd' });
+  assert.deepEqual(calls[0], ['https://api.github.com/repos/a/b', 'Bearer t0k']);
+  assert.equal(await find('p/q'), null);
+  assert.equal(await find('x/y'), null);
+  await assert.rejects(find('e/e'), /GitHub 返回 500/);
+  assert.equal((await (repoLookup({ fetch, token: '' }))('a/b')).id, 7);
+  assert.equal(calls.at(-1)[1], undefined);
 });
 
 test('分类榜上的项目（历史榜、热点榜，没有项目资料）能收藏，出现在我的收藏', async () => {

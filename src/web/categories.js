@@ -1,6 +1,7 @@
 // 分类榜（#27，白雾定稿 design/candidates/redesign/cat.html）：上面精选榜（聚光轮播 + 说明书卡），下面历史榜和热点榜左右各半。
 // 服务端把三块数据（src/boards：readHistoryBoard、readHotBoard、openPicks）和上面每个项目在详情栏要的内容整理成一份数据嵌进页面，
-// 页面脚本（assets/categories.js）画出来。访问时不调用任何外部接口：换卡面板里粘贴的 GitHub 地址只在本地已有的数据里找。
+// 页面脚本（assets/categories.js）画出来。访问时不调用任何外部接口：换卡面板里粘贴的 GitHub 地址先在本地已有的数据里找，
+// 本地没有时所有者可以点「联网查 GitHub」查一次这个仓库（lookup，见 repo-lookup.js），只在换卡这一步。
 // 卡片和行上的文字（一句话、主要用途、定义标签）取补资料生成的项目资料；还没生成的不拿别的字凑，只写明“GitHub 上的描述”。
 // 精选榜的改动走 POST /api/picks/<操作>（同收藏接口：要登录、只接受本站提交）；谁能改由 boards/picks.js 的 canEdit 一处判断，
 // 拒绝时按 PicksError.status 回 JSON。
@@ -109,7 +110,7 @@ const int = (v) => (/^-?\d+$/.test(v ?? '') ? Number(v) : NaN);
 const CANDIDATES = 30;
 
 // 换卡面板的候选：不在这个标签里的项目，按总 Star 从高到低；q 是仓库名的一部分或粘贴的 GitHub 地址。
-// 候选池（picks.candidates）之外，本地有数字的项目也算；粘贴的地址本地没有时回 missing（站内不联网查 GitHub）。
+// 候选池（picks.candidates）之外，本地有数字的项目也算；粘贴的地址本地没有时回 missing（页面上所有者再点联网查，走 lookup）。
 function candidates(dataDir, picks, form) {
   const tagId = int(form.get('tag'));
   const q = (form.get('q') ?? '').slice(0, 200);
@@ -134,7 +135,29 @@ function candidates(dataDir, picks, form) {
   return { items, already, missing: repo && !already && !items.some((c) => same(c.fullName)) ? repo : null };
 }
 
-export function picksApi(dataDir, ctx, picks, op, form) {
+// 联网查一次粘贴的仓库（只给所有者）：查到的记进 ctx.fetched（按项目 id，网站开着时一直有效），换卡时和本地数据一样用。
+// 回 { item }（同候选的一行），或这个仓库已在这一类里时回 { already }。
+async function lookup(ctx, picks, form) {
+  if (!picks.canEdit(ctx.account)) throw new PicksError('只有所有者能改精选标签和换卡', 403);
+  const tag = picks.board(null).tags.find((t) => t.id === int(form.get('tag')));
+  if (!tag) throw new PicksError('没有这个精选标签', 404);
+  const repo = parseRepoInput(form.get('q'));
+  if (!repo) throw new PicksError('认不出 GitHub 仓库地址');
+  if (!ctx.lookupRepo) throw new PicksError('这个网站没开联网查 GitHub', 503);
+  let x;
+  try {
+    x = await ctx.lookupRepo(repo);
+  } catch (e) {
+    throw new PicksError(`联网查 GitHub 没成功：${e.message}`, 502);
+  }
+  if (!x) throw new PicksError(`GitHub 上没有公开仓库「${repo}」`, 404);
+  ctx.fetched.set(x.id, x);
+  if (tag.cards.some((c) => c.projectId === x.id)) return { already: x.fullName };
+  const inTags = picks.board(null).tags.filter((t) => t.cards.some((c) => c.projectId === x.id)).length;
+  return { item: { projectId: x.id, fullName: x.fullName, ownerId: x.ownerId, total: x.total, inTags, description: x.description, line: null } };
+}
+
+export async function picksApi(dataDir, ctx, picks, op, form) {
   const { account } = ctx;
   const tagId = int(form.get('tag'));
   const after = () => picksPart(dataDir, ctx, picks);
@@ -143,11 +166,14 @@ export function picksApi(dataDir, ctx, picks, op, form) {
       return picks.vote(account, { tagId, projectId: int(form.get('project')), value: int(form.get('value')) });
     case 'candidates':
       return candidates(dataDir, picks, form);
+    case 'lookup':
+      return lookup(ctx, picks, form);
     case 'swap': {
-      // 只换进本地有数字的项目（或已在别的标签里的卡），名字、总 Star、作者 id 取本地数据。权限由 picks.swap 判断，先于查项目。
+      // 只换进本地有数字的项目、所有者刚联网查到的项目（ctx.fetched），或已在别的标签里的卡；名字、总 Star、作者 id 取这些数据，不信页面传来的。
+      // 权限由 picks.swap 判断，先于查项目。
       if (!picks.canEdit(account)) throw new PicksError('只有所有者能改精选标签和换卡', 403);
       const id = int(form.get('project'));
-      const x = known(dataDir).get(id) ?? picks.board(null).tags.flatMap((t) => t.cards).find((c) => c.projectId === id);
+      const x = known(dataDir).get(id) ?? ctx.fetched?.get(id) ?? picks.board(null).tags.flatMap((t) => t.cards).find((c) => c.projectId === id);
       if (!x) throw new PicksError('本地还没有这个项目的数据，换不进来', 404);
       picks.swap(account, { tagId, slot: int(form.get('slot')), project: { id, fullName: x.fullName, total: x.total ?? undefined, ownerId: x.ownerId ?? undefined } });
       return after();
