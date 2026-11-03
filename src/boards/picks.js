@@ -10,7 +10,7 @@
 //   restore(account, tagId)                → 恢复成按星数前 7
 //   vote(account, { tagId, projectId, value }) → value 1 赞、-1 踩、0 撤回；返回这张卡的 { up, down, mine }
 //   candidates({ tagId, query, limit })    → 换卡面板的候选：不在这个标签里的项目，按总 Star 从高到低
-//   addTag / updateTag / removeTag / reorderTags(account, ...) → 改标签清单
+//   addTag / updateTag / removeTag / reorderTags(account, ...) → 改标签清单（标签带一句话说明 note，写进 Codex 建议提示）
 import { openCenterDb } from '../web/center-db.js';
 import { parseRepoInput } from './repo-link.js';
 
@@ -21,16 +21,17 @@ export const MAX_TAGS_PER_PROJECT = 2;
 export const canEdit = (account) => account?.role === 'owner';
 
 // 第一次建表时放进去的标签清单（定稿原型 cat.html 的五类和配色），所有者之后可增删改。
+// note 是一句话说明，写进 Codex 的建议提示：只看名字容易归错（Codex 曾把「编程技能」读成教人学编程，把编程教程、面试题库归进来）。
 export const DEFAULT_TAGS = [
-  { name: '多 Agent 协同', color: '#8250df' },
-  { name: '编程技能', color: '#1a7f37' },
-  { name: '创作与设计', color: '#bf3989' },
-  { name: '本地模型与记忆', color: '#0b6e66' },
-  { name: '实用工具', color: '#bc4c00' },
+  { name: '多 Agent 协同', color: '#8250df', note: '让多个 AI 智能体分工、并行或互相配合干活的编排、调度和管理工具' },
+  { name: '编程技能', color: '#1a7f37', note: '给 Claude Code、Codex 这类 AI 编程助手装的 Skill、规范和工作流，让 AI 写代码更靠谱；不是教人学编程的教程、课程、面试题或书单' },
+  { name: '创作与设计', color: '#bf3989', note: '用 AI 做界面设计、画图、视频、音频、3D 等内容创作的工具' },
+  { name: '本地模型与记忆', color: '#0b6e66', note: '在本机跑大模型、加速推理，或给 AI 加长期记忆、上下文检索的项目' },
+  { name: '实用工具', color: '#bc4c00', note: '解决某个具体问题、装上就能用的小工具（逆向拆解、文件处理、系统和设备工具等）；不是资料合集或接口清单' },
 ];
 
-// 标签清单的“指纹”：清单变了（增删、改名），候选项目要重新建议标签。
-export const tagsetOf = (names) => JSON.stringify([...names].sort());
+// 标签清单的“指纹”：清单变了（增删、改名、改说明），候选项目要重新建议标签。tags 是 [{ name, note }]。
+export const tagsetOf = (tags) => JSON.stringify(tags.map((t) => `${t.name}：${t.note ?? ''}`).sort());
 
 class PicksError extends Error {
   constructor(message, status = 400) {
@@ -40,12 +41,17 @@ class PicksError extends Error {
 }
 const deny = () => { throw new PicksError('只有所有者能改精选标签和换卡', 403); };
 const COLOR = /^#[0-9a-fA-F]{6}$/;
+const noteOf = (note) => {
+  const s = String(note ?? '').replace(/\s+/g, ' ').trim();
+  if (s.length > 120) throw new PicksError('标签说明最多 120 个字');
+  return s;
+};
 
 export function openPicks(dataDir) {
   const db = openCenterDb(dataDir);
   const fresh = !db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'pick_tags'").get();
   db.exec(`
-    CREATE TABLE IF NOT EXISTS pick_tags(id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, color TEXT NOT NULL, sort INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS pick_tags(id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, color TEXT NOT NULL, sort INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '');
     CREATE TABLE IF NOT EXISTS pick_pool(project_id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, owner_id INTEGER, total INTEGER,
       tags TEXT NOT NULL DEFAULT '[]', tagset TEXT, version TEXT, suggested_at TEXT, updated_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS picks(tag_id INTEGER NOT NULL REFERENCES pick_tags(id), slot INTEGER NOT NULL CHECK (slot BETWEEN 1 AND ${SLOTS}),
@@ -54,7 +60,10 @@ export function openPicks(dataDir) {
     CREATE TABLE IF NOT EXISTS pick_votes(account_id INTEGER NOT NULL REFERENCES accounts(id), tag_id INTEGER NOT NULL, project_id INTEGER NOT NULL,
       value INTEGER NOT NULL CHECK (value IN (1, -1)), at TEXT NOT NULL, PRIMARY KEY (account_id, tag_id, project_id));
   `);
-  if (fresh) DEFAULT_TAGS.forEach((t, i) => db.prepare('INSERT INTO pick_tags(name, color, sort) VALUES (?, ?, ?)').run(t.name, t.color, i + 1));
+  // 说明（note，#27 加）：旧库补上这一列，默认标签还没写说明的补上默认说明（指纹跟着变，下次 npm run picks 全部重新建议）。
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('pick_tags') WHERE name = 'note'").get()) db.exec("ALTER TABLE pick_tags ADD COLUMN note TEXT NOT NULL DEFAULT ''");
+  if (fresh) DEFAULT_TAGS.forEach((t, i) => db.prepare('INSERT INTO pick_tags(name, color, sort, note) VALUES (?, ?, ?, ?)').run(t.name, t.color, i + 1, t.note));
+  else DEFAULT_TAGS.forEach((t) => db.prepare("UPDATE pick_tags SET note = ? WHERE name = ? AND note = ''").run(t.note, t.name));
 
   const tx = (fn) => {
     db.exec('BEGIN IMMEDIATE');
@@ -67,8 +76,8 @@ export function openPicks(dataDir) {
       throw e;
     }
   };
-  const tags = () => db.prepare('SELECT id, name, color, sort AS "order" FROM pick_tags ORDER BY sort, id').all();
-  const tagById = (id) => db.prepare('SELECT id, name, color, sort AS "order" FROM pick_tags WHERE id = ?').get(id) ?? null;
+  const tags = () => db.prepare('SELECT id, name, color, note, sort AS "order" FROM pick_tags ORDER BY sort, id').all();
+  const tagById = (id) => db.prepare('SELECT id, name, color, note, sort AS "order" FROM pick_tags WHERE id = ?').get(id) ?? null;
   const needTag = (id) => tagById(id) ?? (() => { throw new PicksError('没有这个精选标签', 404); })();
   const tagCount = (projectId, exceptTag) => db.prepare('SELECT COUNT(*) AS n FROM picks WHERE project_id = ? AND tag_id != ?').get(projectId, exceptTag).n;
   const counts = (tagId, projectId, accountId) => {
@@ -105,7 +114,7 @@ export function openPicks(dataDir) {
   return {
     canEdit,
     tags,
-    tagset: () => tagsetOf(tags().map((t) => t.name)),
+    tagset: () => tagsetOf(tags()),
 
     board(account) {
       const cards = db.prepare(`SELECT p.tag_id, p.slot, p.project_id, p.full_name, p.pinned, pool.owner_id, pool.total FROM picks p
@@ -177,28 +186,30 @@ export function openPicks(dataDir) {
         ORDER BY pool.total IS NULL, pool.total DESC, pool.project_id LIMIT ?`).all(tagId, q, q, limit);
     },
 
-    addTag(account, { name, color }) {
+    addTag(account, { name, color, note = '' }) {
       if (!canEdit(account)) deny();
       const n = String(name ?? '').trim();
       if (!n || n.length > 20) throw new PicksError('标签名要 1 到 20 个字');
       if (!COLOR.test(color ?? '')) throw new PicksError('颜色写成 #rrggbb');
+      const nt = noteOf(note);
       if (db.prepare('SELECT 1 FROM pick_tags WHERE name = ?').get(n)) throw new PicksError(`已经有标签「${n}」`, 409);
       const sort = (db.prepare('SELECT MAX(sort) AS m FROM pick_tags').get().m ?? 0) + 1;
-      return Number(db.prepare('INSERT INTO pick_tags(name, color, sort) VALUES (?, ?, ?)').run(n, color, sort).lastInsertRowid);
+      return Number(db.prepare('INSERT INTO pick_tags(name, color, sort, note) VALUES (?, ?, ?, ?)').run(n, color, sort, nt).lastInsertRowid);
     },
-    // 改名或改颜色。改名时候选池里已有的建议跟着改名（当作同一个标签，不重新建议）。
-    updateTag(account, tagId, { name, color }) {
+    // 改名、改颜色或改说明。改名时候选池里已有的建议跟着改名（当作同一个标签，不重新建议）；改说明则下次全部重新建议。
+    updateTag(account, tagId, { name, color, note }) {
       if (!canEdit(account)) deny();
       const tag = needTag(tagId);
       const n = name === undefined ? tag.name : String(name).trim();
       if (!n || n.length > 20) throw new PicksError('标签名要 1 到 20 个字');
       if (color !== undefined && !COLOR.test(color)) throw new PicksError('颜色写成 #rrggbb');
+      const nt = note === undefined ? tag.note : noteOf(note);
       if (n !== tag.name && db.prepare('SELECT 1 FROM pick_tags WHERE name = ?').get(n)) throw new PicksError(`已经有标签「${n}」`, 409);
       tx(() => {
-        const oldSet = tagsetOf(tags().map((t) => t.name));
-        db.prepare('UPDATE pick_tags SET name = ?, color = ? WHERE id = ?').run(n, color ?? tag.color, tagId);
+        const oldSet = tagsetOf(tags().map((t) => (t.id === tag.id ? { ...t, note: nt } : t)));
+        db.prepare('UPDATE pick_tags SET name = ?, color = ?, note = ? WHERE id = ?').run(n, color ?? tag.color, nt, tagId);
         if (n === tag.name) return;
-        const newSet = tagsetOf(tags().map((t) => t.name));
+        const newSet = tagsetOf(tags());
         const st = db.prepare('UPDATE pick_pool SET tags = ?, tagset = ? WHERE project_id = ?');
         for (const r of db.prepare('SELECT project_id, tags, tagset FROM pick_pool').all()) {
           const list = JSON.parse(r.tags).map((x) => (x === tag.name ? n : x));
@@ -211,11 +222,11 @@ export function openPicks(dataDir) {
       if (!canEdit(account)) deny();
       tx(() => {
         const tag = needTag(tagId);
-        const oldSet = tagsetOf(tags().map((t) => t.name));
+        const oldSet = tagsetOf(tags());
         db.prepare('DELETE FROM pick_votes WHERE tag_id = ?').run(tagId);
         db.prepare('DELETE FROM picks WHERE tag_id = ?').run(tagId);
         db.prepare('DELETE FROM pick_tags WHERE id = ?').run(tagId);
-        const newSet = tagsetOf(tags().map((t) => t.name));
+        const newSet = tagsetOf(tags());
         const st = db.prepare('UPDATE pick_pool SET tags = ?, tagset = ? WHERE project_id = ?');
         for (const r of db.prepare('SELECT project_id, tags, tagset FROM pick_pool').all()) {
           st.run(JSON.stringify(JSON.parse(r.tags).filter((x) => x !== tag.name)), r.tagset === oldSet ? newSet : r.tagset, r.project_id);
@@ -236,14 +247,14 @@ export function openPicks(dataDir) {
       const up = db.prepare(`INSERT INTO pick_pool(project_id, full_name, owner_id, total, updated_at) VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(project_id) DO UPDATE SET full_name = excluded.full_name, owner_id = COALESCE(excluded.owner_id, owner_id), total = excluded.total, updated_at = excluded.updated_at`);
       tx(() => rows.forEach((r) => up.run(r.id, r.fullName, r.ownerId ?? null, r.total, now)));
-      const set = tagsetOf(tags().map((t) => t.name));
+      const set = tagsetOf(tags());
       const done = db.prepare('SELECT tagset FROM pick_pool WHERE project_id = ?');
       return rows.filter((r) => done.get(r.id)?.tagset !== set).map((r) => r.id);
     },
     // 记下 Codex 建议的标签（只认当前清单里的名字，最多 2 个）。
     saveSuggestions(results, { version }) {
       const names = tags().map((t) => t.name);
-      const set = tagsetOf(names);
+      const set = tagsetOf(tags());
       const now = new Date().toISOString();
       const st = db.prepare('UPDATE pick_pool SET tags = ?, tagset = ?, version = ?, suggested_at = ? WHERE project_id = ?');
       tx(() => results.forEach((r) => st.run(JSON.stringify(pickTags(r.tags, names)), set, version, now, r.projectId)));

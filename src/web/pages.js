@@ -10,7 +10,7 @@ import { rankHistory } from '../ranking/moves.js';
 
 const labels = () => Object.fromEntries(Object.entries(WINDOWS).map(([id, { days }]) => [id, { label: `近 ${days} 天` }]));
 // 每页都带的：账号、安装目标、窗口名。
-const base = (ctx) => ({ account: { name: ctx.account.name }, ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]), windows: labels() });
+export const base = (ctx) => ({ account: { name: ctx.account.name }, ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]), windows: labels() });
 
 // 各榜最新快照里每个项目的总 Star（更新时的数字）：按项目 id 和名字都能查；收藏页和不在涨星榜上的项目页用。
 function listTotals(dataDir) {
@@ -74,11 +74,11 @@ export function projectData(dataDir, fullName, ctx) {
 export const projectMissing = (fullName, ctx) => ({ ...base(ctx), projects: {}, page: { missing: true, repo: fullName } });
 
 // 三个窗口涨星榜的最新快照（一次请求里读一遍）。
-const latestBoards = (dataDir) => Object.fromEntries(Object.keys(WINDOWS).map((w) => [w, readLatestSnapshot(dataDir, w)]));
+export const latestBoards = (dataDir) => Object.fromEntries(Object.keys(WINDOWS).map((w) => [w, readLatestSnapshot(dataDir, w)]));
 
 // 一个项目在详情栏（项目页、收藏页）要的内容：卡片资料、它在哪些涨星榜上的名次，以及卡片数字取自哪几期（最新生成的在前）。
 // onCategory：只在分类涨星榜上（#10，不生成项目资料）时它所在的那几期，数字和描述取那里的候选。
-function detail(dataDir, { id, name, profile, onCategory }, ctx, { find, history, snapshots }) {
+export function detail(dataDir, { id, name, profile, onCategory }, ctx, { find, history, snapshots }) {
   // 它在哪些涨星榜上（按窗口顺序），卡片数字取最新生成的那一期的运行。
   const onBoards = Object.entries(snapshots).flatMap(([w, s]) => {
     const e = s?.entries.find((x) => (id ? x.projectId === id : x.fullName.toLowerCase() === name.toLowerCase()));

@@ -1,5 +1,5 @@
 // 本机网站：默认只监听 127.0.0.1，登录后才能看（#5）；所有者 2026-10-26 要分享给同一 Wi-Fi 的人看，可改监听地址、免登录共用一个账号（见 startServer）。页面只读快照和更新记录，访问时不调用任何外部接口。
-// 2026-11-03 起（#21）按白雾定稿重做：导航只有涨星榜（首页，近 1/7/30 天，见 home.js）／分类榜（后续批次）／我的收藏。点首页上的项目从右侧滑出
+// 2026-11-03 起（#21）按白雾定稿重做：导航只有涨星榜（首页，近 1/7/30 天，见 home.js）／分类榜（/categories，#27，见 categories.js）／我的收藏。点首页上的项目从右侧滑出
 // 详情栏，项目页 /p/作者/仓库名 是同一份内容（#6）：能复制安装指令（#7）、收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。
 // 日报页、其他榜单页删除，旧地址 /daily、/new、/top、/trending、/boards 跳首页。
 import { createServer } from 'node:http';
@@ -10,6 +10,8 @@ import { WINDOWS } from '../ranking/index.js';
 import { readProfile, findOnBoards, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 import { homeData, homePage, categoryListed } from './home.js';
 import { projectData, projectMissing, projectPage, favoritesData, favoritesPage, loginPage } from './pages.js';
+import { categoriesData, categoriesPage, picksApi, onCategoriesPage } from './categories.js';
+import { openPicks, PicksError } from '../boards/index.js';
 
 // 登录（#5）：除登录页外，所有页面和接口都要先登录。会话令牌放在 HttpOnly Cookie 里。
 const COOKIE = 'gc_session';
@@ -41,7 +43,7 @@ const onCategoryBoard = (dataDir, id) => {
   const entry = [...categoryListed(dataDir).values()].flat().find((b) => b.entry.projectId === id)?.entry;
   return entry ? { id, name: entry.fullName } : undefined;
 };
-function changeFavorite(dataDir, favorites, account, form) {
+function changeFavorite(dataDir, favorites, picks, account, form) {
   const projectId = Number(form.get('project_id'));
   const skillPath = form.get('skill') ?? '';
   if (form.get('action') === 'remove') {
@@ -51,15 +53,15 @@ function changeFavorite(dataDir, favorites, account, form) {
   if (form.get('action') !== 'add') return { status: 400, error: '不认识的操作' };
   const known = Number.isSafeInteger(projectId) && projectId > 0;
   const profile = known ? readProfile(dataDir, projectId) : null;
-  const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) ?? onCategoryBoard(dataDir, projectId) : null;
+  const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) ?? onCategoryBoard(dataDir, projectId) ?? onCategoriesPage(dataDir, picks, projectId) : null;
   const skill = skillPath && profile?.material?.skills.find((s) => s.path === skillPath);
   if (skillPath ? !skill : !profile && !listed) return { status: 404, error: '没有这个项目或 Skill 的资料' };
   favorites.add(account.id, { projectId, fullName: profile?.fullName ?? listed.name, skillPath, skillName: skill?.name ?? '' });
   return null;
 }
 
-// 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页、项目页和我的收藏（bw，收藏页另有 favorites），登录页沿用 #14 的那套。
-const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'favorites.css': 'text/css', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript' };
+// 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页、项目页、我的收藏和分类榜（bw，收藏页另有 favorites，分类榜另有 categories），登录页沿用 #14 的那套。
+const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'favorites.css': 'text/css', 'categories.css': 'text/css', 'categories.js': 'text/javascript', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript' };
 const assetFile = (name) => readFileSync(new URL(`./assets/${name}`, import.meta.url));
 // 登录页（#14）要用的样式和脚本：不登录也能取（只是设计变量、图标和组件代码，不含任何数据）；其余页面脚本登录后才给。
 const LOGIN_ASSETS = new Set(['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js', 'login.js']);
@@ -91,6 +93,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
   }
   const lan = host !== '127.0.0.1';
   const favorites = openFavorites(dataDir);
+  const picks = openPicks(dataDir);
   const handle = async (req, res) => {
     const url = new URL(req.url, 'http://127.0.0.1');
     const send = (status, headers, body) => res.writeHead(status, headers).end(req.method === 'HEAD' ? undefined : body);
@@ -132,9 +135,23 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
       if (!sameOrigin(req, lan)) return refuse({ status: 403, error: '只接受本站提交的表单' });
       const form = await readForm(req).catch(() => null);
       if (!form) return api ? json(413, { error: '表单太大' }, { connection: 'close' }) : tooBig();
-      const refused = changeFavorite(dataDir, favorites, account, form);
+      const refused = changeFavorite(dataDir, favorites, picks, account, form);
       if (refused) return refuse(refused);
       return api ? json(200, { saved: form.get('action') === 'add' }) : send(303, { location: safeNext(form.get('next') ?? '/favorites') });
+    }
+    // 精选榜（#27）：投票、换卡、恢复、换卡候选、改标签清单。只收 POST、只接受本站提交；谁能改由 boards/picks.js 判断，拒绝时回它给的状态码和原因。
+    const pickOp = url.pathname.match(/^\/api\/picks\/([a-z]+)$/)?.[1];
+    if (pickOp) {
+      if (req.method !== 'POST') return json(405, { error: '只接受 POST' });
+      if (!sameOrigin(req, lan)) return json(403, { error: '只接受本站提交的表单' });
+      const form = await readForm(req).catch(() => null);
+      if (!form) return json(413, { error: '表单太大' }, { connection: 'close' });
+      try {
+        return json(200, picksApi(dataDir, { account, favorites }, picks, pickOp, form));
+      } catch (e) {
+        if (e instanceof PicksError) return json(e.status, { error: e.message });
+        throw e;
+      }
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
     if (asset && Object.hasOwn(ASSETS, asset)) return sendAsset();
@@ -156,6 +173,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
     // 删掉的日报页、其他榜单页：旧链接跳首页，不出错。
     if (['/daily', '/new', '/top', '/trending', '/boards'].includes(url.pathname)) return send(303, { location: '/' });
     if (url.pathname === '/favorites') return html(200, favoritesPage(favoritesData(dataDir, ctx), ctx));
+    if (url.pathname === '/categories') return html(200, categoriesPage(categoriesData(dataDir, ctx, picks), ctx));
     const project = url.pathname.match(/^\/p\/([\w.-]+\/[\w.-]+)$/);
     if (project) {
       // 只给有资料或正在榜单上的项目出页面；别的回 404，页面照方案写“找不到这个项目”。
@@ -172,6 +190,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
     res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8', connection: 'close' }).end('服务出错，请稍后再试');
   }));
   server.on('close', () => {
+    picks.close();
     favorites.close();
     accounts.close();
   });

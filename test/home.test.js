@@ -56,7 +56,7 @@ test('首页嵌入近 1 天榜单：名次、并列、新增、总 Star、统计
   // 白雾外壳（#21）：反色鲨鱼背景、顶栏只有涨星榜／分类榜（暂不可点）／我的收藏；首页的样式和脚本。
   assert.match(body, /<link rel="stylesheet" href="\/assets\/bw\.css">\n<link rel="stylesheet" href="\/assets\/shell\.css">/);
   assert.match(body, /<canvas class="sea" id="sea" aria-hidden="true"><\/canvas>/);
-  assert.match(body, /<nav class="nav" aria-label="主导航"><a href="\/" aria-current="page">涨星榜<\/a><a aria-disabled="true" title="分类榜即将上线">分类榜<\/a><a href="\/favorites">我的收藏<\/a><\/nav>/);
+  assert.match(body, /<nav class="nav" aria-label="主导航"><a href="\/" aria-current="page">涨星榜<\/a><a href="\/categories">分类榜<\/a><a href="\/favorites">我的收藏<\/a><\/nav>/);
   assert.match(body, /<script src="\/assets\/sharks\.js"><\/script>\n<script src="\/assets\/shell\.js"><\/script>\n<script src="\/assets\/bw\.js"><\/script>\n<script src="\/assets\/home\.js"><\/script>/);
   const d1 = data.windows.d1;
   assert.deepEqual(d1.top, { tone: 'ok', text: '10 月 22 日数据 · 16:40 更新' });
