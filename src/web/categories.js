@@ -72,8 +72,13 @@ export function categoriesData(dataDir, ctx, picks) {
   const hot = readHotBoard(dataDir);
   const part = picksPart(dataDir, ctx, picks, have);
   // 历史榜（Skill 安装量）：Skill 所在的 GitHub 仓库进详情栏，本地有这个项目的数据就带上 id 和总 Star；网址来源的 Skill 没有详情栏。
+  // 不在候选池里的仓库，项目 id 从归类记录里按名字找（归类时用 GraphQL 补取过），有了 id 才读得到项目资料。
   const byName = new Map([...have.values()].map((x) => [x.fullName.toLowerCase(), x]));
-  const skillRow = (e) => { const x = byName.get(e.repo.toLowerCase()); return { id: x?.id ?? null, repo: x?.fullName ?? e.repo, ownerId: x?.ownerId, total: x?.total, description: x?.description }; };
+  const cat = readCategories(dataDir).get;
+  const skillRow = (e) => {
+    const x = byName.get(e.repo.toLowerCase());
+    return { id: x?.id ?? cat({ fullName: e.repo })?.id ?? null, repo: x?.fullName ?? e.repo, ownerId: x?.ownerId, total: x?.total, description: x?.description };
+  };
   const rows = [
     ...(hist?.entries ?? []).filter((e) => e.repo).map(skillRow),
     ...(hot?.entries ?? []).map((e) => ({ id: e.id, repo: e.repo, ownerId: e.ownerId, total: e.total, description: e.description })),

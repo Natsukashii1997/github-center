@@ -32,7 +32,10 @@ async function seed() {
   put(dir, 'snapshots/skills/2026-11-03.json', { board: 'skills', statDay: '2026-11-03', fetchedAt: '2026-11-03T01:30:00Z', entries: [{ rank: 1, skill: 'skill-a', skillId: 'skill-a', source: 'h/p1', repo: 'h/p1', installs: 4000000, url: 'https://skills.sh/h/p1/skill-a' }, { rank: 2, skill: 'skill-b', skillId: 'skill-b', source: 'h/p1', repo: 'h/p1', installs: 2000000, url: 'https://skills.sh/h/p1/skill-b' }, { rank: 3, skill: 'skill-c', skillId: 'skill-c', source: 'h/p9', repo: 'h/p9', installs: 1500000, url: 'https://skills.sh/h/p9/skill-c' }, { rank: 4, skill: 'lark-x', skillId: 'lark-x', source: 'open.feishu.cn', repo: null, installs: 1000000, url: 'https://skills.sh/open.feishu.cn/lark-x' }, { rank: 5, skill: 'skill-z', skillId: 'skill-z', source: 'z/unknown', repo: 'z/unknown', installs: 500000, url: 'https://skills.sh/z/unknown/skill-z' }] });
   put(dir, 'snapshots/d1/2026-11-03.json', { window: 'd1', statDay: '2026-11-03', generatedAt: '2026-11-03T08:00:00Z', entries: [] });
   put(dir, 'candidates/d1/2026-11-03.json', { window: 'd1', statDay: '2026-11-03', check: { threshold: 1, recordRatio: 0.01, completenessFloor: 1500 }, items: [{ id: 700, fullName: 'c/extra', total: 5_000, description: 'extra one', topics: [] }] });
-  put(dir, 'categories.json', { items: { 1: { id: 1, fullName: 'h/p1', categories: ['Skill', '其他'] } } });
+  put(dir, 'categories.json', { items: { 1: { id: 1, fullName: 'h/p1', categories: ['Skill', '其他'] }, 4242: { id: 4242, fullName: 'z/unknown', categories: ['Skill'] } } });
+  // z/unknown 不在候选池里，只在归类记录里有 id；有了 id 才读得到它的项目资料。
+  put(dir, 'profiles/4242.json', { projectId: 4242, fullName: 'z/unknown', material: { hash: 'z', listing: [], readme: null, docs: [], skills: [], fetchedAt: '2026-11-03T00:00:00Z' },
+    generated: { materialHash: 'z', what: '做什么', problem: '解决什么', line: '没在候选池的一句话', use: [], scene: [], tag: '工具', type: 'Skill', conditions: [], skillPurposes: {} } });
   put(dir, 'profiles/1.json', { projectId: 1, fullName: 'h/p1', material: { hash: 'h', listing: [], readme: null, docs: [], skills: [{ path: 's/a', name: 'a', description: 'A' }], fetchedAt: '2026-11-03T00:00:00Z' },
     generated: { materialHash: 'h', what: '做什么', problem: '解决什么', line: '一句话一', use: ['用途一', '用途二', '用途三', '用途四'], scene: ['场景一'], tag: '编程规范', type: 'Skill', conditions: [], skillPurposes: {} } });
   const accounts = openAccounts(dir);
@@ -71,10 +74,10 @@ test('分类榜页面：导航可点；精选、历史、热点三块数据和�
     // 历史榜（Skill 安装量）：名次、Skill 名、个数、来源、安装量、skills.sh 地址、所在项目的第一个分类；网址来源的没有 repo
     // 同一来源合成一行：h/p1 的两个 Skill 是一行，取安装量最高的 skill-a，注明 2 个
     assert.deepEqual(d.hist.entries[0], { rank: 1, skill: 'skill-a', count: 2, mirrors: 0, source: 'h/p1', repo: 'h/p1', installs: 4_000_000, url: 'https://skills.sh/h/p1', cat: 'Skill' });
-    assert.deepEqual(d.hist.entries.map((e) => [e.rank, e.skill, e.count, e.repo, e.cat]), [[1, 'skill-a', 2, 'h/p1', 'Skill'], [2, 'skill-c', 1, 'h/p9', null], [3, 'lark-x', 1, null, null], [4, 'skill-z', 1, 'z/unknown', null]]);
+    assert.deepEqual(d.hist.entries.map((e) => [e.rank, e.skill, e.count, e.repo, e.cat]), [[1, 'skill-a', 2, 'h/p1', 'Skill'], [2, 'skill-c', 1, 'h/p9', null], [3, 'lark-x', 1, null, null], [4, 'skill-z', 1, 'z/unknown', 'Skill']]);
     assert.match(d.hist.note, /skills\.sh/);
-    // 本地没有数据的仓库也有详情栏内容（只有名字）
-    assert.deepEqual([d.projects['z/unknown'].line, d.projects['z/unknown'].ghDesc], [null, null]);
+    // 不在候选池里的仓库：按名字从归类记录找到 id，读得到项目资料和分类
+    assert.deepEqual([d.projects['z/unknown'].line, d.hist.entries[3].cat], ['没在候选池的一句话', 'Skill']);
     // 热点榜：只记了 1 天，走势 7 格只有最后一格；前一天没有记录时涨跌为 null；各来源份额
     assert.deepEqual([d.hot.days, d.hot.complete], [1, false]);
     assert.deepEqual(d.hot.entries[0].series, [null, null, null, null, null, null, 120]);
