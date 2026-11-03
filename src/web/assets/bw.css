@@ -84,10 +84,11 @@ a { color: inherit; }
 .tick .fc { display: flex; gap: 4px; margin-top: 5px; }
 /* 底边：类型构成色带（按定义标签分段，点一段筛选，选中时其余段变淡）+ 右侧图例 */
 .band { grid-column: 1 / -1; align-self: center; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; }
-.mix { display: flex; gap: 2px; height: 5px; border-radius: 999px; overflow: hidden; }
-.mix i { background: var(--tc); cursor: pointer; opacity: .85; transition: opacity .15s; } .mix i:hover, .mix i.on { opacity: 1; } .mix:has(i.on) i:not(.on) { opacity: .25; }
+/* 报头 A 细线（所有者 2026-11-03）：3px 淡色细条；悬停或选中的那一段恢复原色 */
+.mix { display: flex; gap: 3px; height: 3px; border-radius: 999px; overflow: hidden; }
+.mix i { background: color-mix(in srgb, var(--tc) 45%, #fff); cursor: pointer; transition: background-color .15s, opacity .15s; } .mix i:hover, .mix i.on { background: var(--tc); } .mix:has(i.on) i:not(.on) { opacity: .4; }
 .mix i.none { background: #d0d7de; cursor: default; }
-.lg { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; font-size: 11.5px; color: var(--ink-3); } .lg span { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; } .lg span::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--tc); } .lg b { font: 600 11.5px var(--mono); color: var(--ink); }
+.lg { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px 12px; font-size: 11.5px; color: var(--ink-3); } .lg span { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; } .lg span::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: color-mix(in srgb, var(--tc) 55%, #fff); } .lg span:hover::before, .lg span.on::before { background: var(--tc); } .lg b { font: 600 11.5px var(--mono); color: var(--ink); }
 .lg span:hover, .lg span.on { color: var(--ink); }
 .face { display: inline-flex; align-items: center; height: 24px; padding: 0 3px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; } .face:hover { border-color: var(--accent); } .face .av { border-radius: 50%; }
 
