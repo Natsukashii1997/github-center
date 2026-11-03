@@ -4,8 +4,8 @@
 .cwrap { display: flex; flex-direction: column; gap: 14px; width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 18px 0 30vh; }
 
 /* 报头：右侧三格不是页签，点了平滑滚到对应的榜；底边 5px 渐变色带 */
-.hero-box .band { grid-column: 1 / -1; height: 5px; border-radius: 999px; background: linear-gradient(90deg, #8250df, #0969da 45%, #1a7f37 75%, #bf8700); opacity: .7; }
-.tick > div { cursor: pointer; padding: 6px 18px 8px; border-radius: 8px 8px 0 0; position: relative; }
+.hero-box .band { grid-column: 1 / -1; align-self: center; height: 5px; border-radius: 999px; background: linear-gradient(90deg, #8250df, #0969da 45%, #1a7f37 75%, #bf8700); opacity: .7; }
+.tick > div { cursor: pointer; padding: 6px 18px 8px; margin: -6px 0 -8px; border-radius: 8px 8px 0 0; position: relative; }
 .tick > div:hover { background: rgba(31,35,40,.04); }
 .tick .v { color: var(--ink-3); }
 

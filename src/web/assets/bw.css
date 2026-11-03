@@ -68,20 +68,22 @@ a { color: inherit; }
 .notes [data-tone="warn"] b { color: #9a6700; } .notes [data-tone="bad"] b { color: #c4291c; }
 
 /* 报头（定稿 C）：大标题压在白雾上，右边一排读数用细竖线隔开 */
-.hero-box { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 32px; align-items: end; padding: 6px 4px 0; position: relative; background: rgba(255,255,255,.86); border-radius: 14px; box-shadow: 0 0 36px 18px rgba(255,255,255,.86); }
+/* 三页报头同一套尺寸（所有者 2026-11-03：切页时标题和色带不跳）：第一行固定 68px、标题和读数贴底；色带行固定 20px、线居中 */
+.hero-box { display: grid; grid-template-columns: auto minmax(0,1fr); grid-template-rows: 68px 20px; gap: 32px; align-items: end; padding: 6px 4px 0; position: relative; background: rgba(255,255,255,.86); border-radius: 14px; box-shadow: 0 0 36px 18px rgba(255,255,255,.86); }
 .hero-box h1 { margin: 4px 0 0; font-size: 38px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
 .hero-box [data-open] { cursor: pointer; } .hero-box b[data-open]:hover { color: var(--accent); }
-.kick { display: flex; align-items: center; gap: 10px; font: 600 11px var(--mono); letter-spacing: .14em; color: var(--ink-3); text-transform: uppercase; }
+.kick { display: flex; align-items: center; gap: 10px; height: 16px; font: 600 11px var(--mono); letter-spacing: .14em; color: var(--ink-3); text-transform: uppercase; }
 .fresh { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px var(--sans); letter-spacing: 0; text-transform: none; }
 .fresh i { width: 7px; height: 7px; border-radius: 50%; background: #1a7f37; box-shadow: 0 0 0 3px rgba(26,127,55,.15); }
 .fresh.warn { color: #9a6700; } .fresh.warn i { background: #d4a72c; box-shadow: 0 0 0 3px rgba(212,167,44,.2); }
 .fresh.bad { color: #c4291c; } .fresh.bad i { background: #cf222e; box-shadow: 0 0 0 3px rgba(207,34,46,.15); }
-.tick { display: flex; justify-content: flex-end; align-items: stretch; padding-bottom: 4px; }
+.tick { display: flex; justify-content: flex-end; align-items: stretch; align-self: start; margin-top: 10px; }
+/* 读数格顶部和左边小字行齐平（三页同一高度）；首页「新面孔」多一排头像，往下长，不推动标题 */
 .tick > div { padding: 0 18px; border-left: 1px solid #d0d7de; min-width: 0; } .tick > div:first-child { border-left: 0; }
 .tick .k { font-size: 11px; color: var(--ink-4); } .tick .v { margin-top: 3px; font-size: 15px; font-weight: 600; white-space: nowrap; } .tick .v small { font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 4px; } .tick .v small.up { color: #1a7f37; }
 .tick .fc { display: flex; gap: 4px; margin-top: 5px; }
 /* 底边：类型构成色带（按定义标签分段，点一段筛选，选中时其余段变淡）+ 右侧图例 */
-.band { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; margin-top: 2px; }
+.band { grid-column: 1 / -1; align-self: center; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; }
 .mix { display: flex; gap: 2px; height: 5px; border-radius: 999px; overflow: hidden; }
 .mix i { background: var(--tc); cursor: pointer; opacity: .85; transition: opacity .15s; } .mix i:hover, .mix i.on { opacity: 1; } .mix:has(i.on) i:not(.on) { opacity: .25; }
 .mix i.none { background: #d0d7de; cursor: default; }
