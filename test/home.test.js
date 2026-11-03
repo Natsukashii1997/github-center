@@ -178,6 +178,8 @@ test('项目卡片：走势、三个窗口的新增和总 Star 取这一期榜�
   assert.equal(day.total, 193409);
   assert.deepEqual([p.ownerId, p.lang, p.created], [25158, 'C', '2011-06-16']);
   assert.deepEqual([p.what, p.installable, p.skills], [null, false, []]);
+  // 还没生成的短字段留空，不写替代文字。
+  assert.deepEqual([p.line, p.use, p.scene, p.tag, p.type], [null, [], [], null, null]);
   // 另一次运行没存原始响应：只有榜上的数字，别的窗口暂缺，不拿另一次运行的数字顶替。
   const week = p.runs['r-week'];
   assert.equal(data.windows.d7.entries[0].run, 'r-week');
@@ -190,13 +192,17 @@ test('嵌入的数据把 < 转义，项目文字里出现 </script> 也不会截
   saveProfile(dir, {
     projectId: snap.entries[0].projectId, fullName: 'php/php-src',
     material: { hash: 'h', skills: [], docs: [] },
-    generated: { materialHash: 'h', what: '会写 </script><b>的项目', problem: 'x', conditions: [{ kind: '环境', text: '要 PHP', quote: 'PHP' }], skillPurposes: {} },
+    generated: { materialHash: 'h', what: '会写 </script><b>的项目', problem: 'x', line: '一句话</script>', use: ['用途一', '用途二'], scene: ['场景一', '场景二'], tag: '语言运行时', type: '工具', conditions: [{ kind: '环境', text: '要 PHP', quote: 'PHP' }], skillPurposes: {} },
   });
   const { body, data } = await home(dir);
   assert.equal((body.match(/<\/script>/g) || []).length, 5);
   const p = data.projects['php/php-src'];
   assert.equal(p.what, '会写 </script><b>的项目');
-  assert.deepEqual([p.conditions, p.installable], [[{ kind: '环境', text: '要 PHP', quote: 'PHP' }], true]);
+  assert.equal(p.installable, true);
+  // 首页短字段（#23）原样给页面；详情栏不放使用条件，卡片数据里也不再带。
+  assert.deepEqual([p.line, p.use, p.scene, p.tag, p.type], ['一句话</script>', ['用途一', '用途二'], ['场景一', '场景二'], '语言运行时', '工具']);
+  assert.equal(p.conditions, undefined);
+  assert.ok(data.types.includes('工具'));
 });
 
 test('页面脚本登录后才能取（登录页用的样式和组件脚本除外），只给登记过的文件', async () => {
