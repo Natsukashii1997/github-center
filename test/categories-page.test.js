@@ -221,9 +221,10 @@ test('所有者换卡：粘贴的地址本地没有时联网查一次 GitHub，�
 
 test('repoLookup：查一个公开仓库，带 token；404 和私有仓库回 null；别的状态抛错', async () => {
   const calls = [];
-  const reply = { 'a/b': [200, { id: 7, full_name: 'A/b', owner: { id: 70 }, stargazers_count: 12, description: 'd' }], 'p/q': [200, { id: 8, full_name: 'p/q', private: true }], 'x/y': [404, {}], 'e/e': [500, {}] };
+  const reply = { 'a/b': [200, { id: 7, full_name: 'A/b', owner: { id: 70 }, stargazers_count: 12, description: 'd' }], 'p/q': [200, { id: 8, full_name: 'p/q', private: true }], 'x/y': [404, {}], 'e/e': [500, {}], 'r/l': [403, {}] };
   const fetch = async (url, init) => {
     calls.push([url, init.headers.authorization]);
+    if (url.endsWith('/t/o')) throw Object.assign(new Error('timed out'), { name: 'TimeoutError' });
     const [status, body] = reply[url.split('/repos/')[1]];
     return { status, ok: status === 200, json: async () => body };
   };
@@ -233,6 +234,8 @@ test('repoLookup：查一个公开仓库，带 token；404 和私有仓库回 nu
   assert.equal(await find('p/q'), null);
   assert.equal(await find('x/y'), null);
   await assert.rejects(find('e/e'), /GitHub 返回 500/);
+  await assert.rejects(find('r/l'), /额度用完/);
+  await assert.rejects(find('t/o'), /10 秒没有回应/);
   assert.equal((await (repoLookup({ fetch, token: '' }))('a/b')).id, 7);
   assert.equal(calls.at(-1)[1], undefined);
 });
