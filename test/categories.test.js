@@ -87,6 +87,22 @@ test('其他榜单上还没归类的项目用 GraphQL 补取描述和 topics；�
   assert.equal(r2.requests.graphql, 0);
 });
 
+test('分类榜上显示的项目也归类：历史榜（Skill 安装量）上的仓库，本地没有的用 GraphQL 补取；网址来源的不归', async () => {
+  const dataDir = seed({ items: [item(1903522, 'php/php-src')] });
+  put(dataDir, `snapshots/skills/${day}.json`, { statDay: day, fetchedAt: `${day}T01:00:00Z`, entries: [
+    { rank: 1, skill: 'howto', source: 'luongnv89/claude-howto', repo: 'luongnv89/claude-howto', installs: 9 },
+    { rank: 2, skill: 'php', source: 'php/php-src', repo: 'php/php-src', installs: 8 },
+    { rank: 3, skill: 'lark-doc', source: 'open.feishu.cn', repo: null, installs: 7 },
+  ] });
+  const upstream = recordedUpstream();
+  const gh = githubClient({ fetch: upstream.fetch, token: 't', sleep: async () => {} });
+  const classifier = fakeClassifier();
+  const r = await updateCategories({ dataDir, classifier, gh });
+  assert.equal(r.requests.graphql, 1);
+  assert.deepEqual(classifier.calls[0].items.map((x) => x.fullName).sort(), ['luongnv89/claude-howto', 'php/php-src']);
+  assert.ok(readCategories(dataDir).get({ id: 1092047360, fullName: 'luongnv89/claude-howto' }));
+});
+
 test('一批归类失败不影响其他批：已归的存下，失败的算没归类，下次再归', async () => {
   const dataDir = seed({ items: [item(1, 'a/one'), item(2, 'b/two'), item(3, 'c/three'), item(4, 'd/four')] });
   const r = await updateCategories({ dataDir, classifier: fakeClassifier({ throwIf: (x) => x.fullName === 'c/three' }), gh: noGh, batch: 2 });
