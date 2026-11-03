@@ -56,7 +56,7 @@ test('首页嵌入近 1 天榜单：名次、并列、新增、总 Star、统计
   // 白雾外壳（#21）：反色鲨鱼背景、顶栏是涨星榜／分类榜／收藏页；首页的样式和脚本。
   assert.match(body, /<link rel="stylesheet" href="\/assets\/bw\.css">\n<link rel="stylesheet" href="\/assets\/shell\.css">/);
   assert.match(body, /<canvas class="sea" id="sea" aria-hidden="true"><\/canvas>/);
-  assert.match(body, /<nav class="nav" aria-label="主导航"><a href="\/" aria-current="page">涨星榜<\/a><a href="\/categories">分类榜<\/a><a href="\/favorites">收藏页<\/a><\/nav>/);
+  assert.match(body, /<nav class="nav" aria-label="主导航"><a href="\/" aria-current="page">涨星榜<\/a><a href="\/categories">分类榜<\/a><a href="\/favorites">收藏页<\/a><a href="\/settings">设置页<\/a><\/nav>/);
   // 品牌 Github·Tidings（2026-11-03 定稿）：报徽图标 + 衬线斜体字标；浏览器标签用同一个图标。
   assert.match(body, /<a class="brand" href="\/"><svg class="logo" width="24" height="24" aria-hidden="true" viewBox="0 0 24 24">[\s\S]*?<\/svg><span class="wm">Github<span class="d">·<\/span>Tidings<\/span><\/a>/);
   assert.match(body, /<title>涨星榜 · Github·Tidings<\/title>\n<link rel="icon" href="data:image\/svg\+xml,%3Csvg%20xmlns/);

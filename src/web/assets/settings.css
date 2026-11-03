@@ -1,0 +1,54 @@
+/* 设置页（所有者 2026-11-03 定稿：design/candidates/redesign/brand/settings.html 的 A 分区原版）：左边分区目录（吸顶），右边一块块设置卡。
+   报头、按钮、标签、分段按钮、提示气泡沿用 bw.css；留白和另外三页一样：宽 min(1180, 100%-48)、离顶栏 18、块间 14、底部 30vh。
+   原型里的 .sc .tgl .dot .in 等类名都加了 s 前缀，免得和 bw.css 的 .card .tg 等撞上。 */
+.app > .bar { z-index: 6; }
+.swrap { display: flex; flex-direction: column; gap: 14px; width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 18px 0 30vh; }
+.hero-box .band { grid-column: 1 / -1; align-self: center; height: 1px; background: #d0d7de; }
+.tick .v { color: var(--ink); } .tick .v small.ok { color: #1a7f37; } .tick .v small.bad { color: #cf222e; }
+
+.sset { display: grid; grid-template-columns: 200px minmax(0,1fr); gap: 24px; align-items: start; }
+.stoc { position: sticky; top: 68px; display: grid; gap: 2px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--glass); backdrop-filter: blur(14px); }
+.stoc a { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; font-size: 13px; color: var(--ink-2); text-decoration: none; }
+.stoc a:hover { background: rgba(31,35,40,.05); }
+.stoc a.on { background: rgba(31,35,40,.07); font-weight: 600; color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
+.stoc a span { margin-left: auto; font: 11px var(--mono); color: var(--ink-4); }
+.smain { display: grid; gap: 18px; }
+
+/* 设置卡：灰底标题条，下面一行一项（说明 | 状态和控件） */
+.scard { border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.9); backdrop-filter: blur(14px); overflow: hidden; scroll-margin-top: 68px; }
+.scard > h3 { display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 16px; border-bottom: 1px solid var(--line); background: rgba(246,248,250,.85); font-size: 14px; }
+.scard > h3 small { font-weight: 400; font-size: 12px; color: var(--ink-4); }
+.srow { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 16px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line-2); }
+.scard > h3 + .srow { border-top: 0; }
+.srow.one { grid-template-columns: minmax(0,1fr); }
+.srow .nm { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
+.srow .ds { margin-top: 3px; font-size: 12px; color: var(--ink-3); line-height: 1.55; }
+.srow .ds code { font: 11.5px var(--mono); color: var(--ink-2); }
+.srow .ds .err { color: #cf222e; }
+.srow .ct { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+.srow .ct .fail { color: #cf222e; }
+
+.sdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #1a7f37; box-shadow: 0 0 0 3px rgba(26,127,55,.14); flex: none; }
+.sdot.off { background: #afb8c1; box-shadow: 0 0 0 3px rgba(175,184,193,.2); }
+.sdot.bad { background: #cf222e; box-shadow: 0 0 0 3px rgba(207,34,46,.14); }
+.sdot.plan { background: #8250df; box-shadow: 0 0 0 3px rgba(130,80,223,.15); }
+
+/* 开关 */
+.ssw { position: relative; flex: none; width: 34px; height: 20px; border: 0; border-radius: 999px; background: #d0d7de; transition: background .15s; padding: 0; cursor: pointer; }
+.ssw::after { content: ""; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(31,35,40,.25); transition: transform .15s; }
+.ssw[aria-pressed="true"] { background: #1f883d; } .ssw[aria-pressed="true"]::after { transform: translateX(14px); }
+.ssw:disabled { opacity: .45; cursor: not-allowed; }
+
+.sin { height: 30px; padding: 0 10px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; font: 600 13px var(--mono); color: var(--ink); }
+.sin:focus { outline: 0; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(9,105,218,.15); }
+.sin.bad { border-color: #cf222e; box-shadow: 0 0 0 3px rgba(207,34,46,.12); }
+.sin:disabled { opacity: .55; }
+select.sin { font: 500 12.5px var(--sans); padding-right: 24px; }
+.segs button:disabled { cursor: not-allowed; }
+.mono { font-family: var(--mono); }
+
+.t-plan { background: #fbefff; color: #8250df; } .t-off { background: #f3f4f6; color: var(--ink-3); }
+.schip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 1px solid #d0d7de; border-radius: 999px; background: #fff; font-size: 12px; color: var(--ink-3); }
+.schip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+.scode { display: block; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #f6f8fa; font: 12px/1.6 var(--mono); color: var(--ink-2); white-space: pre; overflow: auto; }
+.snote { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line-2); font-size: 12px; color: var(--ink-4); }
