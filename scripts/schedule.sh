@@ -39,7 +39,17 @@ $2
 </plist>
 EOF
   launchctl bootout "$DOMAIN/$1" 2>/dev/null || true
-  launchctl bootstrap "$DOMAIN" "$AGENTS/$1.plist"
+  # bootout 返回时旧任务可能还没卸完（网站要等进程退出），马上 bootstrap 会报「Bootstrap failed: 5」，任务就没装回去（2026-11-03 踩过）：
+  # 等它真正不在了再装，最多等 10 秒；仍装不上隔 2 秒再试，共 3 次。
+  for _ in $(seq 20); do launchctl print "$DOMAIN/$1" >/dev/null 2>&1 || break; sleep 0.5; done
+  for n in 1 2 3; do
+    launchctl bootstrap "$DOMAIN" "$AGENTS/$1.plist" && break
+    if [ "$n" = 3 ]; then
+      echo "没装上 $1：plist 已写好，可以手动 launchctl bootstrap $DOMAIN $AGENTS/$1.plist" >&2
+      exit 1
+    fi
+    sleep 2
+  done
   echo "已安装：$AGENTS/$1.plist"
 }
 
