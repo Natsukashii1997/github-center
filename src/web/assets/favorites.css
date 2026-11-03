@@ -2,7 +2,8 @@
    报头、按钮、标签、详情栏、提示气泡沿用 bw.css；这里只写收藏页自己的版式。整页滚动，顶栏吸顶，底部留 30vh 空白给背景鲨鱼。 */
 .app > .bar { z-index: 6; }
 .fwrap { display: flex; flex-direction: column; gap: 14px; width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 18px 0 30vh; }
-.hero-box .band { grid-column: 1 / -1; height: 5px; border-radius: 999px; background: linear-gradient(90deg, #8250df, #0969da 45%, #1a7f37 75%, #bf8700); opacity: .7; }
+/* 报头底边：1px 灰色分隔线（所有者 2026-11-03 选报头 A 细线，原来是 5px 彩虹渐变色带） */
+.hero-box .band { grid-column: 1 / -1; align-self: center; height: 1px; background: #d0d7de; }
 .tick .v { color: var(--ink); }
 
 /* 收藏架：左边类别目录（吸顶），右边按类别分组的卡片 */
