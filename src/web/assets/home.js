@@ -20,11 +20,13 @@
   const copyBtn = (it) => `<button class="btn sm" data-copy="${esc(it.repo)}"${noCopy(it)}>复制安装指令</button>`;
   const skills = (it, n = 3) => (it.skills.length ? `<span class="sk">${it.skills.slice(0, n).map((x) => `<code>${esc(x.name)}</code>`).join('')}${it.skills.length > n ? `<em>等 ${it.skills.length} 个 Skill</em>` : ''}</span>` : '');
 
-  // 报头：数据新鲜度（统计日的次日采集，所以减 1）、第一名、新面孔、飙升最多；口径放在标题的悬停说明里
+  // 报头：数据新鲜度、第一名、新面孔、飙升最多；口径放在标题的悬停说明里。
+  // 新鲜度：统计日按 UTC 划分，每天北京时间 10:00（UTC 02:00）出前一天的榜，所以此刻应有的最新一期是 26 小时前所在的 UTC 日；
+  // 比它早几天就是「已 N 天没有新数据」（以前按统计日零点算，北京 20:00 以后最新一期也会误报过期）。
   function head() {
     const { W, items } = b;
     if (!W.day) return `<div><div class="kick"><span>GitHub · ${esc(W.label)}</span><span class="fresh ${W.top.tone === 'bad' ? 'bad' : 'warn'}"><i></i>${esc(W.top.text)}</span></div><h1>涨星榜</h1></div><div class="tick"></div>`;
-    const late = Math.round((Date.now() - Date.parse(W.day)) / 864e5) - 1;
+    const late = Math.max(0, Math.floor((Date.now() - 26 * 3600e3 - Date.parse(W.day)) / 864e5));
     const tone = W.top.tone === 'bad' ? 'bad' : late > 0 || W.top.tone === 'warn' ? 'warn' : '';
     const [top] = items;
     const hasPrev = items.some((it) => it.e.mv);
