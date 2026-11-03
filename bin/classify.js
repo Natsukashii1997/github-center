@@ -6,11 +6,12 @@ import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { githubClient } from '../src/ranking/github.js';
 import { updateCategories, codexClassifier } from '../src/categories/index.js';
+import { readSettings } from '../src/settings/index.js';
 
 const { values } = parseArgs({ options: { data: { type: 'string', default: 'data' } } });
 const t0 = performance.now();
 const token = process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
-const r = await updateCategories({ dataDir: values.data, gh: githubClient({ fetch: globalThis.fetch, token }), classifier: codexClassifier() });
+const r = await updateCategories({ dataDir: values.data, gh: githubClient({ fetch: globalThis.fetch, token }), classifier: codexClassifier({ effort: readSettings(values.data).effort.classify }) });
 
 const line = (name, s) => `${name}：要归 ${s.todo} 个，归上 ${s.classified} 个，没归上 ${s.unclassified} 个，失败 ${s.failed} 个${s.errors.length ? `（${s.errors.length} 批，如 ${s.errors[0]}）` : ''}`;
 console.log(`这一期涉及项目 ${r.targets} 个；补取其他榜单项目资料的 GraphQL 请求 ${r.requests.graphql} 次`);

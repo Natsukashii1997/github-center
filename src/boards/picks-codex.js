@@ -42,11 +42,12 @@ ${items.map((x, i) => `${i} | ${x.fullName} | ${clean(x.description, 300)} | ${x
 </projects>`;
 }
 
-export function codexTagger({ bin, timeoutMs } = {}) {
+// effort：设置页「精选榜」的思考强度，不给用默认；换强度不改 version。
+export function codexTagger({ bin, timeoutMs, effort } = {}) {
   return {
     version: `codex-${PROMPT_VERSION}`,
     async suggest(tags, items) {
-      const out = await codexJson({ bin, schema: schema(tags.map((t) => t.name)), input: suggestPrompt(tags, items), timeoutMs });
+      const out = await codexJson({ bin, schema: schema(tags.map((t) => t.name)), input: suggestPrompt(tags, items), effort, timeoutMs });
       return out.results;
     },
   };

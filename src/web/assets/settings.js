@@ -23,8 +23,8 @@
   const inUse = () => D.sources.filter((s) => s.fixed || S.sources[s.key]).length;
   function mast() {
     const r = D.run;
-    const last = !r ? ['—', ''] : r.running ? [when(r.startedAt), '<small>正在更新</small>'] : [when(r.startedAt), r.failed.length ? `<small class="bad">失败 ${r.failed.length} 步</small>` : '<small class="ok">全部成功</small>'];
-    const tick = [['上次更新', ...last], ['下次更新', `${D.next.today ? '今天' : '明天'} ${D.next.at}`, ''], ['数据源', inUse(), `<small>/ ${D.sources.length} 在用</small>`]];
+    const last = !r ? ['—', ''] : r.running ? [when(r.startedAt), '<small>正在更新</small>'] : r.off ? [when(r.startedAt), '<small>已关掉</small>'] : [when(r.startedAt), r.failed.length ? `<small class="bad">失败 ${r.failed.length} 步</small>` : '<small class="ok">全部成功</small>'];
+    const tick = [['上次更新', ...last], ['下次更新', S.daily.on ? `${D.next.today ? '今天' : '明天'} ${D.next.at}` : '已关掉', ''], ['数据源', inUse(), `<small>/ ${D.sources.length} 在用</small>`]];
     $('mast').innerHTML = `<div><div class="kick"><span>数据源 · 定时 · 智能体 · 接入</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Settings</span><b>设置页</b></span></h1></div>
       <div class="tick">${tick.map(([k, v, s]) => `<div><div class="k">${k}</div><div class="v">${v}${s}</div></div>`).join('')}</div><div class="band"></div>`;
   }
@@ -37,9 +37,9 @@
     const st = s.status;
     const on = s.fixed || S.sources[s.key];
     const dot = s.unavailable || !on ? 'off' : st?.state === 'failed' ? 'bad' : st?.state === 'ok' || s.fixed ? '' : 'off';
-    const state = s.unavailable ? '' : !st ? '' : st.state === 'none' ? '还没跑过' : `${md(st.day)} ${st.state === 'failed' ? '<span class="fail">失败</span>' : '正常'}`;
+    const state = s.unavailable ? '' : !on ? '已关' : !st ? '' : st.state === 'none' ? '还没跑过' : `${md(st.day)} ${st.state === 'failed' ? '<span class="fail">失败</span>' : st.state === 'off' ? '没抓' : '正常'}`;
     const host = s.host ? `<code>${esc(s.host)}</code> · ` : '';
-    const err = st?.state === 'failed' && st.error ? `<br><span class="err">${esc(st.error)}</span>` : '';
+    const err = on && st?.state === 'failed' && st.error ? `<br><span class="err">${esc(st.error)}</span>` : '';
     const ctl = s.fixed ? '必需' : sw(`sources.${s.key}`, s.name, on, s.required ? ' disabled title="涨星榜的基础数据，不能关"' : s.unavailable ? ' disabled title="还没接"' : lock);
     return row(`<span class="sdot ${dot}"></span>${esc(s.name)}${s.unavailable ? ' <span class="tag t-off">未接</span>' : ''}`, `${host}${esc(s.use)}${err}`, `${state}${ctl}`);
   }
@@ -109,7 +109,7 @@
       if (!r.ok) throw new Error(j.error ?? `保存失败（${r.status}）`);
       S = j.settings;
       draw();
-      toast(D.applied ? '已保存' : '已保存 · 下一版接上每日更新后生效');
+      toast(!D.timeApplied && next.daily.at !== before.daily.at ? '已保存 · 更新时间要等下一版接上定时任务才生效' : '已保存 · 下次每日更新起生效');
     } catch (e) {
       S = before;
       draw();

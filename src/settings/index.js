@@ -1,6 +1,7 @@
 // 设置（所有者 2026-11-03 加设置页，原型 design/candidates/redesign/brand/settings.html#A）：存在 data/settings.json，没存过就用默认值。
 // 数据源开关、补资料／归类／精选的思考强度、每日更新时间、周报推送。只有所有者能改（见 web/settings.js），保存前整份校验，不合规就整份不存。
-// 2026-11-03 批 1 只存不用：每日更新还按原来的固定做法跑；开关和强度由批 2 接到各步，更新时间由批 3 接到 launchd。
+// 谁读：bin/update.js（每日更新开关、整步跳过）、出榜和热点榜（来源开关）、补资料／归类／精选榜（思考强度）；每次运行开头读一次。
+// 每日更新时间还没接（批 3 接到 launchd），周报推送等猛鬼兽接入。
 import { join } from 'node:path';
 import { readJson, writeAtomic } from '../ranking/store.js';
 
