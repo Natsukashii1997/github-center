@@ -1,15 +1,15 @@
 // 本机网站：默认只监听 127.0.0.1，登录后才能看（#5）；所有者 2026-10-26 要分享给同一 Wi-Fi 的人看，可改监听地址、免登录共用一个账号（见 startServer）。页面只读快照和更新记录，访问时不调用任何外部接口。
-// 首页是涨星榜（近 1/7/30 天，#13 起按冻结的视觉方案 t1b-r2，见 home.js）；其他榜单（新项目榜、官方热门榜、累计高星榜并排）、项目页、
-// 日报、我的收藏、登录自 #14 起按冻结的视觉方案 t1b-pages-r1（见 pages.js）。点开榜单上的项目进入项目页（#6），项目页能复制安装指令（#7）、
-// 收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。三个榜单都能按分类筛选，在榜内过滤（#10），项目页写明分类。
+// 2026-11-03 起（#21）按白雾定稿重做：导航只有涨星榜（首页，近 1/7/30 天，见 home.js）／分类榜（后续批次）／我的收藏。点首页上的项目从右侧滑出
+// 详情栏，项目页 /p/作者/仓库名 是同一份内容（#6）：能复制安装指令（#7）、收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。
+// 日报页、其他榜单页删除，旧地址 /daily、/new、/top、/trending、/boards 跳首页。
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { openAccounts, SESSION_DAYS } from './accounts.js';
 import { openFavorites } from './favorites.js';
-import { WINDOWS, SINCES } from '../ranking/index.js';
+import { WINDOWS } from '../ranking/index.js';
 import { readProfile, findOnBoards, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 import { homeData, homePage, categoryListed } from './home.js';
-import { boardsData, boardsPage, projectData, projectMissing, projectPage, dailyData, dailyPage, favoritesData, favoritesPage, loginPage } from './pages.js';
+import { projectData, projectMissing, projectPage, favoritesData, favoritesPage, loginPage } from './pages.js';
 
 // 登录（#5）：除登录页外，所有页面和接口都要先登录。会话令牌放在 HttpOnly Cookie 里。
 const COOKIE = 'gc_session';
@@ -58,8 +58,8 @@ function changeFavorite(dataDir, favorites, account, form) {
   return null;
 }
 
-// 样式、图标和脚本：视觉方案里的通用文件（#13 首页，#14 其余页面）。
-const ASSETS = { 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'boards.js': 'text/javascript', 'project.js': 'text/javascript', 'daily.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript' };
+// 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页和项目页（bw），我的收藏和登录沿用 #14 的那套。
+const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript' };
 const assetFile = (name) => readFileSync(new URL(`./assets/${name}`, import.meta.url));
 // 登录页（#14）要用的样式和脚本：不登录也能取（只是设计变量、图标和组件代码，不含任何数据）；其余页面脚本登录后才给。
 const LOGIN_ASSETS = new Set(['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js', 'login.js']);
@@ -125,7 +125,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
       if (url.pathname.startsWith('/api/')) return json(401, { error: '未登录' });
       return send(303, { location: `/login?next=${encodeURIComponent(url.pathname + url.search)}` });
     }
-    // 收藏：项目页和我的收藏用表单，提交后回到 next；首页的收藏按钮（#13）用接口，结果和拒绝原因都回 JSON。
+    // 收藏：表单提交后回到 next；页面上的收藏按钮用接口，结果和拒绝原因都回 JSON。
     if ((url.pathname === '/favorites' || url.pathname === '/api/favorites') && req.method === 'POST') {
       const api = url.pathname === '/api/favorites';
       const refuse = ({ status, error }) => (api ? json(status, { error }) : text(status, error));
@@ -138,13 +138,14 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
     if (asset && Object.hasOwn(ASSETS, asset)) return sendAsset();
-    // 首页涨星榜（#13）：整页按视觉方案出，不套下面的从简布局。
+    const ctx = { account, favorites, guest: Boolean(guestAccount) };
+    // 首页涨星榜；?w= 只认三个窗口。
     if (url.pathname === '/') {
       const w = url.searchParams.get('w');
       if (w !== null && !Object.hasOwn(WINDOWS, w)) return text(404, '没有这个页面');
-      return html(200, homePage(homeData(dataDir, { account, favorites })));
+      return html(200, homePage(homeData(dataDir, ctx), ctx));
     }
-    // 安装指令（#7）的文字：首页阅读卡上“复制安装指令”取它（#13）。
+    // 安装指令（#7）的文字：详情栏和项目页上“复制安装指令”取它。
     if (url.pathname === '/api/install') {
       const profile = readProfile(dataDir, Number(url.searchParams.get('project')));
       const ai = url.searchParams.get('ai') ?? '';
@@ -152,26 +153,15 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest })
       if (!profile?.material || !Object.hasOwn(INSTALL_AIS, ai) || (skillPath && !profile.material.skills.some((s) => s.path === skillPath))) return json(404, { error: '没有这个项目或 Skill 的资料' });
       return text(200, installInstruction({ profile, ai, skillPath }));
     }
-    const ctx = { account, favorites };
-    // 其他榜单（#14 起三个榜并排一页）：旧地址 /new、/top、/trending 跳到 /boards，带上分类与周期。
-    if (['/new', '/top', '/trending'].includes(url.pathname) || url.pathname === '/boards') {
-      const since = url.searchParams.get('since');
-      if (since !== null && !SINCES.includes(since)) return text(404, '没有这个页面');
-      if (url.pathname !== '/boards') {
-        const u = new URLSearchParams();
-        if (url.searchParams.get('cat')) u.set('cat', url.searchParams.get('cat'));
-        if (url.pathname === '/trending' && since) u.set('since', since);
-        return send(303, { location: `/boards${u.size ? `?${u}` : ''}` });
-      }
-      return html(200, boardsPage(boardsData(dataDir, ctx)));
-    }
-    if (url.pathname === '/daily') return html(200, dailyPage(dailyData(dataDir, ctx)));
-    if (url.pathname === '/favorites') return html(200, favoritesPage(favoritesData(dataDir, ctx)));
+    // 删掉的日报页、其他榜单页：旧链接跳首页，不出错。
+    if (['/daily', '/new', '/top', '/trending', '/boards'].includes(url.pathname)) return send(303, { location: '/' });
+    if (url.pathname === '/favorites') return html(200, favoritesPage(favoritesData(dataDir, ctx), ctx));
     const project = url.pathname.match(/^\/p\/([\w.-]+\/[\w.-]+)$/);
     if (project) {
       // 只给有资料或正在榜单上的项目出页面；别的回 404，页面照方案写“找不到这个项目”。
       const data = projectData(dataDir, project[1], ctx);
-      return data ? html(200, projectPage(data)) : html(404, projectPage(projectMissing(dataDir, project[1], ctx)));
+      const from = url.searchParams.get('from');
+      return data ? html(200, projectPage(data, ctx, from)) : html(404, projectPage(projectMissing(project[1], ctx), ctx, from));
     }
     text(404, '没有这个页面');
   };

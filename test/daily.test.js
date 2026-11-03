@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readFileSync, rmSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildDaily, readLatestDaily, feishuMarkdown } from '../src/daily/index.js';
-import { visit, dataOf } from './helpers/web.js';
+import { visit } from './helpers/web.js';
 
 const DAY = '2026-10-22';
 const put = (dir, path, obj) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), JSON.stringify(obj)); };
@@ -190,33 +190,11 @@ test('消息文件中途没写成：再跑时照已有的日报补上，不重�
   assert.equal(readFileSync(join(dir, r.feishuPath), 'utf8'), '已经交给机器人的版本');
 });
 
-test('日报页：显示生成的那份日报（和飞书消息同一份），简介按日报里存的写；还没生成时如实说明；之后的更新失败或新一期还没生成写在提示条里', async () => {
+test('日报页已删（#21）：/daily 跳首页，旧链接不出错', async () => {
   const dir = dataDir();
-  const page = async () => { const r = await visit(dir, 'daily'); assert.equal(r.status, 200); return dataOf(r.body); };
-  assert.deepEqual([(await page()).daily, (await page()).top.text], [null, '10 月 22 日数据 · 10:30 更新']);
-
-  const { daily } = await build(dir);
-  const d = await page();
-  assert.deepEqual([d.daily.statDay, d.daily.overview, d.daily.windows, d.notes], [DAY, daily.overview, daily.windows, daily.notes]);
-  // 版本发布：新的在前，带所在窗口和官方链接。
-  assert.deepEqual(d.daily.releases.map((r) => [r.repo, r.w, r.tag]), [['acme/rocket', 'd1', 'v2.0.0'], ['acme/weekly', 'd7', 'w1']]);
-  // 每个条目都有项目可画（头像、名字、收藏），简介是日报里存的那份。
-  for (const w of Object.values(d.daily.windows)) for (const e of w.entries) assert.ok(d.projects[e.repo], e.repo);
-  assert.deepEqual([d.projects['acme/rocket'].what, d.projects['acme/notes'].what], ['acme/rocket 把脚本打包成命令行工具。', null]);
-  // 日报生成后资料又变了：页面仍按日报里存的写，和已经发出的飞书消息一致；当时还在生成的，生成好了就显示。
-  put(dir, 'profiles/1.json', { projectId: 1, fullName: 'acme/rocket', material: { hash: 'h9', skills: [] }, generated: { materialHash: 'h9', what: '新简介', problem: '新', conditions: [] } });
-  put(dir, 'profiles/2.json', { projectId: 2, fullName: 'acme/notes', material: { hash: 'h2-new', skills: [] }, generated: { materialHash: 'h2-new', what: 'acme/notes 把笔记同步到本地。', problem: '离线也能查。', conditions: [] } });
-  const later = await page();
-  assert.equal(later.projects['acme/rocket'].what, 'acme/rocket 把脚本打包成命令行工具。');
-  assert.deepEqual([later.projects['acme/notes'].what, later.projects['acme/notes'].problem], ['acme/notes 把笔记同步到本地。', '离线也能查。']);
-  // 右栏的读屏名称同方案。
-  assert.match((await visit(dir, 'daily')).body, /<aside class="rail" id="rail" aria-label="近 7 天、近 30 天与版本发布">/);
-
-  // 新一期近 1 天出来了、日报还没生成；之后近 1 天更新失败。
-  put(dir, 'snapshots/d1/2026-10-23.json', snapshot('d1', '2026-10-23', D1));
-  assert.deepEqual((await page()).notes[0], { icon: 'warn', title: '新一期日报还没生成', text: '10 月 23 日的日报还没生成，下面是 10 月 22 日的日报。' });
-  put(dir, 'status.json', { boards: { d1: { day: '2026-10-24', at: '2026-10-25T02:10:00.000Z', status: 'failed', error: '官方热门日榜返回 503' } } });
-  assert.deepEqual((await page()).notes[0], { tone: 'bad', icon: 'error', title: '近 1 天更新失败', text: '10 月 24 日的更新失败：官方热门日榜返回 503。下面是 10 月 22 日的日报。' });
+  await build(dir);
+  const r = await visit(dir, 'daily');
+  assert.deepEqual([r.status, r.headers.location], [303, '/']);
 });
 
 test('名次变化（#17）：概览末尾加一句，有可比上一期的窗口说前 10 里几个上一期不在前 10、谁连续第 1；列表行不加记号', async () => {

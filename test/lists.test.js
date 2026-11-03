@@ -1,4 +1,4 @@
-// #9：新项目榜、官方热门榜、累计高星榜随出榜一起生成快照（接缝 1），以及三个榜单页（接缝 2）。上游全部来自录制数据。
+// #9：新项目榜、官方热门榜、累计高星榜随出榜一起生成快照（接缝 1）；它们的榜单页已删（接缝 2，#21）。上游全部来自录制数据。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -126,55 +126,15 @@ test('同一统计日重跑不覆盖三个榜单的快照，也不再请求上�
 });
 
 // ---- 接缝 2：榜单页 ----
-// #14 起三个榜并排在 /boards 一页，由页面脚本画出；这里看嵌入的数据。项目名由页面脚本链到站内的项目页（#6）。
-const boards = async (dataDir, path = 'boards') => { const r = await visit(dataDir, path); return { ...r, data: r.status === 200 ? dataOf(r.body) : null }; };
-const rows = (entries) => entries.map((e) => [e.rank, e.repo]);
-
-test('新项目榜、累计高星榜页：前 20（含并列），写明范围和搜索的已知现象', async () => {
+// 2026-11-03 起（#21）新项目榜、累计高星榜、官方热门榜不再单独展示（数据照抓，涨星榜找候选还要用），/boards 和旧地址都跳首页。
+test('榜单页删除：/boards、/new、/top、/trending 跳首页；只在这几个榜上的项目，项目页照样打得开', async () => {
   const dataDir = fresh();
   await run({ dataDir });
-  const { status, data } = await boards(dataDir);
-  assert.equal(status, 200);
-  const { new: fresh30, top } = data.lists;
-  assert.equal(fresh30.entries.length, 20);
-  assert.deepEqual(rows(fresh30.entries)[0], [1, 'storytold/photocraft']);
-  // 页面脚本写“9 月 23 日至 10 月 22 日（UTC）创建的项目”。
-  assert.deepEqual([fresh30.from, fresh30.statDay], ['2026-09-23', '2026-10-22']);
-  assert.match(data.searchNote, /GitHub 搜索会把少数仓库计进总数，但列表里不返回它们/);
-  assert.deepEqual(rows(top.entries).slice(0, 2), [[1, 'codecrafters-io/build-your-own-x'], [2, 'sindresorhus/awesome']]);
-  // 每个上榜项目都有资料可链（项目页、分类、收藏状态）。
-  for (const e of [...fresh30.entries, ...top.entries]) assert.ok(data.projects[e.repo], e.repo);
-  // 旧地址跳到这一页，带上分类与周期。
-  for (const [path, to] of [['new', '/boards'], ['top', '/boards?cat=Skill'], ['trending?since=weekly', '/boards?since=weekly']]) {
-    const r = await visit(dataDir, path === 'top' ? 'top?cat=Skill' : path);
-    assert.deepEqual([r.status, r.headers.location], [303, to], path);
+  for (const path of ['boards', 'boards?since=monthly', 'new', 'top?cat=Skill', 'trending?since=weekly']) {
+    const r = await visit(dataDir, path);
+    assert.deepEqual([r.status, r.headers.location], [303, '/'], path);
   }
-});
-
-test('官方热门榜页：日、周、月切换，原样顺序，写明排序规则由 GitHub 决定', async () => {
-  const dataDir = fresh();
-  await run({ dataDir });
-  const { data } = await boards(dataDir);
-  const daily = data.lists.trending.pages.daily;
-  assert.deepEqual(rows(daily.entries).slice(0, 2), [[1, 'php/php-src'], [2, 'anthropics/knowledge-work-plugins']]);
-  assert.deepEqual([daily.entries[0].gain, daily.entries[0].total], [287, 41378]);
-  // 日、周、月三页都嵌进页面，在页面里切换；排序规则的说明由页面脚本写在榜下。
-  assert.deepEqual(Object.keys(data.lists.trending.pages), ['daily', 'weekly', 'monthly']);
-  // 只在官方热门榜上的项目：项目页侧栏的总 Star 取榜单快照里的数（没有涨星榜那次运行的数字）。
+  // 只在官方热门榜上的项目：项目页的总 Star 取榜单快照里的数（没有涨星榜那次运行的数字）。
   const pj = dataOf((await visit(dataDir, 'p/php/php-src')).body);
   assert.deepEqual([pj.page.run, pj.page.total, pj.projects['php/php-src'].id > 0], [null, 41378, true]);
-  assert.equal((await visit(dataDir, 'boards?since=monthly')).status, 200);
-  assert.equal((await visit(dataDir, 'boards?since=yearly')).status, 404);
-  assert.equal((await visit(dataDir, 'trending?since=yearly')).status, 404);
-});
-
-test('榜单更新失败时仍显示上一次的结果并提示', async () => {
-  const dataDir = fresh();
-  await run({ dataDir });
-  writeFileSync(join(dataDir, 'status.json'), JSON.stringify({ boards: { top: { day: '2026-10-23', at: '2026-10-24T02:10:00.000Z', status: 'failed', error: 'GitHub 搜索结果不全' } } }));
-  const { data } = await boards(dataDir);
-  assert.deepEqual(data.notes, [{ tone: 'bad', icon: 'error', title: '累计高星榜更新失败', text: '10 月 23 日的更新失败：GitHub 搜索结果不全。下面仍是 10 月 22 日的累计高星榜。' }]);
-  // 顶栏和其他页一致，显示全站（近 1 天）状态；这里还没有近 1 天快照。榜单自己的失败写在提示条里。
-  assert.deepEqual(data.top, { tone: 'warn', text: '还没有数据' });
-  assert.equal(data.lists.top.entries.length, 20);
 });

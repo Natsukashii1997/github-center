@@ -61,16 +61,16 @@ test('登录成功：发会话 Cookie（HttpOnly），跳回原来要去的页�
     assert.equal(bad.headers['set-cookie'], undefined);
     assert.equal((await http(s.url + 'login', form({ name: 'nobody', password }))).status, 401);
 
-    const ok = await http(s.url + 'login', form({ name: 'tester', password, next: '/boards' }));
+    const ok = await http(s.url + 'login', form({ name: 'tester', password, next: '/favorites' }));
     assert.equal(ok.status, 303);
-    assert.equal(ok.headers.location, '/boards');
+    assert.equal(ok.headers.location, '/favorites');
     const cookie = ok.headers['set-cookie'][0];
     assert.match(cookie, /^gc_session=[\w-]{40,}; HttpOnly; SameSite=Lax; Path=\/; Max-Age=2592000$/);
-    const page = await http(s.url + 'boards', { headers: { cookie: cookie.split(';')[0] } });
+    const page = await http(s.url + 'favorites', { headers: { cookie: cookie.split(';')[0] } });
     assert.equal(page.status, 200);
-    // 顶栏由 gc.js 画出：账号名取嵌入的数据，“退出”（id="gc-logout"）点了提交 POST /logout。
+    // 白雾外壳的顶栏由服务端画：账号名的首字，“退出”是提交 POST /logout 的表单。
     assert.equal(dataOf(page.body).account.name, 'tester');
-    assert.match(page.body, /<script src="\/assets\/gc\.js"><\/script>/);
+    assert.match(page.body, /<span class="me" title="tester">t<\/span><form method="post" action="\/logout">/);
     // 已登录再打开登录页直接回首页。
     assert.equal((await http(s.url + 'login', { headers: { cookie: cookie.split(';')[0] } })).headers.location, '/');
   } finally {
@@ -229,6 +229,9 @@ test('免登录（guest）：不带 Cookie 也直接当作共用账号，登录�
     const home = await http(url);
     assert.equal(home.status, 200);
     assert.equal(dataOf(home.body).account.name, '大家');
+    // 顶栏写明免登录，不给“退出”。
+    assert.match(home.body, /<span class="me" title="大家 · 免登录">大<\/span>/);
+    assert.doesNotMatch(home.body, /action="\/logout"/);
     const login = await http(url + 'login');
     assert.equal(login.status, 303);
     assert.equal(login.headers.location, '/');
