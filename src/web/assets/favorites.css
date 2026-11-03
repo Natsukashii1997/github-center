@@ -15,7 +15,7 @@
 .shelves { display: flex; flex-direction: column; gap: 22px; }
 .shelf { scroll-margin-top: 66px; }
 .shelf h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 15px; } .shelf h3 small { font: 500 11.5px var(--mono); color: var(--ink-4); }
-.shrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.shrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
 
 /* 卡片（A 书签丝带）：头像、名字、来源、一句话、种类标签，底部收藏日期和复制；右上角一条类别色丝带就是「已收藏」 */
 .tile { position: relative; display: flex; flex-direction: column; padding: 16px 16px 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.94); overflow: hidden; cursor: pointer; transition: box-shadow .2s, border-color .2s, opacity .25s; }
