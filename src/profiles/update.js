@@ -1,15 +1,21 @@
 // 项目资料（#6）：给各榜单上的项目读 README、主要文档、仓库目录和 Skill，交给可替换的生成器写简介和使用条件。
+// 补哪些项目只在 profileProjects 一处定：涨星榜和官方热门榜（boardProjects）排前面，再加分类榜上显示的（#27）。
 // 只为首次上榜或资料过期的生成：项目没有新提交、简介和默认分支也没变就不重读；重读后资料哈希没变就不重新生成。
 // 生成失败（含 Codex 登录失效）时不拿猜测的内容顶替：项目页显示“简介生成中”，下次运行再试。
 //
 // 生成器接口：{ version, generate(material) → { what, problem, line, use, scene, tag, type, conditions: [{ kind, text, quote }], skills: [{ path, purpose }] } }。
 // version 变了，所有项目重新生成。
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { githubClient } from '../ranking/github.js';
 import { openStore } from '../ranking/store.js';
 import { mapLimit } from '../ranking/rank-day.js';
 import { isSkillFile, parseSkill } from './skills.js';
 import { boardProjects, readProfile, saveProfile } from './store.js';
+import { readHistoryBoard } from '../boards/history.js';
+import { readHotBoard } from '../boards/hot.js';
+import { openPicks } from '../boards/picks.js';
 
 export const CONDITION_KINDS = ['付费', '账号', '密钥', '环境'];
 // 定义标签（#23）：项目是什么，只能是这几种之一。
@@ -224,12 +230,36 @@ async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
   }
 }
 
-// 跑一次：处理网站上各榜单当前显示的项目。一个项目出错不影响其他项目。
+// 要补资料的项目：涨星榜和官方热门榜上的先补（boardProjects），再补分类榜上显示的：精选榜各标签的卡、历史榜前 50、热点榜前 15。
+// 按项目 id（没有 id 的按名字，不分大小写）去重。还没有库（data/center.db）时不建库，只是没有精选卡。
+export function profileProjects(dataDir) {
+  const out = boardProjects(dataDir);
+  const seen = new Set(out.flatMap((p) => [`name:${p.name.toLowerCase()}`, ...(p.id ? [`id:${p.id}`] : [])]));
+  const add = (id, name) => {
+    const keys = [`name:${name.toLowerCase()}`, ...(id ? [`id:${id}`] : [])];
+    if (keys.some((k) => seen.has(k))) return;
+    keys.forEach((k) => seen.add(k));
+    out.push({ id: id ?? null, name });
+  };
+  if (existsSync(join(dataDir, 'center.db'))) {
+    const picks = openPicks(dataDir);
+    try {
+      for (const t of picks.board(null).tags) t.cards.forEach((c) => add(c.projectId, c.fullName));
+    } finally {
+      picks.close();
+    }
+  }
+  for (const e of readHistoryBoard(dataDir)?.entries ?? []) add(e.id, e.repo);
+  for (const e of readHotBoard(dataDir)?.entries ?? []) add(e.id, e.repo);
+  return out;
+}
+
+// 跑一次：处理网站上各榜单当前显示的项目（profileProjects）。一个项目出错不影响其他项目。
 export async function updateProfiles({ dataDir, fetch = globalThis.fetch, token, generator, now = () => new Date(), sleep }) {
   const runId = `profiles_${now().toISOString().replace(/[:.]/g, '-')}`;
   const store = openStore(dataDir, runId);
   const gh = githubClient({ fetch, token, sleep });
-  const projects = boardProjects(dataDir);
+  const projects = profileProjects(dataDir);
   const results = await mapLimit(projects, CONCURRENCY, (c) =>
     updateOne({ c, dataDir, gh, fetch, store, generator, now }).catch((e) => ({ name: c.name, status: 'error', error: e.message })));
   return { runId, results, requests: gh.stats };

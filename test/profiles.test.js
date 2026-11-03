@@ -1,11 +1,13 @@
 // #6：项目页的简介、使用条件与 Skill 列表。更新项目资料时 GitHub 用假接口、生成器用假的（接缝 1），项目页走登录后的 HTTP（接缝 2）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmodSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { updateProfiles, codexGenerator, parseSkill } from '../src/profiles/index.js';
 import { readProfile } from '../src/profiles/store.js';
+import { profileProjects } from '../src/profiles/update.js';
+import { openPicks } from '../src/boards/index.js';
 import { visit, dataOf } from './helpers/web.js';
 
 // #14 起项目页由页面脚本画出，这里看嵌入的数据：page 是页面本身的，projects[名字] 是这个项目的简介、Skill 等。
@@ -183,6 +185,31 @@ test('首次上榜：读 README、仓库目录和 Skill 生成项目资料；项
   assert.ok(readFileSync(join(dataDir, saved.material.evidence.readme.path)).length > 0);
   assert.equal(saved.material.evidence.docs.length, 3);
   assert.equal(saved.material.evidence.skills.length, 4);
+});
+
+test('分类榜上显示的项目也补资料（#27）：涨星榜的排前面，再补精选卡、历史榜前 50、热点榜前 15，按 id 去重', async () => {
+  const dataDir = fresh();
+  const put = (path, body) => { mkdirSync(join(dataDir, path, '..'), { recursive: true }); writeFileSync(join(dataDir, path), JSON.stringify(body)); };
+  put('snapshots/d1/2026-10-22.json', { window: 'd1', statDay: '2026-10-22', generatedAt: '2026-10-23T08:40:00Z', entries: [{ rank: 1, projectId: 101, fullName: 'acme/agent-kit', gain: 900, total: 5000 }] });
+  // 历史榜存 100 名、只显示前 50：第 51 名不补。
+  const hist = Array.from({ length: 51 }, (_, i) => ({ rank: i + 1, repo: `h/p${i + 1}`, id: 1000 + i, total: 10_000 - i }));
+  hist[0] = { rank: 1, repo: 'acme/agent-kit', id: 101, total: 10_000 };
+  put('snapshots/history/2026-10-22.json', { statDay: '2026-10-22', fetchedAt: '2026-10-22T01:00:00Z', entries: hist });
+  put('snapshots/hot/2026-10-22.json', { statDay: '2026-10-22', fetchedAt: '2026-10-22T02:00:00Z', sources: {}, posts: [],
+    entries: [{ rank: 1, repo: 'acme/tiny', id: 202, heat: 9, aliases: ['acme/tiny'] }, { rank: 2, repo: 'h/p2', id: 1001, heat: 5, aliases: ['h/p2'] }] });
+  const picks = openPicks(dataDir);
+  picks.swap({ id: 1, role: 'owner' }, { tagId: picks.tags()[0].id, slot: 1, project: { id: 303, fullName: 'acme/picked' } });
+  picks.close();
+  const names = profileProjects(dataDir).map((p) => p.name);
+  assert.deepEqual([names.slice(0, 3), names.length, names.at(-1)], [['acme/agent-kit', 'acme/picked', 'h/p2'], 52, 'acme/tiny']);
+  assert.ok(!names.includes('h/p51'));
+  // 走正常的补资料流程：历史榜、热点榜上的项目一样生成。
+  const r = await run(dataDir);
+  assert.deepEqual(['acme/agent-kit', 'acme/tiny'].map((n) => r.results.find((x) => x.name === n).status), ['generated', 'generated']);
+  // 没有库时不建库。
+  const bare = dataDirWithBoard();
+  assert.deepEqual(profileProjects(bare).map((p) => p.name), ['acme/agent-kit', 'acme/tiny']);
+  assert.ok(!existsSync(join(bare, 'center.db')));
 });
 
 test('资料没变不重复生成：没有新提交就不重读；有新提交但资料没变也不重新生成；README 变了才重新生成', async () => {
