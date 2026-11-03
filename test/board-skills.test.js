@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { updateSkills, readSkillsBoard, parseSkills } from '../src/boards/index.js';
+import { updateSkills, readSkillsBoard, parseSkills, groupBySource } from '../src/boards/index.js';
 
 // 页面里每个 Skill 是脚本中转义过引号的一段 JSON；同一个 Skill 可能出现不止一次。
 const item = (n, source = `o${n}/r${n}`) => `{\\"source\\":\\"${source}\\",\\"skillId\\":\\"sk-${n}\\",\\"name\\":\\"sk-${n}\\",\\"installs\\":${1_000_000 - n * 100},\\"weeklyInstalls\\":[1,2],\\"isOfficial\\":false}`;
@@ -18,13 +18,23 @@ const fetchOf = (responses, urls = []) => async (url) => {
 };
 const at = (iso) => () => new Date(iso);
 
-test('解析：按安装量从高到低取前 100，去重；GitHub 来源带 repo，网址来源 repo 为 null；认出太少就报错', () => {
+test('解析：按安装量从高到低全部存下，去重；GitHub 来源带 repo，网址来源 repo 为 null；认出太少就报错', () => {
   const entries = parseSkills(page());
-  assert.equal(entries.length, 100);
+  assert.equal(entries.length, 120);
   assert.deepEqual(entries[0], { rank: 1, skill: 'sk-1', skillId: 'sk-1', source: 'o1/r1', repo: 'o1/r1', installs: 999_900, url: 'https://skills.sh/o1/r1/sk-1' });
   assert.deepEqual([entries[4].source, entries[4].repo, entries[4].url], ['open.feishu.cn', null, 'https://skills.sh/site/open.feishu.cn/sk-5']);
-  assert.equal(new Set(entries.map((e) => e.skill)).size, 100);
+  assert.equal(new Set(entries.map((e) => e.skill)).size, 120);
   assert.throws(() => parseSkills(page(10)), /只认出 10 个 Skill/);
+});
+
+test('同一来源合成一行：名字和安装量取最高的那个，注明个数；几个时链到来源页，一个时链到 Skill 页', () => {
+  const e = (skill, source, installs, repo = source) => ({ skill, source, repo, installs, url: `https://skills.sh/${repo ? '' : 'site/'}${source}/${skill}` });
+  const g = groupBySource([e('lark-doc', 'open.feishu.cn', 900, null), e('grill-me', 'm/skills', 800), e('lark-im', 'open.feishu.cn', 850, null), e('solo', 'a/b', 700), e('tdd', 'M/Skills', 600)]);
+  assert.deepEqual(g, [
+    { rank: 1, skill: 'lark-doc', source: 'open.feishu.cn', repo: null, installs: 900, count: 2, url: 'https://skills.sh/site/open.feishu.cn' },
+    { rank: 2, skill: 'grill-me', source: 'm/skills', repo: 'm/skills', installs: 800, count: 2, url: 'https://skills.sh/m/skills' },
+    { rank: 3, skill: 'solo', source: 'a/b', repo: 'a/b', installs: 700, count: 1, url: 'https://skills.sh/a/b/solo' },
+  ]);
 });
 
 test('每天一次：存当天快照和原始页面，网站读前 50；同一天重跑不再请求', async () => {
