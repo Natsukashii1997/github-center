@@ -104,9 +104,10 @@ export async function codexJson({ bin = 'codex', schema, input, effort = EFFORT,
   }
 }
 
-export function codexGenerator({ bin = 'codex', timeoutMs = 300_000 } = {}) {
+// effort：设置页「补资料」的思考强度，不给用默认 EFFORT。换强度不改 version，已生成的不因此重写。
+export function codexGenerator({ bin = 'codex', timeoutMs = 300_000, effort } = {}) {
   return {
     version: `codex-${PROMPT_VERSION}`,
-    generate: (material) => codexJson({ bin, schema: SCHEMA, input: prompt(material), timeoutMs }),
+    generate: (material) => codexJson({ bin, schema: SCHEMA, input: prompt(material), effort, timeoutMs }),
   };
 }

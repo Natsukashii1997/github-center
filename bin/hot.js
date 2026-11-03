@@ -6,13 +6,15 @@ import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { githubClient } from '../src/ranking/github.js';
 import { updateHot, readHotBoard, jsonGetter, HOT_SOURCES } from '../src/boards/index.js';
+import { readSettings } from '../src/settings/index.js';
 
 const { values } = parseArgs({ options: { data: { type: 'string', default: 'data' } } });
 const t0 = performance.now();
 const token = process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const gh = githubClient({ fetch: globalThis.fetch, token });
 const http = jsonGetter();
-const r = await updateHot({ dataDir: values.data, gh, get: http.get });
+// 设置页关掉的来源不抓，沿用上一次的帖子。
+const r = await updateHot({ dataDir: values.data, gh, get: http.get, enabled: readSettings(values.data).sources });
 
 if (r.status === 'exists') console.log(`今天的热点榜快照已存在，没有重跑：${r.path}`);
 else if (r.status === 'failed') console.log(`热点榜更新失败（保留上一次快照）：${r.error}`);
@@ -20,7 +22,7 @@ else {
   const s = r.snapshot;
   console.log(`已发布 ${r.path}（窗口 ${s.window.from} 至 ${s.window.to}）`);
   for (const [k, x] of Object.entries(s.sources)) {
-    console.log(`${HOT_SOURCES[k].name}：${x.status === 'ok' ? `本次抓到链到仓库的帖子 ${x.fetched} 个` : `失败（${x.error}），沿用上一次的帖子`}，计入 ${x.posts} 个${x.truncated ? `；有 ${x.truncated} 条超出单次上限没取到` : ''}${x.errors?.length ? `；${x.errors.length} 个列表失败：${x.errors[0]}` : ''}`);
+    console.log(`${HOT_SOURCES[k].name}：${x.status === 'ok' ? `本次抓到链到仓库的帖子 ${x.fetched} 个` : x.status === 'off' ? '设置页里关掉了，沿用上一次的帖子' : `失败（${x.error}），沿用上一次的帖子`}，计入 ${x.posts} 个${x.truncated ? `；有 ${x.truncated} 条超出单次上限没取到` : ''}${x.errors?.length ? `；${x.errors.length} 个列表失败：${x.errors[0]}` : ''}`);
   }
   console.log(`仓库 ${s.entries.length} 个上榜（核了 ${s.resolve.requested} 个，查到 ${s.resolve.found} 个${s.resolve.failed ? '；GraphQL 失败，未核' : ''}）`);
   const b = readHotBoard(values.data);

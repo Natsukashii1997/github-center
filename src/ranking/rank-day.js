@@ -58,8 +58,9 @@ function oncePerProject(fn) {
 }
 
 // 1. 某个统计日的全站 Star 事件按项目合计。存过就直接用；统计日当天读 GH Archive 的 24 个小时文件（缺的小时用 ClickHouse 补），
-// 更早的日子（近 7/30 天才用到）从 ClickHouse 按天补。
-async function dayEvents({ fetch, sleep, dataDir, day, latest }) {
+// 更早的日子（近 7/30 天才用到）从 ClickHouse 按天补。设置页关掉 ClickHouse（clickhouse 为 false）时不补，缺数据就按更新失败处理。
+const OFF = 'ClickHouse 已在设置页关掉，补不上';
+async function dayEvents({ fetch, sleep, dataDir, day, latest, clickhouse }) {
   const saved = readEvents(dataDir, day);
   if (saved) return saved;
   let events;
@@ -69,6 +70,7 @@ async function dayEvents({ fetch, sleep, dataDir, day, latest }) {
       try {
         return await archiveHour({ fetch, day, hour });
       } catch {
+        if (!clickhouse) throw new Error(`第 ${hour} 小时 GH Archive 缺失，${OFF}，按更新失败处理`);
         fallbackHours.push(hour);
         const rows = await clickhouseHour({ fetch, sleep, day, hour });
         if (!rows.length) throw new Error(`第 ${hour} 小时 GH Archive 缺失，ClickHouse 也没有这一小时的数据，按更新失败处理`);
@@ -77,6 +79,7 @@ async function dayEvents({ fetch, sleep, dataDir, day, latest }) {
     });
     events = { day, source: 'gharchive', fallbackHours: fallbackHours.sort((a, b) => a - b), rows: mergeById(hours.flat()) };
   } else {
+    if (!clickhouse) throw new Error(`缺 ${day} 的事件数据，${OFF}，按更新失败处理`);
     events = { day, source: 'clickhouse', fallbackHours: [], rows: await clickhouseDay({ fetch, sleep, day }) };
     if (!events.rows.length) throw new Error(`ClickHouse 没有 ${day} 的事件数据，按更新失败处理`);
   }
@@ -84,9 +87,9 @@ async function dayEvents({ fetch, sleep, dataDir, day, latest }) {
   return events;
 }
 
-async function windowEvents({ fetch, sleep, dataDir, days }) {
+async function windowEvents({ fetch, sleep, dataDir, days, clickhouse }) {
   const perDay = [];
-  for (const d of days) perDay.push(await dayEvents({ fetch, sleep, dataDir, day: d, latest: d === days.at(-1) }));
+  for (const d of days) perDay.push(await dayEvents({ fetch, sleep, dataDir, day: d, latest: d === days.at(-1), clickhouse }));
   return {
     rows: mergeById(perDay.flatMap((e) => e.rows)).sort(byEvents),
     fallbackHours: perDay.at(-1).fallbackHours,
@@ -141,10 +144,10 @@ async function rankEntries({ verified, project }) {
 
 // 一个窗口出榜：候选取事件记录次数前 limit 名（同次数的一起进）并入官方热门榜，核数排名后自检；
 // 自检不过就降低候选门槛、补核新进的候选再排，直到通过；门槛降到 1 或候选到上限仍不过，就如实标注“可能不完整”。
-async function rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, hotPage, limit, maxCandidates }) {
+async function rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, hotPage, limit, maxCandidates, clickhouse }) {
   const before = { ...gh.stats };
   const days = windowDays(day, WINDOWS[window].days);
-  const ev = await windowEvents({ fetch, sleep, dataDir, days });
+  const ev = await windowEvents({ fetch, sleep, dataDir, days, clickhouse });
   const { items: hotItems } = await hotPage(WINDOWS[window].since);
   let threshold = ev.rows[Math.min(limit, ev.rows.length) - 1]?.events ?? 1;
   // 候选上限对应的最低门槛：门槛再低，事件数据里达到它的项目就超过上限了。
@@ -211,7 +214,8 @@ function candidatesFile({ window, day, runId, generatedAt, r, meta }) {
 // 跑一次出榜：某个已结束统计日的近 1、7、30 天涨星榜前 20（含末位并列），以及新项目榜、官方热门榜、累计高星榜，各自单独发布。
 // 已发布的不重跑；某个榜单失败不影响其他榜单，失败原因记进 status.json，网站据此提示。
 // 另外三个榜单只能取到运行当时的数据，所以只在出最近一个已结束的统计日时生成；补跑更早的日子不生成，免得把现在的数字记成旧日子的。
-export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, now = () => new Date(), limit = 300, maxCandidates = MAX_CANDIDATES, windows = Object.keys(WINDOWS), lists = Object.keys(LISTS), sleep }) {
+// sources：设置页的数据源开关（../settings）。关掉官方热门：候选只来自事件数据，也不出官方热门榜；关掉 ClickHouse：不补缺的小时和更早的日子。
+export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, now = () => new Date(), limit = 300, maxCandidates = MAX_CANDIDATES, windows = Object.keys(WINDOWS), lists = Object.keys(LISTS), sleep, sources = { trending: true, clickhouse: true } }) {
   if (day > lastEndedDay(now())) throw new Error(`统计日 ${day} 还没结束（按 UTC），最近一个已结束的是 ${lastEndedDay(now())}`);
   const results = { windows: {}, lists: {} };
   // 已发布的记为 exists，返回还没发布的。
@@ -221,7 +225,7 @@ export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, n
     return !done;
   });
   const todoWindows = unpublished('windows', windows);
-  const todoLists = unpublished('lists', day === lastEndedDay(now()) ? lists : []);
+  const todoLists = unpublished('lists', day === lastEndedDay(now()) ? lists.filter((l) => l !== 'trending' || sources.trending) : []);
 
   if (todoWindows.length || todoLists.length) {
     const runId = `${day}_${now().toISOString().replace(/[:.]/g, '-')}`;
@@ -233,12 +237,12 @@ export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, n
     // 同一次运行里官方热门榜的每一页只抓一次：涨星榜找候选和官方热门榜共用。
     const pages = new Map();
     const hotPage = (since) => {
-      if (!pages.has(since)) pages.set(since, trending({ fetch, sleep, since }));
+      if (!pages.has(since)) pages.set(since, sources.trending ? trending({ fetch, sleep, since }) : Promise.resolve({ items: [] }));
       return pages.get(since);
     };
     for (const window of todoWindows) {
       try {
-        const r = await rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, hotPage, limit, maxCandidates });
+        const r = await rankWindow({ window, day, fetch, sleep, dataDir, gh, verify, project, hotPage, limit, maxCandidates, clickhouse: sources.clickhouse });
         const meta = await metaFor(r.verified, window);
         const generatedAt = now().toISOString();
         const cands = candidatesFile({ window, day, runId, generatedAt, r, meta });

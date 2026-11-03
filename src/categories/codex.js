@@ -72,11 +72,12 @@ Topics：${topics(x.topics)}
 </projects>`;
 }
 
-export function codexClassifier({ bin, timeoutMs } = {}) {
+// effort：设置页「归类」的思考强度，不给用默认；换强度不改 version。
+export function codexClassifier({ bin, timeoutMs, effort } = {}) {
   return {
     version: `codex-${PROMPT_VERSION}`,
     async classify(items, { review = false } = {}) {
-      const out = await codexJson({ bin, schema: SCHEMA, input: (review ? reviewPrompt : batchPrompt)(items), timeoutMs });
+      const out = await codexJson({ bin, schema: SCHEMA, input: (review ? reviewPrompt : batchPrompt)(items), effort, timeoutMs });
       return out.results;
     },
   };

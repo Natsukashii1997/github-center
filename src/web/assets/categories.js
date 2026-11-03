@@ -218,7 +218,7 @@
   // 悬停说明：各来源的热度（点赞 + 评论）和帖子数
   const srcTip = (x) => `${brief(x.repo)}\n${Object.entries(x.sources).filter(([, v]) => v > 0).map(([s, v]) => `${D.hot.sources[s]?.name ?? s} ${num(v)}`).join(' · ')} · ${x.posts} 个帖子`;
   const short = () => (D.hot && !D.hot.complete ? `<span class="short">记录不满 7 天（已记 ${D.hot.days} 天）</span>` : '');
-  const hotTop = () => `<header class="ch"><div><span class="kk">TRENDING · 前 ${D.hot?.entries.length ?? 15}</span><h3>热点榜</h3></div><span class="nt"${D.hot ? ` title="${esc(Object.values(D.hot.sources).map((s) => `${s.name}：${s.status === 'ok' ? '已抓到' : '这次没抓到，沿用上次的帖子'}`).join('；'))}"` : ''}>${stale(D.hot)}按讨论热度排 · 近 7 天</span></header>
+  const hotTop = () => `<header class="ch"><div><span class="kk">TRENDING · 前 ${D.hot?.entries.length ?? 15}</span><h3>热点榜</h3></div><span class="nt"${D.hot ? ` title="${esc(Object.values(D.hot.sources).map((s) => `${s.name}：${s.status === 'ok' ? '已抓到' : s.status === 'off' ? '设置页里关掉了，沿用上次的帖子' : '这次没抓到，沿用上次的帖子'}`).join('；'))}"` : ''}>${stale(D.hot)}按讨论热度排 · 近 7 天</span></header>
     <div class="sub"><span class="key"><svg viewBox="0 0 34 12" width="34" height="12" aria-hidden="true"><path d="M1,9L7,8L13,9L19,6L25,7L33,2" fill="none" stroke="${HOT}" stroke-width="1.5"/><circle cx="33" cy="2" r="1.8" fill="${HOT}"/></svg>近 7 天热度走势</span><span class="key"><b class="up">↑</b> 比昨天</span>${short()}</div>`;
   function hotRows() {
     if (!D.hot?.entries.length) return '<div class="none"><b>还没有热点榜数据</b>每天从 Hacker News、V2EX 找指向 GitHub 仓库的帖子，按点赞加评论算热度。</div>';

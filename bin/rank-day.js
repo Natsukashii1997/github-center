@@ -1,13 +1,18 @@
 // 跑一次出榜：npm run rank -- [--day YYYY-MM-DD] [--data data] [--limit 300]
 // 不给 --day 时取最近一个已结束的 UTC 日（每日定时任务就这样跑）。token 取环境变量 GITHUB_TOKEN，没有就用本机 gh 登录。
 // 涨星榜三个窗口（另存每个窗口全部已核数的候选，#10）和新项目榜、官方热门榜、累计高星榜一起出。已发布的不重跑，手动重跑是安全的。
-// 有榜单更新失败时退出码为 1；整次运行出错也记进 status.json，网站照样提示。
+// 有榜单更新失败时退出码为 1；整次运行出错也记进 status.json，网站照样提示。设置页关掉的数据源（官方热门、ClickHouse）不用。
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { rankDay, lastEndedDay, recordStatus, WINDOWS, LISTS } from '../src/ranking/index.js';
+import { readSettings } from '../src/settings/index.js';
 
 const { values } = parseArgs({ options: { day: { type: 'string' }, data: { type: 'string', default: 'data' }, limit: { type: 'string', default: '300' } } });
 const day = values.day ?? lastEndedDay(new Date());
+// 设置页的数据源开关：关掉的官方热门榜、ClickHouse 这次不用。
+const { sources } = readSettings(values.data);
+const off = [['trending', 'GitHub 官方热门'], ['clickhouse', 'ClickHouse']].filter(([k]) => !sources[k]).map(([, n]) => n);
+if (off.length) console.log(`设置页里关掉了：${off.join('、')}`);
 
 let upstream = 0;
 const fetch = (...args) => (upstream++, globalThis.fetch(...args));
@@ -15,7 +20,7 @@ const t0 = performance.now();
 let r;
 try {
   const token = process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
-  r = await rankDay({ day, dataDir: values.data, fetch, token, limit: Number(values.limit) });
+  r = await rankDay({ day, dataDir: values.data, fetch, token, limit: Number(values.limit), sources });
 } catch (e) {
   if (day <= lastEndedDay(new Date())) {
     const boards = [...Object.keys(WINDOWS), ...Object.keys(LISTS)];

@@ -4,6 +4,7 @@
 // 近 7 天走势是每天各量一次的这个数，从存下的每日快照拼出；不满 7 天时 days 写明已记几天。
 // V2EX 接口每个列表只给最新的几条（不能翻页），所以以前看到过、窗口内的 V2EX 帖子沿用上一次量到的数；
 // 某个来源当天失败时同样沿用它上一次的帖子，快照里记下这个来源失败。两个来源都失败才算这一天失败，保留上一次快照。
+// 设置页关掉的来源（enabled[来源] 为 false）不抓，也沿用它上一次的帖子，快照里记 status 'off'。
 // Reddit 等以后拿到免费凭证再接（在 SOURCES 里加一项）；不接 X。
 import { join } from 'node:path';
 import { existsSync, readdirSync } from 'node:fs';
@@ -180,7 +181,7 @@ async function resolveTop({ gh, ranked }) {
 
 // 跑一次：返回 { status: 'published' | 'exists' | 'failed', path?, snapshot?, error?, requests }。
 // gh：ranking/github.js 的 githubClient（只用 graphql，一次请求）；get：jsonGetter().get。
-export async function updateHot({ dataDir, gh, get, now = () => new Date() }) {
+export async function updateHot({ dataDir, gh, get, now = () => new Date(), enabled = {} }) {
   const at = now();
   const day = at.toISOString().slice(0, 10);
   const done = findSnapshot(dataDir, BOARD, day);
@@ -191,6 +192,10 @@ export async function updateHot({ dataDir, gh, get, now = () => new Date() }) {
   const sources = {};
   const fresh = [];
   for (const [s, src] of Object.entries(SOURCES)) {
+    if (enabled[s] === false) {
+      sources[s] = { status: 'off' };
+      continue;
+    }
     try {
       const r = await src.fetch({ get, from, to });
       sources[s] = { status: 'ok', fetched: r.posts.length, ...(r.truncated ? { truncated: r.truncated } : {}), ...(r.errors?.length ? { errors: r.errors } : {}) };
@@ -199,15 +204,15 @@ export async function updateHot({ dataDir, gh, get, now = () => new Date() }) {
       sources[s] = { status: 'failed', error: e.message };
     }
   }
-  if (Object.values(sources).every((x) => x.status === 'failed')) {
-    const error = Object.entries(sources).map(([s, x]) => `${SOURCES[s].name}：${x.error}`).join('；');
+  if (Object.values(sources).every((x) => x.status !== 'ok') && Object.values(sources).some((x) => x.status === 'failed')) {
+    const error = Object.entries(sources).filter(([, x]) => x.status === 'failed').map(([s, x]) => `${SOURCES[s].name}：${x.error}`).join('；');
     recordStatus(dataDir, { day, at: at.toISOString(), boards: { [BOARD]: { status: 'failed', error } } });
     return { status: 'failed', error };
   }
-  // 沿用上一次快照里、仍在窗口内的帖子：只给一次看不全的来源（V2EX）和当天失败的来源。
+  // 沿用上一次快照里、仍在窗口内的帖子：只给一次看不全的来源（V2EX）和当天失败或关掉的来源。
   const seen = new Set(fresh.map((p) => `${p.source}:${p.id}`));
   const carried = (prev?.posts ?? []).filter((p) => Object.hasOwn(SOURCES, p.source)
-    && (!SOURCES[p.source].complete || sources[p.source].status === 'failed')
+    && (!SOURCES[p.source].complete || sources[p.source].status !== 'ok')
     && Date.parse(p.createdAt) / 1000 > from && !seen.has(`${p.source}:${p.id}`));
   const posts = [...fresh, ...carried];
   for (const [s, x] of Object.entries(sources)) x.posts = posts.filter((p) => p.source === s).length;

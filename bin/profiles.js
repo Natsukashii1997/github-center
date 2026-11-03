@@ -5,11 +5,12 @@
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { updateProfiles, codexGenerator } from '../src/profiles/index.js';
+import { readSettings } from '../src/settings/index.js';
 
 const { values } = parseArgs({ options: { data: { type: 'string', default: 'data' } } });
 const t0 = performance.now();
 const token = process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
-const r = await updateProfiles({ dataDir: values.data, token, generator: codexGenerator() });
+const r = await updateProfiles({ dataDir: values.data, token, generator: codexGenerator({ effort: readSettings(values.data).effort.profiles }) });
 
 const NAMES = { generated: '新生成', reused: '资料重读后没变、沿用', unchanged: '没有新提交、沿用', failed: '生成失败', error: '资料读不全', missing: '官方接口查不到' };
 const count = (s) => r.results.filter((x) => x.status === s).length;

@@ -5,10 +5,11 @@
 import { parseArgs } from 'node:util';
 import { updatePicks, codexTagger } from '../src/boards/index.js';
 import { POOL } from '../src/boards/picks-update.js';
+import { readSettings } from '../src/settings/index.js';
 
 const { values } = parseArgs({ options: { data: { type: 'string', default: 'data' }, limit: { type: 'string', default: String(POOL) } } });
 const t0 = performance.now();
-const r = await updatePicks({ dataDir: values.data, tagger: codexTagger(), limit: Number(values.limit) });
+const r = await updatePicks({ dataDir: values.data, tagger: codexTagger({ effort: readSettings(values.data).effort.picks }), limit: Number(values.limit) });
 
 console.log(`候选池 ${r.pool} 个：要建议 ${r.todo} 个，建议了 ${r.suggested} 个，失败 ${r.failed} 个${r.errors.length ? `（${r.errors.length} 批，如 ${r.errors[0]}）` : ''}`);
 for (const t of r.tags) console.log(`${t.name}：${t.cards} 张（手动 ${t.manual}）${t.repos.length ? ' ' + t.repos.join('、') : ''}`);

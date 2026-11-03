@@ -8,7 +8,7 @@ import { readStatus, readLatestSnapshot } from '../ranking/store.js';
 import { readSettings, parseSettings, saveSettings, SettingsError, EFFORTS, DAYS, EARLIEST, REQUIRED, UNAVAILABLE } from '../settings/index.js';
 import { frame } from './home.js';
 
-// 每日更新的定时现在还写死在 scripts/schedule.sh 里（北京时间 10:00）；批 3 改成读设置里的时间。
+// 每日更新的定时现在还写死在 scripts/schedule.sh 里（北京时间 10:00）；批 3 改成读设置里的时间（之前页面上改时间只存不用）。
 export const SCHEDULED_AT = '10:00';
 
 // 数据源，按原型 A 的顺序。board：状态取 status.json 里哪个榜单；hot：取最新热点榜快照里这个来源的成败。
@@ -23,7 +23,7 @@ const SOURCE_ROWS = [
   { key: 'v2ex', name: 'V2EX', host: 'v2ex.com/api', use: '公开接口 v1 · 热点榜', hot: true },
   { key: 'reddit', name: 'Reddit', use: '需要一个免费的 Reddit 应用凭证 · 热点榜' },
 ];
-const okState = (s) => (s === 'failed' ? 'failed' : 'ok');
+const okState = (s) => (s === 'failed' ? 'failed' : s === 'off' ? 'off' : 'ok');
 
 function sourceStatus(dataDir) {
   const status = readStatus(dataDir)?.boards ?? {};
@@ -75,8 +75,11 @@ export function lastRun(log) {
   for (const l of lines.slice(startAt + 1)) {
     const step = l.match(/^\S+ (.+) 退出码 (\d+)/);
     if (step && step[2] !== '0') run.failed.push(step[1]);
-    const end = l.match(/^(\S+) 每日更新结束：/);
-    if (end) run.endedAt = end[1];
+    const end = l.match(/^(\S+) 每日更新结束：(.*)$/);
+    if (end) {
+      run.endedAt = end[1];
+      if (end[2] === '已关掉') run.off = true;
+    }
   }
   run.running = !run.endedAt;
   return run;
@@ -95,8 +98,8 @@ export function settingsData(dataDir, ctx, now = new Date()) {
     me: ctx.account.name,
     canEdit: ctx.account.role === 'owner',
     guest: ctx.guest,
-    // 批 1 只存不用：开关、强度、时间都还没接到每日更新上，页面保存后照实说。
-    applied: false,
+    // 数据源开关、思考强度、每日更新开关已接到每日更新上（批 2）；更新时间要等批 3 接到 launchd。
+    timeApplied: false,
     settings,
     sources: SOURCE_ROWS.map(({ board, hot, ...row }) => ({ ...row, required: REQUIRED.has(row.key), unavailable: UNAVAILABLE.has(row.key), status: statusOf({ key: row.key, board, hot }) })),
     run: lastRun(logTail(join(dataDir, 'logs', 'update.log'))),
