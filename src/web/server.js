@@ -58,8 +58,8 @@ function changeFavorite(dataDir, favorites, account, form) {
   return null;
 }
 
-// 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页和项目页（bw），我的收藏和登录沿用 #14 的那套。
-const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript' };
+// 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页、项目页和我的收藏（bw，收藏页另有 favorites），登录页沿用 #14 的那套。
+const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'favorites.css': 'text/css', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript' };
 const assetFile = (name) => readFileSync(new URL(`./assets/${name}`, import.meta.url));
 // 登录页（#14）要用的样式和脚本：不登录也能取（只是设计变量、图标和组件代码，不含任何数据）；其余页面脚本登录后才给。
 const LOGIN_ASSETS = new Set(['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js', 'login.js']);

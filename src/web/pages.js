@@ -1,5 +1,5 @@
 // 项目页、我的收藏、登录（#14 起）。服务端把页面要的快照、项目资料和这个人的收藏整理成一份数据嵌进页面，页面脚本画出来。
-// 2026-11-03 起（#21）项目页和首页右侧详情栏共用同一份内容（assets/bw.js），套白雾外壳；我的收藏先只换外壳，其余等它自己的批次；登录页不变。
+// 2026-11-03 起（#21）项目页和首页右侧详情栏共用同一份内容（assets/bw.js），套白雾外壳；我的收藏按定稿改成收藏架（#22），点项目在本页打开同一份详情栏；登录页不变。
 // 日报页、其他榜单页已删（旧地址跳首页，见 server.js）。名次、新增和总 Star 只取快照；项目页的数字和走势取这一期榜单那次运行存下的官方原始响应（同首页）。
 import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, SINCES } from '../ranking/index.js';
 import { readCategories } from '../categories/index.js';
@@ -50,21 +50,7 @@ export function projectData(dataDir, fullName, ctx) {
   const name = profile?.fullName ?? listed?.name ?? onCategory[0].entry.fullName;
   const catOnly = !profile && !listed;
   const find = readCategories(dataDir).get;
-  // 它在哪些涨星榜上（按窗口顺序），卡片数字取最新生成的那一期的运行。
-  const onBoards = Object.keys(WINDOWS).flatMap((w) => {
-    const s = readLatestSnapshot(dataDir, w);
-    const e = s?.entries.find((x) => (id ? x.projectId === id : x.fullName.toLowerCase() === name.toLowerCase()));
-    return e ? [{ w, snapshot: s, entry: e }] : [];
-  });
-  // 名次胶囊带名次变化和连续期数（#17），按总榜算。
-  const history = rankHistory(dataDir, find);
-  const ranks = onBoards.map(({ w, snapshot, entry }) => {
-    const mv = history.moves(w, null, snapshot.statDay);
-    return { w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1, mv: mv ? mv(entry) : null, streak: history.streak(w, null, snapshot.statDay, entry) };
-  });
-  const newest = [...(onBoards.length ? onBoards : onCategory ?? [])].sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
-  const shown = newest.length ? projectCard(dataDir, newest, ctx, find) : brief(dataDir, { id, fullName: name }, ctx, find, profile);
-  const card = catOnly ? categoryOnly(shown, newest[0].entry) : shown;
+  const { card, ranks, newest } = detail(dataDir, { id, name, profile, onCategory: catOnly ? onCategory : null }, ctx, { find, history: rankHistory(dataDir, find), snapshots: latestBoards(dataDir) });
   const g = currentGenerated(profile), m = profile?.material ?? null;
   const d1 = readLatestSnapshot(dataDir, 'd1');
   const page = {
@@ -87,27 +73,65 @@ export function projectData(dataDir, fullName, ctx) {
 // 找不到这个项目（没资料也不在榜上）：照方案的 missing 状态出页面，服务端回 404。
 export const projectMissing = (fullName, ctx) => ({ ...base(ctx), projects: {}, page: { missing: true, repo: fullName } });
 
-// ── 我的收藏：这个人的全部收藏，新的在前。名字优先用资料里现在的（项目可能改过名）；Skill 已从仓库删掉、项目资料已不在都写明 ──
+// 三个窗口涨星榜的最新快照（一次请求里读一遍）。
+const latestBoards = (dataDir) => Object.fromEntries(Object.keys(WINDOWS).map((w) => [w, readLatestSnapshot(dataDir, w)]));
+
+// 一个项目在详情栏（项目页、收藏页）要的内容：卡片资料、它在哪些涨星榜上的名次，以及卡片数字取自哪几期（最新生成的在前）。
+// onCategory：只在分类涨星榜上（#10，不生成项目资料）时它所在的那几期，数字和描述取那里的候选。
+function detail(dataDir, { id, name, profile, onCategory }, ctx, { find, history, snapshots }) {
+  // 它在哪些涨星榜上（按窗口顺序），卡片数字取最新生成的那一期的运行。
+  const onBoards = Object.entries(snapshots).flatMap(([w, s]) => {
+    const e = s?.entries.find((x) => (id ? x.projectId === id : x.fullName.toLowerCase() === name.toLowerCase()));
+    return e ? [{ w, snapshot: s, entry: e }] : [];
+  });
+  // 名次胶囊带名次变化和连续期数（#17），按总榜算。
+  const ranks = onBoards.map(({ w, snapshot, entry }) => {
+    const mv = history.moves(w, null, snapshot.statDay);
+    return { w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1, mv: mv ? mv(entry) : null, streak: history.streak(w, null, snapshot.statDay, entry) };
+  });
+  const newest = [...(onBoards.length ? onBoards : onCategory ?? [])].sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
+  const shown = newest.length ? projectCard(dataDir, newest, ctx, find) : brief(dataDir, { id, fullName: name }, ctx, find, profile);
+  return { card: onCategory ? categoryOnly(shown, newest[0].entry) : shown, ranks, newest };
+}
+
+// ── 我的收藏（2026-11-03 白雾定稿 fav.html，#22）：这个人的全部收藏，新的在前，按类别分组成收藏架；点项目在本页右侧打开详情栏（内容同项目页）。
+// 名字优先用资料里现在的（项目可能改过名）；Skill 已从仓库删掉（已不在仓库）、项目资料已不在都写明。
+// 卡片文字：项目用一句话（补资料生成，还没生成就空着，不拿别的字凑），Skill 用 Skill 说明。
+// 分组：项目归它的第一个分类（还没归类的单独一组），单个 Skill 的收藏全部归「Skill」组；组按收藏数从多到少排，一样多时最近收藏的组在前。
+const SKILL_SHELF = 'Skill';
+const UNSORTED_SHELF = '还没归类';
+const shortFields = (g) => ({ line: g?.line ?? null, use: g?.use ?? [], scene: g?.scene ?? [], tag: g?.tag ?? null, type: g?.type ?? null });
 export function favoritesData(dataDir, ctx) {
   const find = readCategories(dataDir).get;
   const listed = boardProjects(dataDir);
-  // 只上了分类榜的项目（#10）：不生成项目资料，站内页面照样打得开，总 Star 和描述取分类榜候选里的。
-  const onCategory = new Map([...categoryListed(dataDir).values()].map(([b]) => [b.entry.projectId, b.entry]));
-  // 总 Star：各榜最新快照里这个项目的数字（更新时的数字），都没有就“暂缺”。
+  // 只在分类涨星榜上的项目（#10）：不生成项目资料，站内照样打得开，数字、总 Star 和描述取那里的候选。
+  const onCategory = new Map([...categoryListed(dataDir).values()].map((list) => [list[0].entry.projectId, list]));
+  // 总 Star：不在涨星榜上的项目取各榜最新快照里的数字（更新时的数字），都没有就“暂缺”。
   const totals = listTotals(dataDir);
-  const projects = {};
+  const opts = { find, history: rankHistory(dataDir, find), snapshots: latestBoards(dataDir) };
+  const projects = {}, views = {};
   const items = ctx.favorites.list(ctx.account.id).map((f) => {
     const profile = readProfile(dataDir, f.projectId);
     const repo = profile?.fullName ?? f.fullName;
-    const catEntry = !profile && !listed.some((p) => p.id === f.projectId) ? onCategory.get(f.projectId) : null;
+    const onList = listed.some((p) => p.id === f.projectId);
+    const catList = !profile && !onList ? onCategory.get(f.projectId) ?? null : null;
+    const total = totals.of(f.projectId, repo) ?? catList?.[0].entry.total ?? null;
     if (!projects[repo]) {
-      const card = brief(dataDir, { id: f.projectId, fullName: repo }, ctx, find, profile);
-      projects[repo] = catEntry ? categoryOnly(card, catEntry) : card;
+      const { card, ranks, newest } = detail(dataDir, { id: f.projectId, name: repo, profile, onCategory: catList }, ctx, opts);
+      projects[repo] = { ...card, ...shortFields(currentGenerated(profile)) };
+      // 详情栏：卡片数字取哪次运行、统计格高亮哪个窗口、名次；不在涨星榜上时总 Star 另给。
+      views[repo] = { run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? null, ranks, total: newest.length ? null : total };
     }
-    const skill = f.skillPath ? { path: f.skillPath, name: f.skillName || f.skillPath.split('/').pop(), desc: projects[repo].skills.find((s) => s.path === f.skillPath)?.desc ?? '', missing: !profile?.material?.skills.some((s) => s.path === f.skillPath) } : null;
-    return { repo, id: f.projectId, savedName: f.fullName, renamed: Boolean(profile && profile.fullName !== f.fullName), skill, at: f.createdAt, hasProfile: Boolean(profile), catOnly: Boolean(catEntry), openable: Boolean(profile || catEntry || listed.some((p) => p.id === f.projectId)), total: totals.of(f.projectId, repo) ?? catEntry?.total ?? null };
+    const p = projects[repo];
+    const skill = f.skillPath ? { path: f.skillPath, name: f.skillName || f.skillPath.split('/').pop(), desc: p.skills.find((s) => s.path === f.skillPath)?.desc ?? '', missing: !profile?.material?.skills.some((s) => s.path === f.skillPath) } : null;
+    return {
+      repo, id: f.projectId, savedName: f.fullName, renamed: Boolean(profile && profile.fullName !== f.fullName), skill, at: f.createdAt,
+      hasProfile: Boolean(profile), catOnly: Boolean(catList), openable: Boolean(profile || catList || onList), total,
+      shelf: skill ? SKILL_SHELF : p.cats[0] ?? UNSORTED_SHELF, cat: p.cats[0] ?? null, line: skill ? skill.desc : p.line,
+    };
   });
-  return { ...base(ctx), items, projects };
+  const shelves = [...new Set(items.map((x) => x.shelf))].map((name) => ({ name, n: items.filter((x) => x.shelf === name).length })).sort((x, y) => y.n - x.n);
+  return { ...base(ctx), items, shelves, projects, views };
 }
 
 // ── 登录页的壳（#14 的样式和组件，不套白雾外壳）；数据嵌进 <script type="application/json"> ──
@@ -136,12 +160,16 @@ ${body}
 export const projectPage = (data, ctx, from) => frame({ title: data.page.missing ? '找不到这个项目' : esc(data.page.repo), active: from === 'favorites' ? '我的收藏' : '涨星榜', ctx, css: ['bw.css'], js: ['bw.js', 'project.js'], data,
   body: '  <main class="pwrap"><article class="ppage" id="page"></article></main>' });
 
-// 我的收藏：外壳换成白雾，卡片网格照旧（#14 的样式和组件），重做在后续批次。
-export const favoritesPage = (data, ctx) => frame({ title: '我的收藏', active: '我的收藏', ctx, css: ['tokens.css', 'components.css', 'pages.css'], js: ['icons.js', 'gc.js', 'pages.js', 'favorites.js'], data, body: `<main class="single-wide">
-  <div class="phead"><h1>我的收藏</h1><p class="lede" id="lede"></p></div>
-  <div id="kinds" role="group" aria-label="种类"></div>
-  <div class="grid fgrid" id="grid"></div>
-</main>` });
+// 我的收藏（#22，定稿 fav.html：C 收藏架 + A 书签丝带卡片 + A 侧栏只留类别目录）：报头、左侧类别目录、右侧按类别分组的卡片（assets/favorites.js 画），
+// 点项目从右侧滑出详情栏（和首页同一份内容，bw.js）。整页滚动，顶栏吸顶，底部留白给背景鲨鱼。
+export const favoritesPage = (data, ctx) => frame({ title: '我的收藏', active: '我的收藏', ctx, css: ['bw.css', 'favorites.css'], js: ['bw.js', 'favorites.js'], data,
+  bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="在我的收藏里找"><span class="kbd">/</span></label>',
+  body: `  <div class="fwrap">
+    <section class="hero-box" id="mast"></section>
+    <div id="shelf"></div>
+  </div>
+  <div class="scrim" data-close></div>
+  <aside class="drawer" id="drawer" aria-label="详情栏"></aside>` });
 
 // 登录（#5）：表单由服务端判定；失败时输入框描边变失败色、提示条写明，用户名照填回去（密码不回填）。next 已由 safeNext 处理成本站路径。
 export const loginPage = (next, error, name = '') => shell({ title: '登录', script: 'login.js', data: { ...base({ account: { name: '' } }), projects: {} }, body: `<main class="login-split">
