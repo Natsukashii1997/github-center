@@ -1,11 +1,11 @@
 // 分类榜（#27，白雾定稿 design/candidates/redesign/cat.html）：上面精选榜（聚光轮播 + 说明书卡），下面历史榜和热点榜左右各半。
-// 服务端把三块数据（src/boards：readHistoryBoard、readHotBoard、openPicks）和上面每个项目在详情栏要的内容整理成一份数据嵌进页面，
+// 服务端把三块数据（src/boards：readSkillsBoard、readHotBoard、openPicks）和上面每个项目在详情栏要的内容整理成一份数据嵌进页面，
 // 页面脚本（assets/categories.js）画出来。访问时不调用任何外部接口：换卡面板里粘贴的 GitHub 地址先在本地已有的数据里找，
 // 本地没有时所有者可以点「联网查 GitHub」查一次这个仓库（lookup，见 repo-lookup.js），只在换卡这一步。
 // 卡片和行上的文字（一句话、主要用途、定义标签）取补资料生成的项目资料；还没生成的不拿别的字凑，只写明“GitHub 上的描述”。
 // 精选榜的改动走 POST /api/picks/<操作>（同收藏接口：要登录、只接受本站提交）；谁能改由 boards/picks.js 的 canEdit 一处判断，
 // 拒绝时按 PicksError.status 回 JSON。
-import { readHistoryBoard, readHotBoard, HOT_SOURCES, SLOTS, PicksError } from '../boards/index.js';
+import { readSkillsBoard, readHotBoard, HOT_SOURCES, SLOTS, PicksError } from '../boards/index.js';
 import { poolFrom } from '../boards/picks-update.js';
 import { parseRepoInput } from '../boards/repo-link.js';
 import { readCategories } from '../categories/index.js';
@@ -68,11 +68,14 @@ function picksPart(dataDir, ctx, picks, have = known(dataDir)) {
 
 export function categoriesData(dataDir, ctx, picks) {
   const have = known(dataDir);
-  const hist = readHistoryBoard(dataDir);
+  const hist = readSkillsBoard(dataDir);
   const hot = readHotBoard(dataDir);
   const part = picksPart(dataDir, ctx, picks, have);
+  // 历史榜（Skill 安装量）：Skill 所在的 GitHub 仓库进详情栏，本地有这个项目的数据就带上 id 和总 Star；网址来源的 Skill 没有详情栏。
+  const byName = new Map([...have.values()].map((x) => [x.fullName.toLowerCase(), x]));
+  const skillRow = (e) => { const x = byName.get(e.repo.toLowerCase()); return { id: x?.id ?? null, repo: x?.fullName ?? e.repo, ownerId: x?.ownerId, total: x?.total, description: x?.description }; };
   const rows = [
-    ...(hist?.entries ?? []).map((e) => ({ id: e.id, repo: e.repo, ownerId: e.ownerId, total: e.total, description: e.description })),
+    ...(hist?.entries ?? []).filter((e) => e.repo).map(skillRow),
     ...(hot?.entries ?? []).map((e) => ({ id: e.id, repo: e.repo, ownerId: e.ownerId, total: e.total, description: e.description })),
   ];
   const { projects, views, key } = details(dataDir, ctx, rows);
@@ -83,8 +86,11 @@ export function categoriesData(dataDir, ctx, picks) {
     picks: part.picks,
     hist: hist && {
       day: hist.day, failure: hist.failure, note: hist.note,
-      // 名次照快照；类别取项目的第一个分类（配色和筛选用），还没归类的为 null。
-      entries: hist.entries.map((e) => { const repo = key(e); return { rank: e.rank, repo, total: e.total, cat: projects[repo].cats[0] ?? null }; }),
+      // 名次照快照；类别取 Skill 所在项目的第一个分类（配色和筛选用），还没归类或不在 GitHub 上的为 null。
+      entries: hist.entries.map((e) => {
+        const repo = e.repo ? key(skillRow(e)) : null;
+        return { rank: e.rank, skill: e.skill, source: e.source, repo, installs: e.installs, url: e.url, cat: repo ? projects[repo].cats[0] ?? null : null };
+      }),
     },
     hot: hot && {
       day: hot.day, days: hot.days, complete: hot.complete, failure: hot.failure,

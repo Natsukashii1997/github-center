@@ -3,7 +3,7 @@
 # 属于本机常驻配置，安装前须所有者同意（2026-11-03 已同意）。
 #
 # 1. 每日更新 cn.github-center.update：每天北京时间 10:00 跑 npm run update（bin/update.js）：
-#    出榜 → 历史榜 → 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准报告，一步失败照样跑后面的。
+#    出榜 → 全站 Star 前 100 → 历史榜（Skill 安装量）→ 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准报告，一步失败照样跑后面的。
 #    统计日按 UTC 划分，北京时间 08:00 才结束，事件文件还要晚 1 小时左右才齐，所以定在 10:00。
 #    各步都能安全重跑；电脑在 10:00 睡着时，醒来后补跑。日志 data/logs/update.log，第一行开始时间、最后一行 `exit N`。
 # 2. 网站 cn.github-center.web：npm run serve 常驻在 5310，只监听本机，免登录（所有人都当作所有者账号 GUEST，默认 Nat）；
@@ -44,7 +44,7 @@ EOF
 case "${1:-}" in
   install)
     NODE=$(command -v node)
-    # gh 给出榜、历史榜、热点榜和联网查 GitHub 取 token；codex 给补资料、归类、精选榜用。
+    # gh 给出榜、全站 Star 前 100、热点榜和联网查 GitHub 取 token；codex 给补资料、归类、精选榜用。
     PATHS="$(dirname "$NODE"):$(dirname "$(command -v gh)"):$(dirname "$(command -v codex)"):/usr/bin:/bin"
     # 本机代理（装的时候有就带上）：直连 GitHub 和 GH Archive 慢且时断时续，走代理快约 10 倍。
     PROXY=""

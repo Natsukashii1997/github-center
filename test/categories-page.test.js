@@ -17,7 +17,8 @@ const put = (dir, path, obj) => {
 };
 const [AGENT, SKILL] = DEFAULT_TAGS.map((t) => t.name);
 
-// 历史榜 10 个（h/p1 有生成好的资料和分类，其余只有 GitHub 描述）；热点榜 2 个（只记了 1 天）；近 1 天候选里另有 c/extra。
+// 全站 Star 前 10 个（精选候选池；h/p1 有生成好的资料和分类，其余只有 GitHub 描述）；Skill 历史榜 5 个（h/p1 两个 Skill、h/p9、
+// 一个网址来源、一个本地没有数据的仓库）；热点榜 2 个（只记了 1 天）；近 1 天候选里另有 c/extra。
 // 精选：h/p1..p8 建议了多 Agent 协同，h/p1 另加编程技能。
 async function seed() {
   const dir = mkdtempSync(join(tmpdir(), 'gc-cat27-'));
@@ -28,6 +29,7 @@ async function seed() {
       { rank: 2, repo: 'h/p2', id: 2, ownerId: 101, description: 'GitHub 描述 2', total: 99_000, heat: 40, sources: { hn: 40, v2ex: 0 }, posts: 1, aliases: ['h/p2'] },
     ],
     posts: [{ source: 'hn', id: '1', createdAt: '2026-11-02T00:00:00Z', points: 100, comments: 0, repos: ['t/hot'] }, { source: 'v2ex', id: '2', createdAt: '2026-11-02T00:00:00Z', points: 0, comments: 20, repos: ['t/hot'] }, { source: 'hn', id: '3', createdAt: '2026-11-02T00:00:00Z', points: 30, comments: 10, repos: ['h/p2'] }] });
+  put(dir, 'snapshots/skills/2026-11-03.json', { board: 'skills', statDay: '2026-11-03', fetchedAt: '2026-11-03T01:30:00Z', entries: [{ rank: 1, skill: 'skill-a', skillId: 'skill-a', source: 'h/p1', repo: 'h/p1', installs: 4000000, url: 'https://skills.sh/h/p1/skill-a' }, { rank: 2, skill: 'skill-b', skillId: 'skill-b', source: 'h/p1', repo: 'h/p1', installs: 2000000, url: 'https://skills.sh/h/p1/skill-b' }, { rank: 3, skill: 'skill-c', skillId: 'skill-c', source: 'h/p9', repo: 'h/p9', installs: 1500000, url: 'https://skills.sh/h/p9/skill-c' }, { rank: 4, skill: 'lark-x', skillId: 'lark-x', source: 'open.feishu.cn', repo: null, installs: 1000000, url: 'https://skills.sh/open.feishu.cn/lark-x' }, { rank: 5, skill: 'skill-z', skillId: 'skill-z', source: 'z/unknown', repo: 'z/unknown', installs: 500000, url: 'https://skills.sh/z/unknown/skill-z' }] });
   put(dir, 'snapshots/d1/2026-11-03.json', { window: 'd1', statDay: '2026-11-03', generatedAt: '2026-11-03T08:00:00Z', entries: [] });
   put(dir, 'candidates/d1/2026-11-03.json', { window: 'd1', statDay: '2026-11-03', check: { threshold: 1, recordRatio: 0.01, completenessFloor: 1500 }, items: [{ id: 700, fullName: 'c/extra', total: 5_000, description: 'extra one', topics: [] }] });
   put(dir, 'categories.json', { items: { 1: { id: 1, fullName: 'h/p1', categories: ['Skill', '其他'] } } });
@@ -66,9 +68,12 @@ test('分类榜页面：导航可点；精选、历史、热点三块数据和�
     assert.equal(tagOf(d, AGENT).note, DEFAULT_TAGS[0].note);
     assert.deepEqual(Object.keys(tagOf(d, AGENT).cards[0]).sort(), ['down', 'mine', 'pinned', 'projectId', 'repo', 'slot', 'total', 'up']);
 
-    // 历史榜：名次、总 Star、第一个分类（没归类为 null）
-    assert.deepEqual(d.hist.entries.slice(0, 2), [{ rank: 1, repo: 'h/p1', total: 100_000, cat: 'Skill' }, { rank: 2, repo: 'h/p2', total: 99_000, cat: null }]);
-    assert.equal(d.hist.entries.length, 10);
+    // 历史榜（Skill 安装量）：名次、Skill 名、来源、安装量、skills.sh 地址、所在项目的第一个分类；网址来源的没有 repo
+    assert.deepEqual(d.hist.entries[0], { rank: 1, skill: 'skill-a', source: 'h/p1', repo: 'h/p1', installs: 4_000_000, url: 'https://skills.sh/h/p1/skill-a', cat: 'Skill' });
+    assert.deepEqual(d.hist.entries.map((e) => [e.skill, e.repo, e.cat]), [['skill-a', 'h/p1', 'Skill'], ['skill-b', 'h/p1', 'Skill'], ['skill-c', 'h/p9', null], ['lark-x', null, null], ['skill-z', 'z/unknown', null]]);
+    assert.match(d.hist.note, /skills\.sh/);
+    // 本地没有数据的仓库也有详情栏内容（只有名字）
+    assert.deepEqual([d.projects['z/unknown'].line, d.projects['z/unknown'].ghDesc], [null, null]);
     // 热点榜：只记了 1 天，走势 7 格只有最后一格；前一天没有记录时涨跌为 null；各来源份额
     assert.deepEqual([d.hot.days, d.hot.complete], [1, false]);
     assert.deepEqual(d.hot.entries[0].series, [null, null, null, null, null, null, 120]);

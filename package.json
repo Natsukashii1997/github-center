@@ -14,6 +14,7 @@
     "serve": "node bin/serve.js",
     "account": "node bin/account.js",
     "history": "node --use-env-proxy bin/history.js",
+    "skills": "node --use-env-proxy bin/skills.js",
     "hot": "node --use-env-proxy bin/hot.js",
     "picks": "node bin/picks.js"
   }
