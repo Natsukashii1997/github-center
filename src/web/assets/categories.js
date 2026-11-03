@@ -194,9 +194,9 @@
     if (!D.hist?.entries.length) return '<div class="none"><b>还没有历史榜数据</b>每天抓一次 skills.sh 全时段排行榜。</div>';
     const shown = H.filter((x) => (!ON || catOf(x) === ON) && ((x.repo && hit(x.repo)) || !q || `${x.skill} ${x.source}`.toLowerCase().includes(q)));
     if (!shown.length) return '<div class="none"><b>没有符合条件的 Skill</b></div>';
-    // 每行一个 Skill：名字、来源、累计安装量。在 GitHub 上的点了打开所在仓库的详情栏；网址来源的点了去 skills.sh。
+    // 每行一个来源：安装量最高的 Skill 名（同一来源有几个时注明「等 N 个」）、来源、累计安装量。在 GitHub 上的点了打开所在仓库的详情栏；网址来源的点了去 skills.sh。
     return `<div class="ls">${shown.map((x) => {
-      const bar = `<span class="n">${x.rank}</span><div class="hb-bar"><i></i>${x.repo ? AV(x.repo, 20) : `<span class="av ph">${esc(x.source[0].toUpperCase())}</span>`}<b>${esc(x.skill)}</b><span>${esc(x.source)}</span><em>${num(x.installs)}</em></div>`;
+      const bar = `<span class="n">${x.rank}</span><div class="hb-bar"><i></i>${x.repo ? AV(x.repo, 20) : `<span class="av ph">${esc(x.source[0].toUpperCase())}</span>`}<b>${esc(x.skill)}</b>${x.count > 1 ? `<small class="cnt">等 ${x.count} 个</small>` : ''}<span>${esc(x.source)}</span><em>${num(x.installs)}</em></div>`;
       const style = `--c:${cc(x.cat)};--p:${(x.installs / MAX * 100).toFixed(2)}%`;
       return x.repo
         ? `<div class="hb-r" data-open="${esc(x.repo)}" data-from="hist" style="${style}" title="${esc(brief(x.repo))}">${bar}</div>`

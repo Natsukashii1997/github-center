@@ -68,9 +68,10 @@ test('分类榜页面：导航可点；精选、历史、热点三块数据和�
     assert.equal(tagOf(d, AGENT).note, DEFAULT_TAGS[0].note);
     assert.deepEqual(Object.keys(tagOf(d, AGENT).cards[0]).sort(), ['down', 'mine', 'pinned', 'projectId', 'repo', 'slot', 'total', 'up']);
 
-    // 历史榜（Skill 安装量）：名次、Skill 名、来源、安装量、skills.sh 地址、所在项目的第一个分类；网址来源的没有 repo
-    assert.deepEqual(d.hist.entries[0], { rank: 1, skill: 'skill-a', source: 'h/p1', repo: 'h/p1', installs: 4_000_000, url: 'https://skills.sh/h/p1/skill-a', cat: 'Skill' });
-    assert.deepEqual(d.hist.entries.map((e) => [e.skill, e.repo, e.cat]), [['skill-a', 'h/p1', 'Skill'], ['skill-b', 'h/p1', 'Skill'], ['skill-c', 'h/p9', null], ['lark-x', null, null], ['skill-z', 'z/unknown', null]]);
+    // 历史榜（Skill 安装量）：名次、Skill 名、个数、来源、安装量、skills.sh 地址、所在项目的第一个分类；网址来源的没有 repo
+    // 同一来源合成一行：h/p1 的两个 Skill 是一行，取安装量最高的 skill-a，注明 2 个
+    assert.deepEqual(d.hist.entries[0], { rank: 1, skill: 'skill-a', count: 2, source: 'h/p1', repo: 'h/p1', installs: 4_000_000, url: 'https://skills.sh/h/p1', cat: 'Skill' });
+    assert.deepEqual(d.hist.entries.map((e) => [e.rank, e.skill, e.count, e.repo, e.cat]), [[1, 'skill-a', 2, 'h/p1', 'Skill'], [2, 'skill-c', 1, 'h/p9', null], [3, 'lark-x', 1, null, null], [4, 'skill-z', 1, 'z/unknown', null]]);
     assert.match(d.hist.note, /skills\.sh/);
     // 本地没有数据的仓库也有详情栏内容（只有名字）
     assert.deepEqual([d.projects['z/unknown'].line, d.projects['z/unknown'].ghDesc], [null, null]);

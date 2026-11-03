@@ -191,8 +191,8 @@ test('分类榜上显示的项目也补资料（#27）：涨星榜的排前面�
   const dataDir = fresh();
   const put = (path, body) => { mkdirSync(join(dataDir, path, '..'), { recursive: true }); writeFileSync(join(dataDir, path), JSON.stringify(body)); };
   put('snapshots/d1/2026-10-22.json', { window: 'd1', statDay: '2026-10-22', generatedAt: '2026-10-23T08:40:00Z', entries: [{ rank: 1, projectId: 101, fullName: 'acme/agent-kit', gain: 900, total: 5000 }] });
-  // Skill 历史榜存 100 名、只显示前 50：第 51 名不补；同一仓库的几个 Skill 只补一次；网址来源（repo 为 null）不补。
-  const hist = Array.from({ length: 51 }, (_, i) => ({ rank: i + 1, skill: `s${i + 1}`, source: `h/p${i + 1}`, repo: `h/p${i + 1}`, installs: 10_000 - i }));
+  // Skill 历史榜按来源合并后只显示前 50 个：第 51 个来源（h/p52）不补；同一仓库的几个 Skill 合成一行；网址来源（repo 为 null）不补。
+  const hist = Array.from({ length: 52 }, (_, i) => ({ rank: i + 1, skill: `s${i + 1}`, source: `h/p${i + 1}`, repo: `h/p${i + 1}`, installs: 10_000 - i }));
   hist[0] = { ...hist[0], source: 'acme/agent-kit', repo: 'acme/agent-kit' };
   hist[2] = { ...hist[2], source: 'h/p2', repo: 'h/p2' };
   hist[3] = { ...hist[3], source: 'open.feishu.cn', repo: null };
@@ -203,8 +203,8 @@ test('分类榜上显示的项目也补资料（#27）：涨星榜的排前面�
   picks.swap({ id: 1, role: 'owner' }, { tagId: picks.tags()[0].id, slot: 1, project: { id: 303, fullName: 'acme/picked' } });
   picks.close();
   const names = profileProjects(dataDir).map((p) => p.name);
-  assert.deepEqual([names.slice(0, 4), names.length, names.at(-1)], [['acme/agent-kit', 'acme/picked', 'h/p2', 'h/p5'], 50, 'acme/tiny']);
-  assert.ok(!names.includes('h/p51') && !names.includes('open.feishu.cn'));
+  assert.deepEqual([names.slice(0, 4), names.length, names.at(-1)], [['acme/agent-kit', 'acme/picked', 'h/p2', 'h/p5'], 51, 'acme/tiny']);
+  assert.ok(names.includes('h/p51') && !names.includes('h/p52') && !names.includes('open.feishu.cn'));
   // 走正常的补资料流程：历史榜、热点榜上的项目一样生成。
   const r = await run(dataDir);
   assert.deepEqual(['acme/agent-kit', 'acme/tiny'].map((n) => r.results.find((x) => x.name === n).status), ['generated', 'generated']);

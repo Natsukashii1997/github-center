@@ -1,5 +1,6 @@
 // Skill 历史榜（所有者 2026-11-03 改定：分类榜的历史榜按 Skill 安装量排）：每天抓一次 skills.sh 首页，
-// 页面里嵌着全时段排行榜（几百个 Skill，每个带来源 source、skillId、名字、累计安装量 installs），按安装量倒序存前 100，网站展示前 50。
+// 页面里嵌着全时段排行榜（几百个 Skill，每个带来源 source、skillId、名字、累计安装量 installs），按安装量倒序全部存下。
+// 网站上同一来源（GitHub 仓库或网站）的几个 Skill 合成一行，按其中安装量最高的一个排，展示前 50 个来源（所有者 2026-11-03 定）。
 // 只读公开页面、不调用它的 /api/（要 Vercel OIDC token）；条款允许合理使用和自存缓存，robots.txt 允许首页。
 // 同一天（UTC）已存过就不再请求；失败时保留上一次快照，status.json 记下失败的日期和原因（同历史榜 history.js）。
 import { join } from 'node:path';
@@ -7,11 +8,10 @@ import { openStore, findSnapshot, readLatestSnapshot, readStatus, recordStatus, 
 
 export const BOARD = 'skills';
 export const URL = 'https://www.skills.sh/';
-export const KEEP = 100;
 export const SHOW = 50;
 // 少于这么多条就当页面结构变了，不发布。
 const MIN = 50;
-export const NOTE = '数据来自 skills.sh 全时段排行榜，安装量是各 Skill 累计被安装的次数。';
+export const NOTE = '数据来自 skills.sh 全时段排行榜。同一来源的几个 Skill 合成一行，数字是其中安装量最高的那个 Skill 的累计安装次数。';
 
 // 页面里每个 Skill 是一段 JSON（嵌在脚本里，引号转义成 \"）。source 是 GitHub 的 作者/仓库，少数是网址（如 open.feishu.cn）。
 const ITEM = /\{"source":"([^"]+)","skillId":"([^"]+)","name":"([^"]+)","installs":(\d+)/g;
@@ -27,8 +27,7 @@ export function parseSkills(html) {
   if (bySkill.size < MIN) throw new Error(`页面里只认出 ${bySkill.size} 个 Skill，页面结构可能变了，不发布`);
   return [...bySkill.values()]
     .sort((a, b) => b.installs - a.installs || a.name.localeCompare(b.name))
-    .slice(0, KEEP)
-    .map((s, n) => ({ s, repo: REPO.test(s.source) ? s.source : null }))
+    .map((s) => ({ s, repo: REPO.test(s.source) ? s.source : null }))
     .map(({ s, repo }, n) => ({
       rank: n + 1,
       skill: s.name,
@@ -40,6 +39,22 @@ export function parseSkills(html) {
       // skills.sh 上的页面：GitHub 来源是 /作者/仓库/skillId，网址来源是 /site/网址/skillId。
       url: `https://skills.sh/${repo ? '' : 'site/'}${s.source}/${s.skillId}`,
     }));
+}
+
+// 按来源合成一行（entries 已按安装量倒序）：名字和安装量取最高的那个 Skill，count 是这个来源上榜的 Skill 个数。
+// 一个来源只有一个 Skill 时链到这个 Skill 的页面，有几个时链到 skills.sh 上这个来源的页面。
+export function groupBySource(entries) {
+  const bySource = new Map();
+  for (const e of entries) {
+    const g = bySource.get(e.source.toLowerCase());
+    if (g) g.count++;
+    else bySource.set(e.source.toLowerCase(), { skill: e.skill, source: e.source, repo: e.repo, installs: e.installs, count: 1, url: e.url });
+  }
+  return [...bySource.values()].map((g, n) => ({
+    rank: n + 1,
+    ...g,
+    url: g.count > 1 ? `https://skills.sh/${g.repo ? '' : 'site/'}${g.source}` : g.url,
+  }));
 }
 
 // 跑一次：返回 { status: 'published' | 'exists' | 'failed', path?, snapshot?, error?, requests }。
@@ -72,7 +87,7 @@ export async function updateSkills({ dataDir, fetch = globalThis.fetch, now = ()
   }
 }
 
-// 网站读：最近一次快照的前 show 名，和它之后有没有更新失败。没有快照返回 null。
+// 网站读：最近一次快照按来源合并后的前 show 个，和它之后有没有更新失败。没有快照返回 null。
 // 返回 { day, fetchedAt, entries, failure: { day, at, error } | null, note }。
 export function readSkillsBoard(dataDir, { show = SHOW } = {}) {
   const snapshot = readLatestSnapshot(dataDir, BOARD);
@@ -81,7 +96,7 @@ export function readSkillsBoard(dataDir, { show = SHOW } = {}) {
   return {
     day: snapshot.statDay,
     fetchedAt: snapshot.fetchedAt,
-    entries: snapshot.entries.slice(0, show),
+    entries: groupBySource(snapshot.entries).slice(0, show),
     failure: failure && { day: failure.day, at: failure.at, error: failure.error },
     note: NOTE,
   };
