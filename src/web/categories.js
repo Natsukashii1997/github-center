@@ -89,7 +89,7 @@ export function categoriesData(dataDir, ctx, picks) {
       // 一行一个来源（同一仓库或网站的 Skill 合成一行，skill 是安装量最高的那个，count 是个数）；类别取所在项目的第一个分类（配色和筛选用），还没归类或不在 GitHub 上的为 null。
       entries: hist.entries.map((e) => {
         const repo = e.repo ? key(skillRow(e)) : null;
-        return { rank: e.rank, skill: e.skill, count: e.count, source: e.source, repo, installs: e.installs, url: e.url, cat: repo ? projects[repo].cats[0] ?? null : null };
+        return { rank: e.rank, skill: e.skill, count: e.count, mirrors: e.mirrors, source: e.source, repo, installs: e.installs, url: e.url, cat: repo ? projects[repo].cats[0] ?? null : null };
       }),
     },
     hot: hot && {
