@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { openAccounts } from '../src/web/accounts.js';
 import { openPicks, updatePicks, DEFAULT_TAGS } from '../src/boards/index.js';
 import { readRemote, pullSettings, pullPicks, writePool, pushData, PUSH_EXCLUDE, POOL_FILE } from '../src/remote/index.js';
@@ -126,7 +127,9 @@ test('备份服务器的库（#48）：传回的库核对完整、有账号才�
   const r = backupDb(mac, CFG, '2026-11-04', f.run);
   assert.equal(r.accounts, 1);
   assert.equal(r.path, join(mac, 'backups', 'center-2026-11-04.db'));
-  assert.deepEqual(readFileSync(r.path), bytes);
+  const copy = new DatabaseSync(r.path, { readOnly: true });
+  assert.deepEqual([copy.prepare('PRAGMA journal_mode').get().journal_mode, copy.prepare('SELECT name FROM accounts').get().name], ['delete', 'boss'], '转成单文件、内容一致');
+  copy.close();
   assert.equal(listBackups(mac).length, BACKUP_KEEP);
   assert.equal(listBackups(mac)[0], 'center-2026-11-04.db');
   assert.deepEqual(r.removed, ['center-2026-10-02.db', 'center-2026-10-01.db']);
@@ -139,5 +142,5 @@ test('备份服务器的库（#48）：传回的库核对完整、有账号才�
   openAccounts(empty).close();
   assert.throws(() => backupDb(mac, CFG, '2026-11-05', fakeRun({ backup: ok(readFileSync(join(empty, 'center.db'))) }).run), /库里没有账号/);
   assert.ok(!existsSync(join(mac, 'backups', 'center-2026-11-05.db')));
-  assert.deepEqual(readdirSync(join(mac, 'backups')).filter((n) => n.endsWith('.tmp')), []);
+  assert.deepEqual(readdirSync(join(mac, 'backups')).filter((n) => !/^center-[\d-]+\.db$/.test(n)), [], '没有临时文件、-wal、-shm');
 });

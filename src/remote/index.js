@@ -86,17 +86,19 @@ export function backupDb(dataDir, cfg, day, run = defaultRun) {
   writeAtomic(tmp, bytes);
   let accounts;
   try {
-    const db = new DatabaseSync(tmp, { readOnly: true });
+    // 服务器的库是 WAL 模式，副本转成单文件（journal_mode = DELETE），以后打开不会在备份目录里留下 -wal、-shm。
+    const db = new DatabaseSync(tmp);
     try {
       const check = db.prepare('PRAGMA integrity_check').get().integrity_check;
       if (check !== 'ok') throw new Error(`完整性检查没通过：${check}`);
       accounts = db.prepare('SELECT COUNT(*) AS n FROM accounts').get().n;
+      db.exec('PRAGMA journal_mode = DELETE');
     } finally {
       db.close();
     }
     if (!accounts) throw new Error('库里没有账号');
   } catch (e) {
-    rmSync(tmp, { force: true });
+    for (const f of [tmp, `${tmp}-wal`, `${tmp}-shm`]) rmSync(f, { force: true });
     throw new Error(`备份的库不能用，没存：${e.message}`);
   }
   const path = join(dir, `center-${day}.db`);
