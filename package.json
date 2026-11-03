@@ -9,6 +9,7 @@
     "profiles": "node --use-env-proxy bin/profiles.js",
     "classify": "node --use-env-proxy bin/classify.js",
     "daily": "node --use-env-proxy bin/daily.js",
+    "weekly": "node bin/weekly.js",
     "calibrate": "node bin/calibrate.js",
     "serve": "node bin/serve.js",
     "account": "node bin/account.js"
