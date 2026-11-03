@@ -18,7 +18,8 @@ import { settingsData, settingsPage, changeSettings, SettingsError } from './set
 // 登录（#5）：除登录页外，所有页面和接口都要先登录。会话令牌放在 HttpOnly Cookie 里。
 const COOKIE = 'gc_session';
 const cookieOf = (req) => req.headers.cookie?.split(/;\s*/).map((c) => c.split('=')).find(([k]) => k === COOKIE)?.[1];
-const sessionCookie = (token, maxAge) => `${COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+// 对外地址是 https 时（放到服务器上、经反向代理用域名打开，#46）Cookie 加 Secure，只走加密连接。
+const sessionCookie = (token, maxAge, secure) => `${COOKIE}=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
 // 登录后只跳回本站的路径，不跳到别的网站：按浏览器的规则解析（会去掉 Tab 和换行、把反斜杠当斜杠）后仍是本站才跳，
 // 并且只用解析出的已编码路径和锚点（收藏 Skill 后回到页上那一条），跳转地址里不会有汉字或控制字符。
 function safeNext(next) {
@@ -33,10 +34,11 @@ function safeNext(next) {
 // 表单只接受本站这个端口提交的（没有 Origin，或 Origin 正是本站），挡住别的网站，也挡住本机别的端口上的网页代为提交：
 // 会话 Cookie 不分端口，本机其他端口的网页发来的请求浏览器也会带上它（#5 审查记下、#8 收紧）。
 // 对局域网开放时，别人用本机 IP 打开，Origin 是那个地址，和请求里的 Host 一致才算本站。
-function sameOrigin(req, lan) {
+// 放到服务器上经反向代理用域名打开时（#46），Origin 是对外地址 publicOrigin（如 https://tidings.natsukashii.cn），也算本站。
+function sameOrigin(req, lan, publicOrigin) {
   const { origin } = req.headers;
   const port = req.socket.localPort;
-  return !origin || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}` || (lan && origin === `http://${req.headers.host}`);
+  return !origin || origin === `http://127.0.0.1:${port}` || origin === `http://localhost:${port}` || (lan && origin === `http://${req.headers.host}`) || (publicOrigin && origin === publicOrigin);
 }
 
 // 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上
@@ -87,7 +89,10 @@ function readForm(req) {
 
 // host：监听地址，默认只本机；'0.0.0.0' 让同一 Wi-Fi 的人能打开。guest：免登录，所有人都当作这个已有账号（共用收藏），登录页直接回首页。
 // lookupRepo：所有者换卡时联网查 GitHub 用（repo-lookup.js），不给就不能联网查。
-export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, lookupRepo }) {
+// origin：对外地址（#46），经反向代理用域名打开时填，如 'https://tidings.natsukashii.cn'；从这个地址提交的表单算本站，https 时 Cookie 加 Secure。
+export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, lookupRepo, origin }) {
+  const publicOrigin = origin ? new URL(origin).origin : null;
+  const secure = publicOrigin?.startsWith('https:') ?? false;
   const accounts = openAccounts(dataDir);
   const guestAccount = guest ? accounts.find(guest) : null;
   if (guest && !guestAccount) {
@@ -115,16 +120,16 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
     }
     if (url.pathname === '/login' || url.pathname === '/logout') {
       if (req.method !== 'POST') return send(405, {});
-      if (!sameOrigin(req, lan)) return text(403, '只接受本站提交的表单');
+      if (!sameOrigin(req, lan, publicOrigin)) return text(403, '只接受本站提交的表单');
       if (url.pathname === '/logout') {
         accounts.logout(cookieOf(req));
-        return send(303, { location: '/login', 'set-cookie': sessionCookie('', 0) });
+        return send(303, { location: '/login', 'set-cookie': sessionCookie('', 0, secure) });
       }
       const form = await readForm(req).catch(() => null);
       if (!form) return tooBig();
       const token = accounts.login(form.get('name') ?? '', form.get('password') ?? '');
       if (!token) return html(401, loginPage(safeNext(form.get('next')), '用户名或密码不对，请再试一次。', (form.get('name') ?? '').slice(0, 64)));
-      return send(303, { location: safeNext(form.get('next')), 'set-cookie': sessionCookie(token, SESSION_DAYS * 86400) });
+      return send(303, { location: safeNext(form.get('next')), 'set-cookie': sessionCookie(token, SESSION_DAYS * 86400, secure) });
     }
 
     const account = guestAccount ?? accounts.session(cookieOf(req));
@@ -136,7 +141,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
     if ((url.pathname === '/favorites' || url.pathname === '/api/favorites') && req.method === 'POST') {
       const api = url.pathname === '/api/favorites';
       const refuse = ({ status, error }) => (api ? json(status, { error }) : text(status, error));
-      if (!sameOrigin(req, lan)) return refuse({ status: 403, error: '只接受本站提交的表单' });
+      if (!sameOrigin(req, lan, publicOrigin)) return refuse({ status: 403, error: '只接受本站提交的表单' });
       const form = await readForm(req).catch(() => null);
       if (!form) return api ? json(413, { error: '表单太大' }, { connection: 'close' }) : tooBig();
       const refused = changeFavorite(dataDir, favorites, picks, account, form);
@@ -147,7 +152,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
     const pickOp = url.pathname.match(/^\/api\/picks\/([a-z]+)$/)?.[1];
     if (pickOp) {
       if (req.method !== 'POST') return json(405, { error: '只接受 POST' });
-      if (!sameOrigin(req, lan)) return json(403, { error: '只接受本站提交的表单' });
+      if (!sameOrigin(req, lan, publicOrigin)) return json(403, { error: '只接受本站提交的表单' });
       const form = await readForm(req).catch(() => null);
       if (!form) return json(413, { error: '表单太大' }, { connection: 'close' });
       try {
@@ -160,7 +165,7 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
     // 设置页：改一项存一次。只有所有者能改、只接受本站提交；不合规整份不存，回原因。
     if (url.pathname === '/api/settings') {
       if (req.method !== 'POST') return json(405, { error: '只接受 POST' });
-      if (!sameOrigin(req, lan)) return json(403, { error: '只接受本站提交的表单' });
+      if (!sameOrigin(req, lan, publicOrigin)) return json(403, { error: '只接受本站提交的表单' });
       if (account.role !== 'owner') return json(403, { error: '只有所有者能改设置' });
       const form = await readForm(req).catch(() => null);
       if (!form) return json(413, { error: '表单太大' }, { connection: 'close' });

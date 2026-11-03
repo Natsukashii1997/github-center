@@ -260,3 +260,25 @@ test('对局域网开放（host 0.0.0.0）时，用本机 IP 打开提交的表�
     local.server.close();
   }
 });
+
+test('放到服务器上填了对外地址（#46）：从这个地址提交的表单算本站，https 时 Cookie 带 Secure；没填时 Cookie 不带 Secure', async () => {
+  const dataDir = fresh();
+  const password = testAccount(dataDir);
+  const pub = await startServer({ dataDir, port: 0, origin: 'https://tidings.example.cn' });
+  const local = await startServer({ dataDir, port: 0 });
+  try {
+    const ok = await http(pub.url + 'login', form({ name: 'tester', password }, { origin: 'https://tidings.example.cn' }));
+    assert.equal(ok.status, 303);
+    assert.match(ok.headers['set-cookie'][0], /; Secure$/);
+    assert.match((await http(pub.url + 'logout', form({}, { origin: 'https://tidings.example.cn' }))).headers['set-cookie'][0], /Max-Age=0; Secure$/);
+    // 别的网站、http 的同名地址都不算本站。
+    for (const origin of ['https://evil.example', 'http://tidings.example.cn']) {
+      assert.equal((await http(pub.url + 'login', form({ name: 'tester', password }, { origin }))).status, 403, origin);
+    }
+    assert.equal((await http(local.url + 'login', form({ name: 'tester', password }, { origin: 'https://tidings.example.cn' }))).status, 403);
+    assert.doesNotMatch((await http(local.url + 'login', form({ name: 'tester', password }))).headers['set-cookie'][0], /Secure/);
+  } finally {
+    pub.server.close();
+    local.server.close();
+  }
+});
