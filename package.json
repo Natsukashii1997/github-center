@@ -11,6 +11,9 @@
     "daily": "node --use-env-proxy bin/daily.js",
     "calibrate": "node bin/calibrate.js",
     "serve": "node bin/serve.js",
-    "account": "node bin/account.js"
+    "account": "node bin/account.js",
+    "history": "node --use-env-proxy bin/history.js",
+    "hot": "node --use-env-proxy bin/hot.js",
+    "picks": "node bin/picks.js"
   }
 }
