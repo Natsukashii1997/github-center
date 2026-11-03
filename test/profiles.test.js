@@ -96,7 +96,9 @@ const AGENT_CONDITIONS = [
   { kind: '付费', text: '需要付费的 Pro 套餐', quote: 'Requires a paid Pro plan.' },
   { kind: '付费', text: '需要付费', quote: 'node' },
 ];
-function fakeGenerator({ fail } = {}) {
+// 首页短字段（#23）的一份合格样例。
+const SHORT = { line: ' 把笔记变成能跑的智能体 ', use: ['把会议笔记整理成待办', '读取并填写 PDF 表单'], scene: ['开完会懒得手动整理待办', '每周要填一堆重复的表格'], tag: '笔记智能体', type: 'Agent' };
+function fakeGenerator({ fail, short = SHORT } = {}) {
   const calls = [];
   return {
     version: 'fake-1',
@@ -107,6 +109,7 @@ function fakeGenerator({ fail } = {}) {
       return {
         what: `${material.fullName} 把笔记变成能运行的智能体。`,
         problem: '作者称它是最快的智能体框架；帮你少写重复的胶水代码。',
+        ...short,
         conditions: material.fullName === 'acme/agent-kit' ? AGENT_CONDITIONS : [],
         skills: material.skills.map((s) => ({ path: s.path, purpose: `${s.name} 的中文用途` })),
       };
@@ -174,6 +177,8 @@ test('首次上榜：读 README、仓库目录和 Skill 生成项目资料；项
   const saved = JSON.parse(readFileSync(join(dataDir, 'profiles', '101.json'), 'utf8'));
   assert.equal(saved.generated.materialHash, saved.material.hash);
   assert.equal(saved.generated.droppedConditions, 2);
+  // 首页短字段（#23）原样存下，首尾空白去掉。
+  assert.deepEqual([saved.generated.line, saved.generated.use, saved.generated.scene, saved.generated.tag, saved.generated.type], ['把笔记变成能跑的智能体', SHORT.use, SHORT.scene, '笔记智能体', 'Agent']);
   assert.equal(saved.material.readme.htmlUrl, 'https://github.com/acme/agent-kit/blob/main/README.md');
   assert.ok(readFileSync(join(dataDir, saved.material.evidence.readme.path)).length > 0);
   assert.equal(saved.material.evidence.docs.length, 3);
@@ -304,6 +309,7 @@ test('Codex 生成器：非交互、结构化输出、只读沙箱、关掉执�
     fs.writeFileSync(${JSON.stringify(log)}, JSON.stringify({ args, input, schema, cwd: process.cwd() }));
     fs.writeFileSync(args[args.indexOf('-o') + 1], JSON.stringify({ what: '干什么', problem: '解决什么', conditions: [], skills: [] }));
   `);
+  const { PROJECT_TYPES } = await import('../src/profiles/update.js');
   const material = { fullName: 'acme/agent-kit', description: 'Agents', topics: ['agent'], listing: ['README.md', 'skills/'], readme: { path: 'README.md', text: AGENT_README, truncated: false }, docs: [{ path: 'docs/install.md', text: 'Install with npm.', truncated: false }], skills: [{ path: 'skills/pdf', name: 'pdf', description: 'Read PDFs.' }] };
   const result = await codexGenerator({ bin }).generate(material);
   assert.deepEqual(result, { what: '干什么', problem: '解决什么', conditions: [], skills: [] });
@@ -313,7 +319,11 @@ test('Codex 生成器：非交互、结构化输出、只读沙箱、关掉执�
   assert.equal(seen.args[seen.args.indexOf('--sandbox') + 1], 'read-only');
   assert.deepEqual(seen.args.filter((a, i) => seen.args[i - 1] === '--disable'), ['shell_tool', 'unified_exec']);
   assert.equal(seen.args.at(-1), '-');
-  assert.deepEqual(seen.schema.required, ['what', 'problem', 'conditions', 'skills']);
+  assert.deepEqual(seen.schema.required, ['what', 'problem', 'line', 'use', 'scene', 'tag', 'type', 'conditions', 'skills']);
+  // 定义标签在格式里就限定成固定取值。
+  assert.deepEqual(seen.schema.properties.type.enum, PROJECT_TYPES);
+  assert.deepEqual(seen.schema.properties.use, { type: 'array', items: { type: 'string' } });
+  assert.match(seen.input, /只能从这几种里选一个：Skill（/);
   assert.match(seen.input, /Requires an OpenAI API key\./);
   assert.match(seen.input, /<doc path="docs\/install\.md">\nInstall with npm\.\n<\/doc>/);
   assert.match(seen.input, /path: skills\/pdf/);
@@ -346,4 +356,39 @@ test('维护信号（#18）：每次补资料都查最新正式版；有就记�
   assert.deepEqual(r.results.map((x) => x.status), ['unchanged', 'unchanged']);
   assert.deepEqual(readProfile(dataDir, 101).release, { state: 'unknown' });
   assert.ok(upstream.calls.some((u) => u.endsWith('/releases/latest')));
+});
+
+test('首页短字段（#23）格式不对算生成失败：一句话超长、说明标签字数不对、定义标签不在固定取值里、用途或场景条数不对或单条超长', async () => {
+  const { PROJECT_TYPES, SHORT_FORMAT } = await import('../src/profiles/update.js');
+  assert.deepEqual(PROJECT_TYPES, ['Skill', 'MCP', 'Agent', 'AI 应用', '插件', '框架', '工具', '应用', '内容']);
+  assert.deepEqual(SHORT_FORMAT, { line: 24, tag: [2, 6], items: [2, 4], item: 40 });
+  const cases = [
+    [{ line: '字'.repeat(25) }, /一句话为空或超过 24 个字/],
+    [{ line: '  ' }, /一句话为空/],
+    [{ tag: '码' }, /说明标签要 2–6 个字/],
+    [{ tag: '七个字的说明标' }, /说明标签要 2–6 个字/],
+    [{ type: '库' }, /定义标签不在固定取值里：库/],
+    [{ type: undefined }, /定义标签不在固定取值里/],
+    [{ use: ['只有一条'] }, /主要用途要 2–4 条，给了 1 条/],
+    [{ scene: ['一', '二', '三', '四', '五'] }, /使用场景要 2–4 条，给了 5 条/],
+    [{ scene: undefined }, /使用场景要 2–4 条，给了 0 条/],
+    [{ use: ['好的一条', '字'.repeat(41)] }, /主要用途有一条为空或超过 40 个字/],
+    [{ scene: ['好的一条', ' '] }, /使用场景有一条为空/],
+  ];
+  for (const [patch, error] of cases) {
+    const dataDir = dataDirWithBoard();
+    const r = await run(dataDir, { generator: fakeGenerator({ short: { ...SHORT, ...patch } }) });
+    assert.deepEqual(r.results.map((x) => x.status), ['failed', 'failed'], JSON.stringify(patch));
+    assert.match(r.results[0].error, error);
+    // 不截断凑数、不存半截结果：项目页照样显示“简介生成中”。
+    assert.equal(readProfile(dataDir, 101).generated, null);
+  }
+  // 边界值都合格：一句话正好 24 个字（英文字母也按 1 个字算），标签 2 和 6 个字，4 条各 40 字，每种定义标签都行。
+  for (const [i, type] of PROJECT_TYPES.entries()) {
+    const dataDir = dataDirWithBoard();
+    const short = { line: 'App Store '.padEnd(24, '包'), tag: i % 2 ? '逆向' : '六个字的标签', use: Array(4).fill('字'.repeat(40)), scene: ['一条', '两条'], type };
+    const r = await run(dataDir, { generator: fakeGenerator({ short }) });
+    assert.deepEqual(r.results.map((x) => x.status), ['generated', 'generated'], type);
+    assert.equal(readProfile(dataDir, 101).generated.type, type);
+  }
 });

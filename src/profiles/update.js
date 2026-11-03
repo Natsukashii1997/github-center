@@ -2,7 +2,7 @@
 // 只为首次上榜或资料过期的生成：项目没有新提交、简介和默认分支也没变就不重读；重读后资料哈希没变就不重新生成。
 // 生成失败（含 Codex 登录失效）时不拿猜测的内容顶替：项目页显示“简介生成中”，下次运行再试。
 //
-// 生成器接口：{ version, generate(material) → { what, problem, conditions: [{ kind, text, quote }], skills: [{ path, purpose }] } }。
+// 生成器接口：{ version, generate(material) → { what, problem, line, use, scene, tag, type, conditions: [{ kind, text, quote }], skills: [{ path, purpose }] } }。
 // version 变了，所有项目重新生成。
 import { createHash } from 'node:crypto';
 import { githubClient } from '../ranking/github.js';
@@ -12,6 +12,10 @@ import { isSkillFile, parseSkill } from './skills.js';
 import { boardProjects, readProfile, saveProfile } from './store.js';
 
 export const CONDITION_KINDS = ['付费', '账号', '密钥', '环境'];
+// 定义标签（#23）：项目是什么，只能是这几种之一。
+export const PROJECT_TYPES = ['Skill', 'MCP', 'Agent', 'AI 应用', '插件', '框架', '工具', '应用', '内容'];
+// 白雾首页用的短字段（#23）的格式：一句话、说明标签的字数上限，主要用途、使用场景的条数和每条字数上限（按字符数算，英文字母也算 1 个）。
+export const SHORT_FORMAT = { line: 24, tag: [2, 6], items: [2, 4], item: 40 };
 // 交给生成器的原文上限：README 最多 4 万字，其他文档最多 5 份、合计 3 万字，更长的截断并注明。
 export const README_LIMIT = 40_000;
 const MAX_DOCS = 5;
@@ -122,11 +126,31 @@ const normalize = (s) => s
 // 摘录太短（如只摘一个词）证明不了一条条件。
 const MIN_QUOTE = 10;
 
+// 首页短字段（#23）：格式不对（超长、条数不对、定义标签不在固定取值里）整个算生成失败，不截断凑数。
+const chars = (s) => [...s].length;
+function shortFields(result) {
+  const { line: lineMax, tag: [tagMin, tagMax], items: [minItems, maxItems], item: itemMax } = SHORT_FORMAT;
+  const line = result?.line?.trim() ?? '';
+  const tag = result?.tag?.trim() ?? '';
+  if (!line || chars(line) > lineMax) throw new Error(`一句话为空或超过 ${lineMax} 个字：${line}`);
+  if (chars(tag) < tagMin || chars(tag) > tagMax) throw new Error(`说明标签要 ${tagMin}–${tagMax} 个字：${tag}`);
+  if (!PROJECT_TYPES.includes(result.type)) throw new Error(`定义标签不在固定取值里：${result.type}`);
+  const list = (name, label) => {
+    const items = Array.isArray(result[name]) ? result[name].map((x) => String(x).trim()) : [];
+    if (items.length < minItems || items.length > maxItems) throw new Error(`${label}要 ${minItems}–${maxItems} 条，给了 ${items.length} 条`);
+    const bad = items.find((x) => !x || chars(x) > itemMax);
+    if (bad !== undefined) throw new Error(`${label}有一条为空或超过 ${itemMax} 个字：${bad}`);
+    return items;
+  };
+  return { line, use: list('use', '主要用途'), scene: list('scene', '使用场景'), tag, type: result.type };
+}
+
 // 生成结果只留有原文依据的：使用条件的摘录必须真的出现在读到的原文里，对不上的丢掉并记数。
 function keepGrounded(result, material) {
   const what = result?.what?.trim();
   const problem = result?.problem?.trim();
   if (!what || !problem) throw new Error('生成结果里没有简介');
+  const short = shortFields(result);
   const source = normalize([material.description ?? '', material.readme?.text ?? '', ...material.docs.map((d) => d.text), ...material.skills.map((s) => s.description)].join('\n'));
   const all = result.conditions ?? [];
   const conditions = all
@@ -134,7 +158,7 @@ function keepGrounded(result, material) {
     .map((c) => ({ kind: c.kind, text: c.text.trim(), quote: c.quote.trim() }));
   const paths = new Set(material.skills.map((s) => s.path));
   const skillPurposes = Object.fromEntries((result.skills ?? []).filter((s) => paths.has(s.path) && s.purpose?.trim()).map((s) => [s.path, s.purpose.trim()]));
-  return { what, problem, conditions, droppedConditions: all.length - conditions.length, skillPurposes };
+  return { what, problem, ...short, conditions, droppedConditions: all.length - conditions.length, skillPurposes };
 }
 
 // 项目页维护信号（#18）：最新正式版。每次补资料都重查（每项目 1 次官方请求），只写事实：
