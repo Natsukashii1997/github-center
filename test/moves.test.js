@@ -99,10 +99,10 @@ test('首页：涨星榜每行带名次变化，状态标签和详情栏用的�
   assert.ok(!d1.notes.some((n) => n.title === '没有上一期'));
   const by = Object.fromEntries(d1.entries.map((r) => [r.repo, r]));
   assert.deepEqual(by['php/php-src'].mv, { kind: 'flat' });
-  assert.equal(by['php/php-src'].streak, '连续 2 期第 1');
+  assert.deepEqual(by['php/php-src'].streak, { kind: 'first', n: 2 });
   assert.deepEqual(by['DietrichGebert/ponytail'].mv, { kind: 'up', n: 1 });
   assert.deepEqual(by['anthropics/knowledge-work-plugins'].mv, { kind: 'down', n: 1 });
-  assert.equal(by['anthropics/knowledge-work-plugins'].streak, '连续 2 期前 20');
+  assert.deepEqual(by['anthropics/knowledge-work-plugins'].streak, { kind: 'top', n: 2 });
   assert.deepEqual(by['new/one'].mv, { kind: 'new' });
   assert.equal(by['new/one'].streak, undefined);
 });
@@ -111,8 +111,10 @@ test('项目页和详情栏：名次带名次变化和连续期数；最近更�
   const dir = twoDays();
   const pageOf = async () => dataOf((await visit(dir, 'p/php/php-src')).body);
   let d = await pageOf();
-  assert.deepEqual(d.page.ranks.map(({ w, rank, mv, streak }) => [w, rank, mv, streak]), [['d1', 1, { kind: 'flat' }, '连续 2 期第 1']]);
+  assert.deepEqual(d.page.ranks.map(({ w, rank, mv, streak }) => [w, rank, mv, streak]), [['d1', 1, { kind: 'flat' }, { kind: 'first', n: 2 }]]);
   assert.deepEqual(d.projects['php/php-src'].maint, { pushed: null, release: { state: 'unknown' } });
+  // 项目页也写数据日期（需求第 23 条），和首页近 1 天报头同口径。
+  assert.equal(d.page.top.text, '10 月 23 日数据 · 10:00 更新');
   const release = { state: 'ok', tag: 'php-8.4.14', publishedAt: '2026-10-20T09:00:00Z', url: 'https://github.com/php/php-src/releases/tag/php-8.4.14' };
   saveProfile(dir, { projectId: 1903522, fullName: 'php/php-src', pushedAt: '2026-10-23T05:00:00Z', release });
   d = await pageOf();

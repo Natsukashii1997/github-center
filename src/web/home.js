@@ -181,9 +181,9 @@ export function homeData(dataDir, ctx) {
 export const embed = (data) => JSON.stringify(data).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
 // 白雾外壳（2026-11-03 重设计，定稿原型 design/candidates/redesign/r7.html）：白底、反色 ASCII 鲨鱼背景、顶栏只有涨星榜／分类榜／我的收藏。
-// 分类榜页在后续批次上线，现在导航里先显示为暂不可点。css、js 是这一页另要的样式和脚本（shell.css 放最后，盖过我的收藏还在用的旧顶栏样式）；
+// 分类榜页在后续批次上线，现在导航里先显示为暂不可点。css、js 是这一页另要的样式和脚本（shell.css 放最后，外壳的底色优先于我的收藏还在用的旧样式）；
 // one 为真时整页不滚动，只在盒子里滚（首页）。
-const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const NAV = [['/', '涨星榜'], [null, '分类榜'], ['/favorites', '我的收藏']];
 export const frame = ({ title, active, ctx, css = [], js = [], data, body, bar = '', one }) => `<!doctype html>
 <html lang="zh-CN">
@@ -200,7 +200,7 @@ ${[...css, 'shell.css'].map((f) => `<link rel="stylesheet" href="/assets/${f}">`
   <header class="bar">
     <a class="brand" href="/"><i>★</i>GitHub 快速中心</a>
     <nav class="nav" aria-label="主导航">${NAV.map(([h, t]) => (h ? `<a href="${h}"${t === active ? ' aria-current="page"' : ''}>${t}</a>` : `<a aria-disabled="true" title="分类榜即将上线">${t}</a>`)).join('')}</nav>
-    <div class="r">${bar}<span class="me" title="${escHtml(ctx.account.name)}${ctx.guest ? ' · 免登录' : ''}">${escHtml([...ctx.account.name][0] ?? '?')}</span>${ctx.guest ? '' : '<form method="post" action="/logout"><button class="out" type="submit">退出</button></form>'}</div>
+    <div class="r">${bar}<span class="me" title="${esc(ctx.account.name)}${ctx.guest ? ' · 免登录' : ''}">${esc([...ctx.account.name][0] ?? '?')}</span>${ctx.guest ? '' : '<form method="post" action="/logout"><button class="out" type="submit">退出</button></form>'}</div>
   </header>
 ${body}
 </div>
@@ -222,10 +222,10 @@ export const homePage = (data, ctx) => frame({ title: '涨星榜', active: '涨�
       <div class="notes" id="notes"></div>
       <div class="scroll" id="scroll">
         <div class="podium" id="hero"></div>
-        <div class="sec" id="sec"><b>其余上榜</b><span id="count"></span><span style="margin-left:auto">点任一项目，详情从右侧滑出</span></div>
+        <div class="sec" id="sec"><b>其余上榜</b><span id="count"></span><span class="tip">点任一项目，详情从右侧滑出</span></div>
         <div id="list"></div>
       </div>
     </section>
   </div>
   <div class="scrim" data-close></div>
-  <aside class="drawer" id="drawer" aria-label="项目详情"></aside>` });
+  <aside class="drawer" id="drawer" aria-label="详情栏"></aside>` });

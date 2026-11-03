@@ -2,7 +2,7 @@
 // 筛选条（近 1/7/30 天、状态）、前三卡、其余上榜的行；点项目从右侧滑出详情栏，↑↓ 换项目，Esc 关闭，/ 聚焦搜索。
 // 数据全在页面里，切换窗口只在本页重画。筛选或搜索时不单列前三，命中的都进列表，名次保持原样。刷新后停在同一个窗口和项目上（?w=、?sel=）。
 (() => {
-  const { D, esc, num, wan, md, pad, PER, chart, st, item, gen, drawer, act, syncStars } = BW;
+  const { D, esc, num, wan, md, pad, PER, chart, st, item, gen, noCopy, drawer, act, syncStars } = BW;
   const $ = (id) => document.getElementById(id);
   const q = new URLSearchParams(location.search);
   const s = { w: Object.hasOwn(D.windows, q.get('w')) ? q.get('w') : 'd1', st: '', q: '', sel: q.get('sel') };
@@ -13,7 +13,7 @@
   const ranksOf = (repo) => Object.entries(D.windows).flatMap(([w, W]) => W.entries.filter((e) => e.repo === repo).map((e) => ({ w, label: W.label, rank: e.rank, tie: e.tie, mv: e.mv ?? null, streak: e.streak ?? null })));
   const desc = (it) => (it.what != null ? `${it.what}${it.problem ?? ''}` : gen(it));
   const av = (it, n) => `<img class="av" src="${esc(it.avatar)}" width="${n}" height="${n}" alt="">`;
-  const copyBtn = (it) => `<button class="btn sm" data-copy="${esc(it.repo)}"${it.installable ? '' : ' disabled title="项目资料还没读到，暂时不能生成安装指令"'}>复制安装指令</button>`;
+  const copyBtn = (it) => `<button class="btn sm" data-copy="${esc(it.repo)}"${noCopy(it)}>复制安装指令</button>`;
   const skills = (it, n = 3) => (it.skills.length ? `<span class="sk">${it.skills.slice(0, n).map((x) => `<code>${esc(x.name)}</code>`).join('')}${it.skills.length > n ? `<em>等 ${it.skills.length} 个 Skill</em>` : ''}</span>` : '');
 
   // 报头：数据新鲜度（统计日的次日采集，所以减 1）、第一名、新面孔、飙升最多；口径放在标题的悬停说明里
@@ -30,7 +30,7 @@
       <div class="tick">${top ? `
         <div><div class="k">第一名</div><div class="v"><b data-open="${esc(top.repo)}">${esc(top.name)}</b><small>${top.st?.kind === 'crown' ? esc(top.st.text) : '本期登顶'}</small></div></div>
         <div><div class="k">新面孔</div>${hasPrev ? `<div class="v">${fresh.length} 个</div><div class="fc">${fresh.slice(0, 6).map((it) => `<span class="face" data-open="${esc(it.repo)}" title="${esc(it.repo)}">${av(it, 18)}</span>`).join('')}</div>` : '<div class="v"><small>暂无上一期</small></div>'}</div>
-        <div><div class="k">飙升最多</div><div class="v">${rise ? `<b data-open="${esc(rise.repo)}">${esc(rise.name)}</b><small style="color:#1a7f37">▲${rise.e.mv.n}</small>` : '<small>暂无名次变化</small>'}</div></div>` : ''}
+        <div><div class="k">飙升最多</div><div class="v">${rise ? `<b data-open="${esc(rise.repo)}">${esc(rise.name)}</b><small class="up">▲${rise.e.mv.n}</small>` : '<small>暂无名次变化</small>'}</div></div>` : ''}
       </div>`;
   }
   const fbar = () => `<div class="segs" role="group" aria-label="时间窗口">${Object.entries(D.windows).map(([w, W]) => `<button data-w="${w}" aria-selected="${w === s.w}">${esc(W.label)}</button>`).join('')}</div>
@@ -50,7 +50,7 @@
   const hero = ([a, x, y]) => `${card(a, true)}<div class="r">${x ? card(x) : ''}${y ? card(y) : ''}</div>`;
   const row = (it) => `<div class="row" data-open="${esc(it.repo)}">
     <div class="rk">${it.rank}<span class="mv ${it.mv.c}">${esc(it.mv.t)}</span>${it.tie ? '<span class="tie">并列</span>' : ''}</div>
-    <div style="min-width:0">
+    <div class="mid">
       <div class="l1">${av(it, 20)}<span class="nm">${esc(it.name)}</span><span class="ow">${esc(it.owner)}</span></div>
       <div class="ds">${esc(it.what ?? gen(it))}</div>
       <div class="ft">${copyBtn(it)}${skills(it)}</div>

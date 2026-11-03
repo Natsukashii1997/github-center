@@ -1,14 +1,13 @@
 // 项目页、我的收藏、登录（#14 起）。服务端把页面要的快照、项目资料和这个人的收藏整理成一份数据嵌进页面，页面脚本画出来。
 // 2026-11-03 起（#21）项目页和首页右侧详情栏共用同一份内容（assets/bw.js），套白雾外壳；我的收藏先只换外壳，其余等它自己的批次；登录页不变。
 // 日报页、其他榜单页已删（旧地址跳首页，见 server.js）。名次、新增和总 Star 只取快照；项目页的数字和走势取这一期榜单那次运行存下的官方原始响应（同首页）。
-import { readLatestSnapshot, WINDOWS, SINCES } from '../ranking/index.js';
+import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, SINCES } from '../ranking/index.js';
 import { readCategories } from '../categories/index.js';
 import { readProfile, findProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
 import { boardProjects } from '../profiles/store.js';
-import { project as projectCard, embed, categoryListed, categoryOnly, conditionsOf, maintOf, frame } from './home.js';
-import { rankHistory, streakText } from '../ranking/moves.js';
+import { project as projectCard, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, maintOf, frame } from './home.js';
+import { rankHistory } from '../ranking/moves.js';
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const labels = () => Object.fromEntries(Object.entries(WINDOWS).map(([id, { days }]) => [id, { label: `近 ${days} 天` }]));
 // 每页都带的：账号、安装目标、窗口名。
 const base = (ctx) => ({ account: { name: ctx.account.name }, ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]), windows: labels() });
@@ -61,12 +60,13 @@ export function projectData(dataDir, fullName, ctx) {
   const history = rankHistory(dataDir, find);
   const ranks = onBoards.map(({ w, snapshot, entry }) => {
     const mv = history.moves(w, null, snapshot.statDay);
-    return { w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1, mv: mv ? mv(entry) : null, streak: streakText(history.streak(w, null, snapshot.statDay, entry)) };
+    return { w, label: `近 ${WINDOWS[w].days} 天`, rank: entry.rank, tie: snapshot.entries.filter((x) => x.rank === entry.rank).length > 1, mv: mv ? mv(entry) : null, streak: history.streak(w, null, snapshot.statDay, entry) };
   });
   const newest = [...(onBoards.length ? onBoards : onCategory ?? [])].sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
   const shown = newest.length ? projectCard(dataDir, newest, ctx, find) : brief(dataDir, { id, fullName: name }, ctx, find, profile);
   const card = catOnly ? categoryOnly(shown, newest[0].entry) : shown;
   const g = currentGenerated(profile), m = profile?.material ?? null;
+  const d1 = readLatestSnapshot(dataDir, 'd1');
   const page = {
     // 侧栏默认高亮它所在的第一个涨星榜（方案默认近 1 天）；数字取最新一期那次运行，三个窗口都有。
     repo: card.repo, id, ranks, run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? newest[0]?.w ?? 'd1',
@@ -78,6 +78,8 @@ export function projectData(dataDir, fullName, ctx) {
     sources: m ? { readme: m.readme ? { path: m.readme.path, url: /^https:\/\//.test(m.readme.htmlUrl ?? '') ? m.readme.htmlUrl : `https://github.com/${name}` } : null, docs: m.docs.map((d) => d.path), fetchedAt: m.fetchedAt, generatedAt: g?.at ?? null } : null,
     // 不在涨星榜上（没有那次运行的数字）时，总 Star 取它所在榜单快照里的数。
     total: newest.length ? null : listTotals(dataDir).of(id, name),
+    // 数据日期（需求第 23 条）：和首页近 1 天报头同口径，写统计日和实际更新时间，更新失败写明。
+    top: windowStatus(d1, newerFailure(readStatus(dataDir), 'd1', d1)).top,
   };
   return { ...base(ctx), projects: { [card.repo]: card }, page };
 }
