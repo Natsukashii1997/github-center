@@ -15,8 +15,8 @@ import { readCategories, saveCategories, categoryKey, pickCategories, lookup } f
 
 const BATCH = 50;
 const REVIEW_BATCH = 20;
-// Codex 归类慢，2 个同时跑。
-const CONCURRENCY = 2;
+// Codex 归类慢，4 个同时跑（#50 实测：2→4 快 1.7 倍；6 开始限流、单次变慢并出现失败）。
+const CONCURRENCY = 4;
 
 const chunks = (list, n) => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, i * n + n));
 
