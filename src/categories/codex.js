@@ -1,6 +1,6 @@
 // 归类器（#10）：用本机已登录的 Codex CLI 一次给一批项目归类，结构化输出，不新增 API 费用。接口见 update.js 开头。
-// 项目资料是外部内容：Codex 的运行限制同项目资料（profiles/codex.js），提示里写明只当资料。
-import { codexJson } from '../profiles/codex.js';
+// 项目资料是外部内容：Codex 的运行限制同项目资料（../agent.js），提示里写明只当资料。
+import { agentJson } from '../agent.js';
 import { CATEGORIES } from './store.js';
 
 // 提示或输出格式改了就改版本号（记在每条归类上；已归过的不会因此重归）。
@@ -72,12 +72,14 @@ Topics：${topics(x.topics)}
 </projects>`;
 }
 
-// effort：设置页「归类」的思考强度，不给用默认；换强度不改 version。
-export function codexClassifier({ bin, timeoutMs, effort } = {}) {
+// effort：设置页「归类」的思考强度，不给用默认；换强度不改 version；agent：设置页选的智能体（见 ../agent.js），换智能体也不改 version。
+export function codexClassifier({ bin, claudeBin, timeoutMs, effort, agent } = {}) {
+  const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs });
   return {
     version: `codex-${PROMPT_VERSION}`,
+    stats,
     async classify(items, { review = false } = {}) {
-      const out = await codexJson({ bin, schema: SCHEMA, input: (review ? reviewPrompt : batchPrompt)(items), effort, timeoutMs });
+      const out = await json({ schema: SCHEMA, input: (review ? reviewPrompt : batchPrompt)(items), effort });
       return out.results;
     },
   };

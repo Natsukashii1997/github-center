@@ -1,17 +1,12 @@
-// 项目资料的生成器（#6）：用本机已登录的 Codex CLI 非交互生成，结构化输出，不新增 API 费用。接口见 update.js 开头。
+// 项目资料的生成器（#6）：用本机已登录的 Codex CLI（或设置页选的 Claude，见 ../agent.js）非交互生成，结构化输出，不新增 API 费用。接口见 update.js 开头。
 // 项目原文是外部内容，所以 Codex 在空的临时目录里、只读沙箱下运行，执行命令的工具关掉，不加载 config.toml（模型、MCP、插件）。
 // 已知限制（实测 0.160.1）：Codex 仍会读全局 ~/.codex/AGENTS.md 和本机 Skill 列表，没有开关能关掉；
 // 所以提示里写明这些约定不适用于这里，输出又受固定格式和原文核对约束。
-import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { agentJson } from '../agent.js';
 import { CONDITION_KINDS, PROJECT_TYPES } from './update.js';
 
 // 提示或输出格式改了就改版本号：缓存按版本区分，所有项目会重新生成。
 const PROMPT_VERSION = 'p4';
-// 简介短、只要求忠于原文，用 low：实测一个项目十几秒。
-const EFFORT = 'low';
 
 const str = { type: 'string' };
 const SCHEMA = {
@@ -71,43 +66,13 @@ ${material.skills.map((s) => `- path: ${s.path}\n  name: ${s.name}\n  descriptio
 </material>`;
 }
 
-function run(bin, args, { cwd, input, timeoutMs }) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, { cwd, stdio: ['pipe', 'ignore', 'pipe'], timeout: timeoutMs });
-    let stderr = '';
-    child.stderr.setEncoding('utf8').on('data', (c) => (stderr = (stderr + c).slice(-2000)));
-    child.on('error', reject);
-    child.on('close', (code, signal) => {
-      if (code === 0) return resolve();
-      reject(new Error(`Codex 生成失败（${signal ? '超时被停止' : `退出码 ${code}`}）：${stderr.trim().split('\n').slice(-3).join(' ') || '没有输出'}`));
-    });
-    child.stdin.on('error', () => {});
-    child.stdin.end(input);
-  });
-}
-
-// 用本机 Codex 按 JSON Schema 做一次结构化输出（项目资料和 #10 归类共用）：空的临时目录、只读沙箱、关掉执行命令的工具。
-export async function codexJson({ bin = 'codex', schema, input, effort = EFFORT, timeoutMs = 300_000 }) {
-  const dir = mkdtempSync(join(tmpdir(), 'gc-codex-'));
-  try {
-    const schemaPath = join(dir, 'schema.json');
-    const out = join(dir, 'out.json');
-    writeFileSync(schemaPath, JSON.stringify(schema));
-    await run(bin, [
-      'exec', '--ephemeral', '--ignore-user-config', '--skip-git-repo-check', '--sandbox', 'read-only',
-      '--disable', 'shell_tool', '--disable', 'unified_exec', '-c', `model_reasoning_effort="${effort}"`,
-      '--output-schema', schemaPath, '-o', out, '--color', 'never', '-',
-    ], { cwd: dir, input, timeoutMs });
-    return JSON.parse(readFileSync(out, 'utf8'));
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
-
-// effort：设置页「补资料」的思考强度，不给用默认 EFFORT。换强度不改 version，已生成的不因此重写。
-export function codexGenerator({ bin = 'codex', timeoutMs = 300_000, effort } = {}) {
+// effort：设置页「补资料」的思考强度，不给用默认 low；agent：设置页选的智能体，不给用 Codex（额度用完 Claude 接力）。
+// 换强度、换智能体都不改 version，已生成的不因此重写。stats.relayed：Claude 接力的次数。
+export function codexGenerator({ bin, claudeBin, timeoutMs, effort, agent } = {}) {
+  const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs });
   return {
     version: `codex-${PROMPT_VERSION}`,
-    generate: (material) => codexJson({ bin, schema: SCHEMA, input: prompt(material), effort, timeoutMs }),
+    stats,
+    generate: (material) => json({ schema: SCHEMA, input: prompt(material), effort }),
   };
 }

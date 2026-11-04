@@ -31,6 +31,7 @@
 
   const sw = (name, label, on, extra = '') => `<button class="ssw" type="button" data-sw="${name}" aria-label="${esc(label)}" aria-pressed="${on}"${extra}></button>`;
   const segs = (task) => `<div class="segs" role="group" aria-label="思考强度">${Object.entries(D.efforts).map(([v, t]) => `<button type="button" data-effort="${task}" data-v="${v}" aria-selected="${S.effort[task] === v}"${lock}>${t}</button>`).join('')}</div>`;
+  const agentSegs = () => `<div class="segs" role="group" aria-label="用哪个智能体">${Object.entries(D.agents).map(([v, t]) => `<button type="button" data-agent="${v}" aria-selected="${S.agent === v}"${lock}>${t}</button>`).join('')}</div>`;
   const row = (nm, ds, ct, cls = '') => `<div class="srow${cls}"><div><div class="nm">${nm}</div>${ds ? `<div class="ds">${ds}</div>` : ''}</div>${ct === null ? '' : `<div class="ct">${ct}</div>`}</div>`;
 
   function sourceRow(s) {
@@ -57,7 +58,7 @@
         row('<span class="sdot"></span>网站服务', '常驻在本机，只本机能打开，出错自动重启', `<span class="mono">${esc(location.host)}</span>`),
       ].join('')],
       ['s-agent', '智能体', '3', '智能体 <small>生成项目的一句话、用途、场景，归类和挑精选</small>', [
-        row('用哪个智能体', '在本机临时空目录、只读沙箱里运行，不加载 MCP 和插件', 'Codex CLI（本机已登录，不另付费）'),
+        row('用哪个智能体', '本机已登录的命令行，不另付费；在临时空目录里运行，不给执行命令的工具，不加载 MCP 和插件。<br>选 Codex 时，Codex 失败的那次改用 Claude 重做；一次更新里连续失败 3 次就当额度用完，剩下的都交给 Claude', agentSegs()),
         row('补资料', '历史榜前 50 和上榜项目，缺的补、过期的重写', `思考强度${segs('profiles')}`),
         row('归类', '定义标签 + 说明标签，复核一遍', `思考强度${segs('classify')}`),
         row('精选榜', '从候选池里每类挑最多 7 个', `思考强度${segs('picks')}`),
@@ -95,6 +96,7 @@
   // 存整份设置；失败就退回原来的值
   const fields = (s) => ({
     ...Object.fromEntries(Object.entries(s.sources).map(([k, v]) => [`sources.${k}`, v ? 'on' : 'off'])),
+    agent: s.agent,
     ...Object.fromEntries(Object.entries(s.effort).map(([k, v]) => [`effort.${k}`, v])),
     'daily.on': s.daily.on ? 'on' : 'off', 'daily.at': s.daily.at,
     'weekly.on': s.weekly.on ? 'on' : 'off', 'weekly.day': String(s.weekly.day), 'weekly.at': s.weekly.at,
@@ -127,6 +129,8 @@
       else next[group][key] = !next[group][key];
       return save(next);
     }
+    const ag = e.target.closest('[data-agent]:not(:disabled)');
+    if (ag && S.agent !== ag.dataset.agent) return save({ ...clone(), agent: ag.dataset.agent });
     const seg = e.target.closest('[data-effort]:not(:disabled)');
     if (seg && S.effort[seg.dataset.effort] !== seg.dataset.v) {
       const next = clone();

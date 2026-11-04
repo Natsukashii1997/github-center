@@ -56,8 +56,8 @@ EOF
 case "${1:-}" in
   install)
     NODE=$(command -v node)
-    # gh 给出榜、全站 Star 前 100、热点榜和联网查 GitHub 取 token；codex 给补资料、归类、精选榜用。
-    PATHS="$(dirname "$NODE"):$(dirname "$(command -v gh)"):$(dirname "$(command -v codex)"):/usr/bin:/bin"
+    # gh 给出榜、全站 Star 前 100、热点榜和联网查 GitHub 取 token；codex、claude 给补资料、归类、精选榜用（设置页选，Codex 额度用完 Claude 接力）。
+    PATHS="$(dirname "$NODE"):$(dirname "$(command -v gh)"):$(dirname "$(command -v codex)"):$(dirname "$(command -v claude)"):/usr/bin:/bin"
     # 本机代理（装的时候有就带上）：直连 GitHub 和 GH Archive 慢且时断时续，走代理快约 10 倍。
     PROXY=""
     for v in HTTPS_PROXY HTTP_PROXY NO_PROXY; do

@@ -3,7 +3,7 @@
 // 状态只读本地文件：status.json（各榜单最近一次更新）、最新热点榜快照（HN、V2EX 各自成败）、logs/update.log（上次每日更新）。不调用任何外部接口。
 // 只有所有者能改；伙伴看得到，控件都是灰的。
 import { readStatus, readLatestSnapshot } from '../ranking/store.js';
-import { readSettings, parseSettings, saveSettings, SettingsError, EFFORTS, DAYS, EARLIEST, REQUIRED, UNAVAILABLE } from '../settings/index.js';
+import { readSettings, parseSettings, saveSettings, SettingsError, AGENTS, EFFORTS, DAYS, EARLIEST, REQUIRED, UNAVAILABLE } from '../settings/index.js';
 import { lastRun, readRunState, ranToday } from '../update-steps.js';
 import { frame } from './home.js';
 
@@ -59,6 +59,7 @@ export function settingsData(dataDir, ctx, now = new Date()) {
     sources: SOURCE_ROWS.map(({ board, hot, ...row }) => ({ ...row, required: REQUIRED.has(row.key), unavailable: UNAVAILABLE.has(row.key), status: statusOf({ key: row.key, board, hot }) })),
     run: lastRun(dataDir),
     next: nextRun(now, settings.daily.at, readRunState(dataDir)),
+    agents: AGENTS,
     efforts: EFFORTS,
     days: DAYS,
     earliest: EARLIEST,

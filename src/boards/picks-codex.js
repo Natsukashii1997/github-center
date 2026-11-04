@@ -1,8 +1,8 @@
 // 精选标签建议器（#26）：用本机已登录的 Codex CLI 按精选标签清单给一批项目建议标签，结构化输出，不新增 API 费用。
-// 依据只有 GitHub 上的简介和 topics（外部内容）：运行限制同项目资料（profiles/codex.js 的 codexJson：空临时目录、只读沙箱、
+// 依据只有 GitHub 上的简介和 topics（外部内容）：运行限制同项目资料（../agent.js 的 codexJson：空临时目录、只读沙箱、
 // 关掉执行命令的工具、不加载 config.toml），提示里写明只当资料。
 // 接口：{ version, suggest(tags, items) → [{ i, tags }] }；tags 是 [{ name, note }]（note 是标签的一句话说明，可空），items 是 { fullName, description, topics }。
-import { codexJson } from '../profiles/codex.js';
+import { agentJson } from '../agent.js';
 import { MAX_TAGS_PER_PROJECT } from './picks.js';
 
 // 提示或输出格式改了就改版本号（记在每条建议上）。
@@ -42,12 +42,14 @@ ${items.map((x, i) => `${i} | ${x.fullName} | ${clean(x.description, 300)} | ${x
 </projects>`;
 }
 
-// effort：设置页「精选榜」的思考强度，不给用默认；换强度不改 version。
-export function codexTagger({ bin, timeoutMs, effort } = {}) {
+// effort：设置页「精选榜」的思考强度，不给用默认；换强度不改 version；agent：设置页选的智能体（见 ../agent.js），换智能体也不改 version。
+export function codexTagger({ bin, claudeBin, timeoutMs, effort, agent } = {}) {
+  const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs });
   return {
     version: `codex-${PROMPT_VERSION}`,
+    stats,
     async suggest(tags, items) {
-      const out = await codexJson({ bin, schema: schema(tags.map((t) => t.name)), input: suggestPrompt(tags, items), effort, timeoutMs });
+      const out = await json({ schema: schema(tags.map((t) => t.name)), input: suggestPrompt(tags, items), effort });
       return out.results;
     },
   };
