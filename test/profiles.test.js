@@ -392,10 +392,12 @@ test('Codex 生成器：非交互、结构化输出、只读沙箱、关掉执�
   assert.match(seen.cwd, /gc-codex-/);
   assert.ok(!readdirSync(tmpdir()).includes(seen.cwd.split('/').pop()));
 
+  // Codex 失败时 Claude 接力（../src/agent.js），这里给一个也失败的假 claude，不碰本机真的 Claude。
+  const noClaude = fakeCodex(fresh(), 'process.exit(1);');
   const broken = fakeCodex(fresh(), "process.stderr.write('Error: Not logged in. Run codex login.\\n'); process.exit(1);");
-  await assert.rejects(codexGenerator({ bin: broken }).generate(material), /Codex 生成失败（退出码 1）：Error: Not logged in/);
+  await assert.rejects(codexGenerator({ bin: broken, claudeBin: noClaude }).generate(material), /Codex 生成失败（退出码 1）：Error: Not logged in/);
   const slow = fakeCodex(fresh(), 'setTimeout(() => {}, 10000);');
-  await assert.rejects(codexGenerator({ bin: slow, timeoutMs: 200 }).generate(material), /超时被停止/);
+  await assert.rejects(codexGenerator({ bin: slow, claudeBin: noClaude, timeoutMs: 200 }).generate(material), /超时被停止/);
 });
 
 test('维护信号（#18）：每次补资料都查最新正式版；有就记版本号、发布时间和链接，没发过记 none，查失败记 unknown', async () => {

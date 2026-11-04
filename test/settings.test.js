@@ -18,6 +18,7 @@ const put = (dir, path, text) => {
 // 页面提交的整份设置（默认值），over 覆盖其中几项。
 const fieldsOf = (s, over = {}) => ({
   ...Object.fromEntries(Object.entries(s.sources).map(([k, v]) => [`sources.${k}`, v ? 'on' : 'off'])),
+  agent: s.agent,
   ...Object.fromEntries(Object.entries(s.effort).map(([k, v]) => [`effort.${k}`, v])),
   'daily.on': s.daily.on ? 'on' : 'off', 'daily.at': s.daily.at,
   'weekly.on': s.weekly.on ? 'on' : 'off', 'weekly.day': String(s.weekly.day), 'weekly.at': s.weekly.at,
@@ -31,23 +32,28 @@ test('读设置：没存过用默认值；文件坏了、缺项、乱填都回�
   assert.equal(DEFAULTS.sources.gharchive, true);
   assert.equal(DEFAULTS.sources.reddit, false);
   assert.deepEqual(DEFAULTS.effort, { profiles: 'low', classify: 'low', picks: 'low' });
+  assert.equal(DEFAULTS.agent, 'codex');
   put(dir, 'settings.json', '{坏的');
   assert.deepEqual(readSettings(dir), DEFAULTS);
-  put(dir, 'settings.json', { sources: { gharchive: false, reddit: true, hn: false, v2ex: 'x' }, effort: { classify: 'high', picks: 'max' }, daily: { at: '08:00' }, weekly: { day: 9, on: true } });
+  put(dir, 'settings.json', { sources: { gharchive: false, reddit: true, hn: false, v2ex: 'x' }, agent: 'gemini', effort: { classify: 'high', picks: 'max' }, daily: { at: '08:00' }, weekly: { day: 9, on: true } });
   const s = readSettings(dir);
   assert.equal(s.sources.gharchive, true);
   assert.equal(s.sources.reddit, false);
   assert.equal(s.sources.hn, false);
   assert.equal(s.sources.v2ex, true);
   assert.deepEqual(s.effort, { profiles: 'low', classify: 'high', picks: 'low' });
+  assert.equal(s.agent, 'codex');
   assert.equal(s.daily.at, '10:00');
   assert.deepEqual(s.weekly, { on: true, day: 1, at: '11:30' });
 });
 
-test('校验：GH Archive 不能关，Reddit 不能开，强度只认低中高，每日更新不早于 09:00、按 15 分钟一档，缺项不收', () => {
+test('校验：GH Archive 不能关，Reddit 不能开，智能体只认 Codex、Claude，强度只认低中高，每日更新不早于 09:00、按 15 分钟一档，缺项不收', () => {
   const ok = parse({ 'sources.hn': 'off', 'effort.classify': 'high', 'daily.at': '09:00', 'weekly.on': 'on', 'weekly.day': '0', 'weekly.at': '20:05' });
   assert.equal(ok.sources.hn, false);
   assert.equal(ok.effort.classify, 'high');
+  assert.equal(ok.agent, 'codex');
+  assert.equal(parse({ agent: 'claude' }).agent, 'claude');
+  assert.throws(() => parse({ agent: 'gemini' }), /智能体只能是 codex、claude/);
   assert.deepEqual(ok.daily, { on: true, at: '09:00' });
   assert.deepEqual(ok.weekly, { on: true, day: 0, at: '20:05' });
   assert.throws(() => parse({ 'sources.gharchive': 'off' }), /GH Archive.*不能关/);
@@ -67,12 +73,13 @@ test('校验：GH Archive 不能关，Reddit 不能开，强度只认低中高�
 
 test('存设置：整份写进 data/settings.json，带保存时刻，读回来一样', () => {
   const dir = fresh();
-  const s = parse({ 'sources.skills': 'off', 'effort.profiles': 'medium' });
+  const s = parse({ 'sources.skills': 'off', agent: 'claude', 'effort.profiles': 'medium' });
   saveSettings(dir, s, () => new Date('2026-11-03T12:00:00Z'));
   const back = readSettings(dir);
   assert.equal(back.savedAt, '2026-11-03T12:00:00.000Z');
   assert.equal(back.sources.skills, false);
   assert.equal(back.effort.profiles, 'medium');
+  assert.equal(back.agent, 'claude');
 });
 
 test('上次每日更新从日志读：成功、有失败的步骤、还在跑；下次更新看今天（北京时间）跑过没有', () => {
