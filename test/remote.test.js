@@ -1,9 +1,10 @@
 // #46 放到服务器上：Mac 拉服务器的设置和精选标签、推数据；ssh 和 rsync 用替身，只看发了什么命令、收到输出后本机怎么变。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { openAccounts } from '../src/web/accounts.js';
 import { openPicks, updatePicks, DEFAULT_TAGS } from '../src/boards/index.js';
 import { readRemote, pullSettings, pullPicks, writePool, pushData, PUSH_EXCLUDE, POOL_FILE } from '../src/remote/index.js';
@@ -110,4 +111,36 @@ test('精选榜：Mac 拉服务器的标签清单和固定的卡，算完推候�
   picks.close();
   assert.deepEqual(layout(srv), layout(mac));
   assert.ok(existsSync(join(mac, POOL_FILE)));
+});
+
+test('备份服务器的库（#48）：传回的库核对完整、有账号才存，按日期命名、同一天覆盖，只留 14 份；坏的不存', async () => {
+  const { backupDb, listBackups, BACKUP_KEEP } = await import('../src/remote/index.js');
+  const srv = fresh();
+  const accounts = openAccounts(srv);
+  accounts.create({ name: 'boss', role: 'owner' });
+  accounts.close();
+  const bytes = readFileSync(join(srv, 'center.db'));
+  const mac = fresh();
+  mkdirSync(join(mac, 'backups'));
+  for (let d = 1; d <= 15; d++) writeFileSync(join(mac, 'backups', `center-2026-10-${String(d).padStart(2, '0')}.db`), '');
+  const f = fakeRun({ backup: { status: 0, stdout: bytes, stderr: Buffer.alloc(0) } });
+  const r = backupDb(mac, CFG, '2026-11-04', f.run);
+  assert.equal(r.accounts, 1);
+  assert.equal(r.path, join(mac, 'backups', 'center-2026-11-04.db'));
+  const copy = new DatabaseSync(r.path, { readOnly: true });
+  assert.deepEqual([copy.prepare('PRAGMA journal_mode').get().journal_mode, copy.prepare('SELECT name FROM accounts').get().name], ['delete', 'boss'], '转成单文件、内容一致');
+  copy.close();
+  assert.equal(listBackups(mac).length, BACKUP_KEEP);
+  assert.equal(listBackups(mac)[0], 'center-2026-11-04.db');
+  assert.deepEqual(r.removed, ['center-2026-10-02.db', 'center-2026-10-01.db']);
+  assert.equal(f.calls[0].at(-1), 'bash /srv/tidings/scripts/server.sh backup');
+  // 坏的、空的库不存，也不留临时文件。
+  for (const stdout of [Buffer.from('not a database'), Buffer.alloc(0)]) {
+    assert.throws(() => backupDb(mac, CFG, '2026-11-05', fakeRun({ backup: { status: 0, stdout, stderr: '' } }).run), /备份的库不能用，没存/);
+  }
+  const empty = fresh();
+  openAccounts(empty).close();
+  assert.throws(() => backupDb(mac, CFG, '2026-11-05', fakeRun({ backup: ok(readFileSync(join(empty, 'center.db'))) }).run), /库里没有账号/);
+  assert.ok(!existsSync(join(mac, 'backups', 'center-2026-11-05.db')));
+  assert.deepEqual(readdirSync(join(mac, 'backups')).filter((n) => !/^center-[\d-]+\.db$/.test(n)), [], '没有临时文件、-wal、-shm');
 });
