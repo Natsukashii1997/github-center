@@ -2,7 +2,8 @@
 // 事件数据只记下一部分 Star，记录比例按已核数的上榜项目总体估计：事件记录次数合计 ÷ 官方新增合计。
 // 一个涨星数和第 20 名一样多的项目，应有的记录次数约为 比例 × 第 20 名涨星数；
 // 它的记录次数低于候选门槛（因而没进候选）的概率就是漏失概率，按泊松分布算（每个 Star 独立被记下是二项分布，左尾比泊松更薄，所以这样估偏保守）。
-export const MAX_MISS = 1e-6;
+// 漏失概率要求小于百分之一：所有者 2026-11-04 定（#54）。原先 Claude 自定的百万分之一让近 1 天候选扩到几千个，额度扛不住。
+export const MAX_MISS = 0.01;
 
 // 泊松分布 P(X ≤ k)，在对数里累加，λ 很大时也不下溢。
 function poissonAtMost(lambda, k) {
@@ -27,7 +28,7 @@ export function selfCheck({ entries, threshold }) {
   return { passed: missProbability < MAX_MISS, missProbability, threshold, recordRatio, expectedRecords };
 }
 
-// 完整性下限（#10）：涨星不少于它的项目，因记录次数不到候选门槛而漏掉的概率小于百万分之一（和自检同一套估计）。
+// 完整性下限（#10）：涨星不少于它的项目，因记录次数不到候选门槛而漏掉的概率小于百分之一（和自检同一套估计）。
 // 记录比例为 0 时估计不了，没有下限（null）。
 export function completenessFloor({ recordRatio, threshold }) {
   if (!(recordRatio > 0)) return null;
@@ -44,7 +45,7 @@ export function completenessFloor({ recordRatio, threshold }) {
   return hi;
 }
 
-// 自检不过时该把候选门槛降到多少：漏失概率仍小于百万分之一的最高门槛；怎么降都不够时降到 1（当天有记录的项目全部核数）。
+// 自检不过时该把候选门槛降到多少：漏失概率仍小于百分之一的最高门槛；怎么降都不够时降到 1（当天有记录的项目全部核数）。
 export function lowerThreshold({ expectedRecords, threshold }) {
   let t = 1;
   while (t + 1 < threshold && poissonAtMost(expectedRecords, t) < MAX_MISS) t++;

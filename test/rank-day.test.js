@@ -208,12 +208,12 @@ test('近 7、30 天按统计日累计官方新增；更早的日子从 ClickHou
   assert.ok(existsSync(join(dataDir, 'events', '2026-09-23.json')));
 });
 
-test('自检通过：事件记录够多，候选门槛下的漏失概率小于百万分之一，不标注', async () => {
+test('自检通过：事件记录够多，候选门槛下的漏失概率小于百分之一，不标注', async () => {
   const dataDir = fresh();
   seedEvents(dataDir, day, halfRecorded());
   const { snapshot } = await d1({ dataDir });
   assert.equal(snapshot.check.passed, true);
-  assert.ok(snapshot.check.missProbability < 1e-6);
+  assert.ok(snapshot.check.missProbability < 0.01);
   assert.equal(snapshot.check.recordRatio, 0.5);
   assert.equal(snapshot.check.expectedRecords, 60); // 50% × 第 20 名的 120
   assert.equal(snapshot.incomplete, false);
@@ -228,9 +228,9 @@ test('自检不通过：先降低候选门槛、补核新进的候选，再排�
   assert.equal(snapshot.check.passed, true);
   assert.ok(snapshot.check.threshold > 1 && snapshot.check.threshold < 60);
   assert.equal(snapshot.entries.length, 21);
-  assert.equal(snapshot.candidates.total, 23);
+  assert.equal(snapshot.candidates.total, 22);
   // 扩大候选时已核过的不再请求。
-  assert.equal(snapshot.requests.history, 23);
+  assert.equal(snapshot.requests.history, 22);
   assert.equal(new Set(upstream.calls.map((c) => c.url + (c.body ?? ''))).size, upstream.calls.length);
 });
 
@@ -238,7 +238,7 @@ test('候选扩到当天全部有记录的项目仍不通过：标“可能不�
   const { snapshot } = await d1();
   assert.equal(snapshot.check.passed, false);
   assert.equal(snapshot.check.threshold, 1);
-  assert.ok(snapshot.check.missProbability >= 1e-6);
+  assert.ok(snapshot.check.missProbability >= 0.01);
   assert.equal(snapshot.incomplete, true);
 });
 
