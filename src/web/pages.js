@@ -3,7 +3,7 @@
 // 日报页、其他榜单页已删（旧地址跳首页，见 server.js）。名次、新增和总 Star 只取快照；项目页的数字和走势取这一期榜单那次运行存下的官方原始响应（同首页）。
 import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, SINCES } from '../ranking/index.js';
 import { readCategories } from '../categories/index.js';
-import { readProfile, findProfile, currentGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
+import { readProfile, findProfile, currentGenerated, shownGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
 import { boardProjects } from '../profiles/store.js';
 import { project as projectCard, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, shortOf, maintOf, frame, MARK, WORDMARK, FAVICON } from './home.js';
 import { rankHistory } from '../ranking/moves.js';
@@ -28,11 +28,11 @@ function listTotals(dataDir) {
 
 // 一个项目在紧凑行、网格卡上要的资料：简介、分类、Skill、收藏状态。数字由各页按快照另给；头像没有 owner id 时页面按用户名取。
 function brief(dataDir, { id, fullName }, ctx, find, profile = id ? readProfile(dataDir, id) : null) {
-  const g = currentGenerated(profile);
+  const g = shownGenerated(profile);
   const saved = id ? ctx.favorites.savedIn(ctx.account.id, id) : new Set();
   return {
     repo: profile?.fullName ?? fullName, id, ownerId: null, runs: {}, lang: null, created: null,
-    what: g?.what ?? null, problem: g?.problem ?? null, ...shortOf(g),
+    what: g?.what ?? null, problem: g?.problem ?? null, ghDesc: g ? null : profile?.description ?? null, ...shortOf(g),
     cats: find({ id, fullName })?.categories ?? [], maint: maintOf(profile), installable: Boolean(profile?.material),
     skills: (profile?.material?.skills ?? []).map((s) => ({ name: s.name, path: s.path, desc: skillPurpose(s, g) })),
     saved: saved.has(''), savedSkills: [...saved].filter(Boolean),
@@ -51,13 +51,13 @@ export function projectData(dataDir, fullName, ctx) {
   const catOnly = !profile && !listed;
   const find = readCategories(dataDir).get;
   const { card, ranks, newest } = detail(dataDir, { id, name, profile, onCategory: catOnly ? onCategory : null }, ctx, { find, history: rankHistory(dataDir, find), snapshots: latestBoards(dataDir) });
-  const g = currentGenerated(profile), m = profile?.material ?? null;
+  const g = shownGenerated(profile), m = profile?.material ?? null;
   const d1 = readLatestSnapshot(dataDir, 'd1');
   const page = {
     // 侧栏默认高亮它所在的第一个涨星榜（方案默认近 1 天）；数字取最新一期那次运行，三个窗口都有。
     repo: card.repo, id, ranks, run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? newest[0]?.w ?? 'd1',
     hasProfile: Boolean(profile), catOnly,
-    conditions: conditionsOf(g),
+    conditions: conditionsOf(currentGenerated(profile)),
     dropped: g?.droppedConditions ?? 0,
     truncatedDocs: Boolean(m && (m.readme?.truncated || m.docs.some((d) => d.truncated))),
     skillsTruncated: Boolean(m && (m.treeTruncated || m.skillsTruncated)),
@@ -118,7 +118,7 @@ export function favoritesData(dataDir, ctx) {
     const total = totals.of(f.projectId, repo) ?? catList?.[0].entry.total ?? null;
     if (!projects[repo]) {
       const { card, ranks, newest } = detail(dataDir, { id: f.projectId, name: repo, profile, onCategory: catList }, ctx, opts);
-      projects[repo] = { ...card, ...shortFields(currentGenerated(profile)) };
+      projects[repo] = { ...card, ...shortFields(shownGenerated(profile)) };
       // 详情栏：卡片数字取哪次运行、统计格高亮哪个窗口、名次；不在涨星榜上时总 Star 另给。
       views[repo] = { run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? null, ranks, total: newest.length ? null : total };
     }

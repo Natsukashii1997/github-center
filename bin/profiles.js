@@ -14,7 +14,7 @@ const r = await updateProfiles({ dataDir: values.data, token, generator: codexGe
 
 const NAMES = { generated: '新生成', reused: '资料重读后没变、沿用', unchanged: '没有新提交、沿用', failed: '生成失败', error: '资料读不全', missing: '官方接口查不到' };
 const count = (s) => r.results.filter((x) => x.status === s).length;
-console.log(`项目 ${r.results.length} 个：${Object.entries(NAMES).map(([s, n]) => `${n} ${count(s)}`).join('，')}`);
+console.log(`项目 ${r.results.length} 个：${Object.entries(NAMES).map(([s, n]) => `${n} ${count(s)}`).join('，')}${r.rounds ? `（失败的当轮重试了 ${r.rounds} 轮）` : ''}`);
 for (const x of r.results.filter((x) => x.error)) console.log(`  ${x.name}：${NAMES[x.status]}，${x.error}`);
 const q = r.requests;
 console.log(`官方接口请求 ${q.project + q.readme + q.tree + q.releases} 次（项目信息 ${q.project}，README ${q.readme}，仓库目录 ${q.tree}，最新正式版 ${q.releases}）；耗时 ${((performance.now() - t0) / 1000).toFixed(1)} 秒`);

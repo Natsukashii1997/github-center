@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { readLatestSnapshot, readStatus, newerFailure, lastEndedDay } from '../ranking/index.js';
 import { readJson, writeOnce, writeAtomic } from '../ranking/store.js';
 import { windowDays } from '../ranking/stat-day.js';
-import { readProfile, findProfile, currentGenerated } from '../profiles/index.js';
+import { readProfile, findProfile, shownGenerated } from '../profiles/index.js';
 import { windowStatus } from '../web/home.js';
 
 // 本机网站（npm run serve 的默认端口，也是常驻服务的端口）。
@@ -29,8 +29,9 @@ export function weeklyMarkdown(w) {
   if (w.notes.length) lines.push('', '**提示**', ...w.notes.map((n) => `- ${n.title}：${n.text}`));
   if (!w.entries.length) lines.push('', '这一期没有核出项目。');
   for (const e of w.entries) {
-    lines.push('', `**${e.rank}. [${e.repo}](${SITE}/p/${e.repo})**${e.tie ? '（并列）' : ''}　近 7 天 +${num(e.gain)}　总 Star ${num(e.total)}　[GitHub](https://github.com/${e.repo})`,
-      e.line ? oneLine(e.line) : '简介生成中。');
+    // 没有一句话（#52）：给 GitHub 上的描述，也没有就只列名字和数字，不写“生成中”。
+    const text = e.line ? oneLine(e.line) : e.desc ? `GitHub 上的描述：${oneLine(e.desc)}` : null;
+    lines.push('', `**${e.rank}. [${e.repo}](${SITE}/p/${e.repo})**${e.tie ? '（并列）' : ''}　近 7 天 +${num(e.gain)}　总 Star ${num(e.total)}　[GitHub](https://github.com/${e.repo})`, ...(text ? [text] : []));
   }
   lines.push('', '数字来自 GitHub 官方数据；一句话由 AI 根据项目文档写成。项目名链到本机网站的项目页，只在运行本中心的电脑上能打开；手机上点 GitHub。');
   return `${lines.join('\n')}\n`;
@@ -60,8 +61,9 @@ export function buildWeekly({ dataDir, now = () => new Date() }) {
 
   const top = s.entries.filter((e) => e.rank <= TOP);
   const entries = top.map((e) => {
-    const g = currentGenerated(e.projectId ? readProfile(dataDir, e.projectId) : findProfile(dataDir, e.fullName));
-    return { rank: e.rank, tie: top.filter((x) => x.rank === e.rank).length > 1, repo: e.fullName, id: e.projectId ?? null, gain: e.gain, total: e.total, line: g?.line ?? g?.what ?? null };
+    const profile = e.projectId ? readProfile(dataDir, e.projectId) : findProfile(dataDir, e.fullName);
+    const g = shownGenerated(profile);
+    return { rank: e.rank, tie: top.filter((x) => x.rank === e.rank).length > 1, repo: e.fullName, id: e.projectId ?? null, gain: e.gain, total: e.total, line: g?.line ?? g?.what ?? null, desc: profile?.description ?? null };
   });
   const weekly = { statDay: day, from: windowDays(day, 7)[0], generatedAt: now().toISOString(), run: s.runId ?? null, stale, incomplete: Boolean(s.incomplete), notes, entries };
   const written = writeOnce(dataDir, path, JSON.stringify(weekly, null, 2));
