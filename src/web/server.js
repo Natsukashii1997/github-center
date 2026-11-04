@@ -3,6 +3,7 @@
 // 详情栏，项目页 /p/作者/仓库名 是同一份内容（#6）：能复制安装指令（#7）、收藏项目或单个 Skill，“我的收藏”列出自己的全部收藏（#8）。
 // 日报页、其他榜单页删除，旧地址 /daily、/new、/top、/trending、/boards 跳首页。
 // 2026-11-03 加设置页 /settings（见 settings.js），只有所有者能改。
+// 2026-11-04 起导航改为 发现（首页 /，原分类榜）／涨星（/stars，原首页涨星榜）／收藏／设置。
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { openAccounts, SESSION_DAYS } from './accounts.js';
@@ -179,8 +180,14 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
     if (asset && Object.hasOwn(ASSETS, asset)) return sendAsset();
     const ctx = { account, favorites, guest: Boolean(guestAccount) };
-    // 首页涨星榜；?w= 只认三个窗口。
+    // 首页是发现（原分类榜，2026-11-04 起）；以前首页上的涨星榜链接（带 ?w= 或 ?sel=）跳到 /stars，原分类榜地址跳首页。
     if (url.pathname === '/') {
+      if (url.searchParams.has('w') || url.searchParams.has('sel')) return send(303, { location: `/stars${url.search}` });
+      return html(200, categoriesPage(categoriesData(dataDir, ctx, picks), ctx));
+    }
+    if (url.pathname === '/categories') return send(303, { location: '/' });
+    // 涨星；?w= 只认三个窗口。
+    if (url.pathname === '/stars') {
       const w = url.searchParams.get('w');
       if (w !== null && !Object.hasOwn(WINDOWS, w)) return text(404, '没有这个页面');
       return html(200, homePage(homeData(dataDir, ctx), ctx));
@@ -193,10 +200,9 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
       if (!profile?.material || !Object.hasOwn(INSTALL_AIS, ai) || (skillPath && !profile.material.skills.some((s) => s.path === skillPath))) return json(404, { error: '没有这个项目或 Skill 的资料' });
       return text(200, installInstruction({ profile, ai, skillPath }));
     }
-    // 删掉的日报页、其他榜单页：旧链接跳首页，不出错。
-    if (['/daily', '/new', '/top', '/trending', '/boards'].includes(url.pathname)) return send(303, { location: '/' });
+    // 删掉的日报页、其他榜单页：旧链接跳涨星，不出错。
+    if (['/daily', '/new', '/top', '/trending', '/boards'].includes(url.pathname)) return send(303, { location: '/stars' });
     if (url.pathname === '/favorites') return html(200, favoritesPage(favoritesData(dataDir, ctx), ctx));
-    if (url.pathname === '/categories') return html(200, categoriesPage(categoriesData(dataDir, ctx, picks), ctx));
     if (url.pathname === '/settings') return html(200, settingsPage(settingsData(dataDir, ctx), ctx));
     const project = url.pathname.match(/^\/p\/([\w.-]+\/[\w.-]+)$/);
     if (project) {

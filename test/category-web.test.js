@@ -45,7 +45,7 @@ function seed({ candidates = true } = {}) {
 }
 
 test('首页不嵌分类榜，只放涨星榜上的项目；项目带着分类（详情栏写）', async () => {
-  const data = dataOf((await visit(seed())).body);
+  const data = dataOf((await visit(seed(), 'stars')).body);
   assert.equal(data.cats, undefined);
   assert.ok(!JSON.stringify(data.windows).includes('byCat'));
   // 只在分类榜候选里的项目不进首页数据。

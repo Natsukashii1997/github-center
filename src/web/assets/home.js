@@ -24,7 +24,7 @@
   // 新鲜度：统计日按 UTC 划分，每天北京时间 10:00（UTC 02:00）出前一天的榜，所以此刻应有的最新一期是 26 小时前所在的 UTC 日；
   // 比它早几天就是「已 N 天没有新数据」（以前按统计日零点算，北京 20:00 以后最新一期也会误报过期）。
   // 小字行（所有者 2026-11-03 定）：只写这一期的日期和「数据已更新／数据未更新」，几天没更新、出了什么问题放在悬停说明里。
-  const title = '<span class="tt"><span class="ghost" aria-hidden="true">Rising</span><b>涨星榜</b></span>';
+  const title = '<span class="tt"><span class="ghost" aria-hidden="true">Rising</span><b>涨星</b></span>';
   function head() {
     const { W, items } = b;
     if (!W.day) return `<div><div class="kick"><span class="fresh ${W.top.tone === 'bad' ? 'bad' : 'warn'}" title="${esc(W.top.text)}"><i></i>数据未更新</span></div><h1>${title}</h1></div><div class="tick"></div>`;

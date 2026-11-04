@@ -189,7 +189,8 @@ export const embed = (data) => JSON.stringify(data).replace(/</g, '\\u003c').rep
 // 分类榜见 categories.js（#27）。css、js 是这一页另要的样式和脚本（shell.css 放最后，外壳的底色优先于收藏页还在用的旧样式）。
 // 三页都整页滚动、顶栏吸顶。
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const NAV = [['/', '涨星榜'], ['/categories', '分类榜'], ['/favorites', '收藏页'], ['/settings', '设置页']];
+// 导航（所有者 2026-11-04 定）：发现（原分类榜，常用，放第一个、打开网站就是它）、涨星（原涨星榜，/stars）、收藏、设置。
+const NAV = [['/', '发现'], ['/stars', '涨星'], ['/favorites', '收藏'], ['/settings', '设置']];
 // 品牌 Github·Tidings（所有者 2026-11-03 定稿，design/candidates/redesign/brand/）：报徽图标（粗圈、实心海面、星）+ 衬线斜体字标。
 // 顶栏、登录页和浏览器标签图标共用同一个 SVG。
 const MARK_SVG = '<svg viewBox="0 0 24 24"><defs><clipPath id="tdc"><circle cx="12" cy="12" r="10.4"/></clipPath></defs><circle cx="12" cy="12" r="11" fill="#fff"/><g clip-path="url(#tdc)"><path d="M-4 14.6q2.5-2.6 5 0t5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0V30H-4z" fill="#0969da"/><path d="M-9 18.8q2.5-2.4 5 0t5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0 5 0" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" opacity=".75"/></g><polygon points="12,3.2 13.23,6.5 16.76,6.65 14,8.85 14.94,12.25 12,10.3 9.06,12.25 10,8.85 7.24,6.65 10.77,6.5" fill="#1f2328" stroke="#1f2328" stroke-width=".9" stroke-linejoin="round"/><circle cx="12" cy="12" r="11" fill="none" stroke="#1f2328" stroke-width="2"/></svg>';
@@ -226,7 +227,7 @@ ${js.map((f) => `<script src="/assets/${f}"></script>`).join('\n')}
 
 // 首页涨星榜：报头、筛选条、前三卡、其余上榜的行，点项目从右侧滑出详情栏（assets/home.js 画）。
 // 和分类榜一样整页滚动、顶栏吸顶、底部留 30vh 空白（所有者 2026-11-03 改，原来是整页不滚、只有榜单盒子内部滚）。
-export const homePage = (data, ctx) => frame({ title: '涨星榜', active: '涨星榜', ctx, css: ['bw.css'], js: ['bw.js', 'home.js'], data,
+export const homePage = (data, ctx) => frame({ title: '涨星', active: '涨星', ctx, css: ['bw.css'], js: ['bw.js', 'home.js'], data,
   bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="搜项目名、标签、用途"><span class="kbd">/</span></label>',
   body: `  <div class="wrap">
     <section class="hero-box" id="head"></section>

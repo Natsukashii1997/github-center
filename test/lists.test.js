@@ -127,12 +127,12 @@ test('同一统计日重跑不覆盖三个榜单的快照，也不再请求上�
 
 // ---- 接缝 2：榜单页 ----
 // 2026-11-03 起（#21）新项目榜、累计高星榜、官方热门榜不再单独展示（数据照抓，涨星榜找候选还要用），/boards 和旧地址都跳首页。
-test('榜单页删除：/boards、/new、/top、/trending 跳首页；只在这几个榜上的项目，项目页照样打得开', async () => {
+test('榜单页删除：/boards、/new、/top、/trending 跳涨星；只在这几个榜上的项目，项目页照样打得开', async () => {
   const dataDir = fresh();
   await run({ dataDir });
   for (const path of ['boards', 'boards?since=monthly', 'new', 'top?cat=Skill', 'trending?since=weekly']) {
     const r = await visit(dataDir, path);
-    assert.deepEqual([r.status, r.headers.location], [303, '/'], path);
+    assert.deepEqual([r.status, r.headers.location], [303, '/stars'], path);
   }
   // 只在官方热门榜上的项目：项目页的总 Star 取榜单快照里的数（没有涨星榜那次运行的数字）。
   const pj = dataOf((await visit(dataDir, 'p/php/php-src')).body);

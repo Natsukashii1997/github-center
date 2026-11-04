@@ -94,7 +94,7 @@ function twoDays() {
 }
 
 test('首页：涨星榜每行带名次变化，状态标签和详情栏用的行带连续期数', async () => {
-  const { body } = await visit(twoDays());
+  const { body } = await visit(twoDays(), 'stars');
   const d1 = dataOf(body).windows.d1;
   assert.ok(!d1.notes.some((n) => n.title === '没有上一期'));
   const by = Object.fromEntries(d1.entries.map((r) => [r.repo, r]));
@@ -120,7 +120,7 @@ test('项目页和详情栏：名次带名次变化和连续期数；最近更�
   d = await pageOf();
   assert.deepEqual(d.projects['php/php-src'].maint, { pushed: '2026-10-23', release });
   // 首页详情栏用同一份：项目数据里带着最近推送和最新版本。
-  assert.deepEqual(dataOf((await visit(dir)).body).projects['php/php-src'].maint, { pushed: '2026-10-23', release });
+  assert.deepEqual(dataOf((await visit(dir, 'stars')).body).projects['php/php-src'].maint, { pushed: '2026-10-23', release });
   saveProfile(dir, { projectId: 1903522, fullName: 'php/php-src', pushedAt: '2026-10-23T05:00:00Z', release: { state: 'none' } });
   assert.deepEqual((await pageOf()).projects['php/php-src'].maint.release, { state: 'none' });
 });

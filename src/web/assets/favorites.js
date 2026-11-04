@@ -15,7 +15,7 @@
 
   // 报头：账号名、项目和 Skill 各几个、最近一次收藏的日期（只读）
   const nP = items.filter((x) => !x.skill).length;
-  $('mast').innerHTML = `<div><div class="kick"><span>个人收藏 · 本地储存</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Clippings</span><b>收藏页</b></span></h1></div>
+  $('mast').innerHTML = `<div><div class="kick"><span>个人收藏 · 本地储存</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Clippings</span><b>收藏</b></span></h1></div>
     <div class="tick">${[['项目', nP, '个'], ['Skill', items.length - nP, '个'], ['最近收藏', items.length ? md(items[0].at) : '—', '']].map(([k, v, u]) => `<div><div class="k">${k}</div><div class="v">${v}${u ? `<small>${u}</small>` : ''}</div></div>`).join('')}</div><div class="band"></div>`;
 
   const avatar = (p) => (p.ownerId ? `https://avatars.githubusercontent.com/u/${p.ownerId}?s=64&v=4` : `https://github.com/${p.repo.split('/')[0]}.png?size=64`);
@@ -36,7 +36,7 @@
   function render() {
     const shown = items.filter((x) => !q || hay(x).includes(q));
     const groups = D.shelves.map((s) => [s.name, shown.filter((x) => x.shelf === s.name)]).filter(([, xs]) => xs.length);
-    $('shelf').innerHTML = !items.length ? '<div class="empty"><b>还没有收藏</b>在涨星榜或项目详情里点 ☆，收藏项目或单个 Skill，就会收在这里。<p><a class="btn" href="/">去看涨星榜</a></p></div>'
+    $('shelf').innerHTML = !items.length ? '<div class="empty"><b>还没有收藏</b>在涨星榜或项目详情里点 ☆，收藏项目或单个 Skill，就会收在这里。<p><a class="btn" href="/stars">去看涨星榜</a></p></div>'
       : !shown.length ? '<div class="empty"><b>没有符合条件的收藏</b>换个关键词试试。</div>'
         : `<div class="fcx"><aside class="idx" aria-label="类别"><span class="ih">类别</span><a href="#" data-jump="">全部<b>${shown.length}</b></a>${groups.map(([g, xs], i) => `<a href="#g-${i}" data-jump="${i}">${esc(g)}<b>${xs.length}</b></a>`).join('')}</aside>
           <div class="shelves">${groups.map(([g, xs], i) => `<section class="shelf" id="g-${i}"><h3>${esc(g)}<small>${xs.length}</small></h3><div class="shrow">${xs.map(card).join('')}</div></section>`).join('')}</div></div>`;
@@ -65,7 +65,7 @@
     const v = D.views[repo], it = view(repo, v.run), host = $('drawer');
     if (it.total == null) it.total = v.total;
     host.innerHTML = drawer(it, { w: v.win, ranks: v.ranks, home: true });
-    host.querySelector('.dw-top > span').textContent = '收藏页';
+    host.querySelector('.dw-top > span').textContent = '收藏';
     syncStars(host);
     const body = host.querySelector('.dw-body'), hit = skill && document.getElementById(`skill-${skill}`);
     body.scrollTop = 0;

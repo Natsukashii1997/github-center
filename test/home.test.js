@@ -34,7 +34,7 @@ function writeSnapshot(dir, window, extra) {
 }
 // 页面里嵌入的首页数据。
 const dataOf = (body) => JSON.parse(body.match(/<script type="application\/json" id="gc-data">([^<]*)<\/script>/)[1]);
-const home = async (dir, path = '') => {
+const home = async (dir, path = 'stars') => {
   const r = await visit(dir, path);
   return { ...r, data: r.status === 200 ? dataOf(r.body) : null };
 };
@@ -53,13 +53,13 @@ const weeks = [
 test('首页嵌入近 1 天榜单：名次、并列、新增、总 Star、统计日期、更新时间', async () => {
   const { status, body, data } = await home(dataDirWithSnapshot());
   assert.equal(status, 200);
-  // 白雾外壳（#21）：反色鲨鱼背景、顶栏是涨星榜／分类榜／收藏页；首页的样式和脚本。
+  // 白雾外壳（#21）：反色鲨鱼背景、顶栏是发现／涨星／收藏／设置（2026-11-04 改名，发现放第一个）；涨星页的样式和脚本。
   assert.match(body, /<link rel="stylesheet" href="\/assets\/bw\.css">\n<link rel="stylesheet" href="\/assets\/shell\.css">/);
   assert.match(body, /<canvas class="sea" id="sea" aria-hidden="true"><\/canvas>/);
-  assert.match(body, /<nav class="nav" aria-label="主导航"><a href="\/" aria-current="page">涨星榜<\/a><a href="\/categories">分类榜<\/a><a href="\/favorites">收藏页<\/a><a href="\/settings">设置页<\/a><\/nav>/);
+  assert.match(body, /<nav class="nav" aria-label="主导航"><a href="\/">发现<\/a><a href="\/stars" aria-current="page">涨星<\/a><a href="\/favorites">收藏<\/a><a href="\/settings">设置<\/a><\/nav>/);
   // 品牌 Github·Tidings（2026-11-03 定稿）：报徽图标 + 衬线斜体字标；浏览器标签用同一个图标。
   assert.match(body, /<a class="brand" href="\/"><svg class="logo" width="24" height="24" aria-hidden="true" viewBox="0 0 24 24">[\s\S]*?<\/svg><span class="wm">Github<span class="d">·<\/span>Tidings<\/span><\/a>/);
-  assert.match(body, /<title>涨星榜 · Github·Tidings<\/title>\n<link rel="icon" href="data:image\/svg\+xml,%3Csvg%20xmlns/);
+  assert.match(body, /<title>涨星 · Github·Tidings<\/title>\n<link rel="icon" href="data:image\/svg\+xml,%3Csvg%20xmlns/);
   assert.match(body, /<script src="\/assets\/sharks\.js"><\/script>\n<script src="\/assets\/shell\.js"><\/script>\n<script src="\/assets\/bw\.js"><\/script>\n<script src="\/assets\/home\.js"><\/script>/);
   const d1 = data.windows.d1;
   assert.deepEqual(d1.top, { tone: 'ok', text: '10 月 22 日数据 · 16:40 更新' });
@@ -92,7 +92,7 @@ test('网站只监听本机地址', async () => {
 
 test('访问首页时不调用任何外部接口', async (t) => {
   const outbound = t.mock.method(globalThis, 'fetch', async () => { throw new Error('首页不应发外部请求'); });
-  const { status } = await visit(dataDirWithSnapshot());
+  const { status } = await visit(dataDirWithSnapshot(), 'stars');
   assert.equal(status, 200);
   assert.equal(outbound.mock.callCount(), 0);
 });
@@ -115,8 +115,8 @@ test('近 7、30 天的榜单一起嵌进页面，写明统计的起止日期；
   assert.equal(data.windows.d7.lede.span, '统计 10 月 16 日至 10 月 22 日（UTC）');
   assert.equal(data.windows.d30.lede.span, '统计 9 月 23 日至 10 月 22 日（UTC）');
   assert.deepEqual(data.windows.d7.notes.map((n) => n.title), ['没有上一期']);
-  assert.equal((await visit(dir, '?w=d7')).status, 200);
-  assert.equal((await visit(dir, '?w=d3')).status, 404);
+  assert.equal((await visit(dir, 'stars?w=d7')).status, 200);
+  assert.equal((await visit(dir, 'stars?w=d3')).status, 404);
 });
 
 test('自检不通过或有候选核数失败时，标“可能不完整”并写出漏失概率', async () => {
@@ -228,7 +228,19 @@ test('页面脚本登录后才能取（登录页用的样式和组件脚本除�
   }
 });
 
-test('日报页已删（#21）：/daily 跳首页，旧链接不出错', async () => {
+test('日报页已删（#21）：/daily 跳涨星，旧链接不出错', async () => {
   const r = await visit(dataDirWithSnapshot(), 'daily');
-  assert.deepEqual([r.status, r.headers.location], [303, '/']);
+  assert.deepEqual([r.status, r.headers.location], [303, '/stars']);
+});
+
+test('导航改名（2026-11-04）：首页是发现；以前首页上的涨星榜链接跳 /stars（带原参数），原分类榜地址跳首页', async () => {
+  const dir = dataDirWithSnapshot();
+  const root = await visit(dir);
+  assert.equal(root.status, 200);
+  assert.match(root.body, /<title>发现 · Github·Tidings<\/title>/);
+  assert.match(root.body, /<nav class="nav" aria-label="主导航"><a href="\/" aria-current="page">发现<\/a><a href="\/stars">涨星<\/a><a href="\/favorites">收藏<\/a><a href="\/settings">设置<\/a><\/nav>/);
+  for (const [path, to] of [['?w=d7', '/stars?w=d7'], ['?w=d1&sel=php%2Fphp-src', '/stars?w=d1&sel=php%2Fphp-src'], ['categories', '/']]) {
+    const r = await visit(dir, path);
+    assert.deepEqual([r.status, r.headers.location], [303, to], path);
+  }
 });

@@ -158,12 +158,12 @@ ${body}
 `;
 
 // 项目页：和首页详情栏同一份内容，整页放在白雾外壳里。从收藏页点进来时顶栏高亮“收藏页”。
-export const projectPage = (data, ctx, from) => frame({ title: data.page.missing ? '找不到这个项目' : esc(data.page.repo), active: from === 'favorites' ? '收藏页' : '涨星榜', ctx, css: ['bw.css'], js: ['bw.js', 'project.js'], data,
+export const projectPage = (data, ctx, from) => frame({ title: data.page.missing ? '找不到这个项目' : esc(data.page.repo), active: from === 'favorites' ? '收藏' : '涨星', ctx, css: ['bw.css'], js: ['bw.js', 'project.js'], data,
   body: '  <main class="pwrap"><article class="ppage" id="page"></article></main>' });
 
 // 我的收藏（#22，定稿 fav.html：C 收藏架 + A 书签丝带卡片 + A 侧栏只留类别目录）：报头、左侧类别目录、右侧按类别分组的卡片（assets/favorites.js 画），
 // 点项目从右侧滑出详情栏（和首页同一份内容，bw.js）。整页滚动，顶栏吸顶，底部留白给背景鲨鱼。
-export const favoritesPage = (data, ctx) => frame({ title: '收藏页', active: '收藏页', ctx, css: ['bw.css', 'favorites.css'], js: ['bw.js', 'favorites.js'], data,
+export const favoritesPage = (data, ctx) => frame({ title: '收藏', active: '收藏', ctx, css: ['bw.css', 'favorites.css'], js: ['bw.js', 'favorites.js'], data,
   bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="在收藏页里找"><span class="kbd">/</span></label>',
   body: `  <div class="fwrap">
     <section class="hero-box" id="mast"></section>
