@@ -29,8 +29,8 @@ const DOCS_LIMIT = 30_000;
 // 一个仓库最多读这么多个 SKILL.md；仓库根目录最多列这么多项。
 const MAX_SKILLS = 200;
 const MAX_LISTING = 200;
-// 同时处理的项目数：Codex 生成慢，2 个就够每天跑完。
-const CONCURRENCY = 2;
+// 同时处理的项目数：Codex 生成慢，4 个同时跑（#50 实测：2→4 快 1.7 倍；6 开始限流、单次变慢并出现失败）。
+const CONCURRENCY = 4;
 const RAW = 'https://raw.githubusercontent.com';
 const RAW_TIMEOUT_MS = 30_000;
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
