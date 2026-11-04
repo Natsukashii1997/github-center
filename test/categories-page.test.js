@@ -79,7 +79,8 @@ test('分类榜页面：导航可点；精选、历史、热点三块数据和�
     // 不在候选池里的仓库：按名字从归类记录找到 id，读得到项目资料和分类
     assert.deepEqual([d.projects['z/unknown'].line, d.hist.entries[3].cat], ['没在候选池的一句话', 'Skill']);
     // 热点榜：只记了 1 天，走势 7 格只有最后一格；前一天没有记录时涨跌为 null；各来源份额
-    assert.deepEqual([d.hot.days, d.hot.complete], [1, false]);
+    assert.deepEqual([d.hot.days, d.hot.complete, d.hot.backfilled], [1, false, []]);
+    assert.match(d.hot.backfillNote, /^补录：/);
     assert.deepEqual(d.hot.entries[0].series, [null, null, null, null, null, null, 120]);
     assert.equal(d.hot.entries[0].change, null);
     assert.deepEqual(d.hot.entries[0].sources, { hn: 100, v2ex: 20 });

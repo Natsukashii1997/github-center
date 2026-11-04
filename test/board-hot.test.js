@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findRepos, parseRepoInput, aggregate, heatOf, updateHot, readHotBoard, jsonGetter } from '../src/boards/index.js';
+import { findRepos, parseRepoInput, aggregate, heatOf, updateHot, backfillHot, readHotBoard, jsonGetter } from '../src/boards/index.js';
 import { hnPost, v2exPost, V2EX_LISTS } from '../src/boards/hot.js';
 
 test('仓库链接识别：只认 github.com/<作者>/<仓库>，去掉 .git 和末尾句点，同一仓库不分大小写只算一次', () => {
@@ -204,4 +204,36 @@ test('公开接口：429 按 retry-after 等了再试，5xx 重试，4xx 直接�
   assert.deepEqual(waits, [7000, 10000]);
   await assert.rejects(http.get('https://x/b'), /返回 404：nope/);
   assert.equal(http.stats.requests, 4);
+});
+
+test('补录：过去没存快照的日子按那天 10:00 回推，HN 用现在的数、V2EX 只用见过的帖子（取最近一次的数），记 backfilled，不改 status.json', async () => {
+  const dataDir = mkdtempSync(join(tmpdir(), 'gc-hot-'));
+  const gh = fakeGh(TABLE);
+  const hn = [hit(1, 'https://github.com/acme/tool', 80, 20, T0 - 3600), hit(2, 'https://github.com/beta/lib', 5, 5, T0 + DAY)];
+  // 11-03、11-04 正常各量一次：V2EX 那帖（10-31 发）先 20 后 26 个回复；另一帖 11-02 才发。
+  await updateHot({ dataDir, gh, get: upstream({ hn, v2ex: [topic(70, 'github.com/beta/lib', 20, T0 - 3600)] }).get, now: at(T0 + 2 * DAY) });
+  await updateHot({ dataDir, gh, get: upstream({ hn, v2ex: [topic(70, 'github.com/beta/lib', 26, T0 - 3600), topic(71, 'github.com/acme/tool', 9, T0 + DAY)] }).get, now: at(T0 + 3 * DAY) });
+  const status = readFileSync(join(dataDir, 'status.json'), 'utf8');
+
+  const up = upstream({ hn });
+  const r = await backfillHot({ dataDir, gh, get: up.get, day: '2026-11-01', now: at(T0 + 3 * DAY + 3600) });
+  assert.equal(r.status, 'published');
+  const s = r.snapshot;
+  assert.deepEqual([s.statDay, s.fetchedAt, s.window.from], ['2026-11-01', '2026-11-01T02:00:00.000Z', '2026-10-25T02:00:00.000Z']);
+  assert.match(s.backfilled.note, /^补录：.*偏高.*偏低$/);
+  assert.equal(s.backfilled.at, new Date((T0 + 3 * DAY + 3600) * 1000).toISOString());
+  assert.equal(up.calls.length, 7, 'HN 7 次，V2EX 不请求');
+  assert.ok(up.calls.every((u) => u.startsWith('https://hn.algolia.com/')));
+  assert.deepEqual(s.sources, { hn: { status: 'ok', fetched: 1, posts: 1 }, v2ex: { status: 'ok', fetched: 0, posts: 1 } });
+  assert.deepEqual(s.entries.map((e) => [e.repo, e.heat]), [['acme/tool', 100], ['beta/lib', 26]]);
+  assert.equal(readFileSync(join(dataDir, 'status.json'), 'utf8'), status);
+
+  const b = readHotBoard(dataDir);
+  assert.deepEqual([b.day, b.days, b.backfilled], ['2026-11-04', 3, ['2026-11-01']]);
+  assert.equal(b.entries.find((e) => e.repo === 'acme/tool').series[3].heat, 100);
+
+  assert.equal((await backfillHot({ dataDir, gh, get: up.get, day: '2026-11-01', now: at(T0 + 3 * DAY + 3600) })).status, 'exists');
+  assert.equal((await backfillHot({ dataDir, gh, get: up.get, day: '2026-11-03', now: at(T0 + 3 * DAY + 3600) })).status, 'exists');
+  await assert.rejects(backfillHot({ dataDir, gh, get: up.get, day: '2026-11-04', now: at(T0 + 3 * DAY + 3600) }), /只能补今天以前的日子/);
+  assert.equal(up.calls.length, 7);
 });

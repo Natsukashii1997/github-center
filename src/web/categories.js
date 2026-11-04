@@ -5,7 +5,7 @@
 // 卡片和行上的文字（一句话、主要用途、定义标签）取补资料生成的项目资料；还没生成的不拿别的字凑，只写明“GitHub 上的描述”。
 // 精选榜的改动走 POST /api/picks/<操作>（同收藏接口：要登录、只接受本站提交）；谁能改由 boards/picks.js 的 canEdit 一处判断，
 // 拒绝时按 PicksError.status 回 JSON。
-import { readSkillsBoard, readHotBoard, HOT_SOURCES, SLOTS, PicksError } from '../boards/index.js';
+import { readSkillsBoard, readHotBoard, HOT_SOURCES, BACKFILL_NOTE, SLOTS, PicksError } from '../boards/index.js';
 import { poolFrom } from '../boards/picks-update.js';
 import { parseRepoInput } from '../boards/repo-link.js';
 import { readCategories } from '../categories/index.js';
@@ -98,7 +98,7 @@ export function categoriesData(dataDir, ctx, picks) {
       }),
     },
     hot: hot && {
-      day: hot.day, days: hot.days, complete: hot.complete, failure: hot.failure,
+      day: hot.day, days: hot.days, complete: hot.complete, backfilled: hot.backfilled, backfillNote: BACKFILL_NOTE, failure: hot.failure,
       sources: Object.fromEntries(Object.entries(hot.sources ?? {}).map(([s, x]) => [s, { name: HOT_SOURCES[s]?.name ?? s, status: x.status }])),
       // 近 7 天热度（从早到晚，那天没存快照为 null）、比前一天的涨跌、各来源的热度份额。
       entries: hot.entries.map((e) => ({ rank: e.rank, repo: key(e), heat: e.heat, posts: e.posts, sources: e.sources, series: e.series.map((s) => s.heat), change: e.change && { delta: e.change.delta, ratio: e.change.ratio } })),
