@@ -27,7 +27,7 @@
   function mast() {
     const H = D.hist?.entries.length ?? 0, T = D.hot?.entries.length ?? 0;
     const tk = [['pick', '精选榜', `${D.picks.tags.length} 类<small>每类最多 ${D.picks.slots} 张</small>`], ['hist', '历史榜', H ? `前 ${H}<small>Skill 安装量</small>` : '暂无数据'], ['hot', '热点榜', T ? `前 ${T}<small>讨论热度</small>` : '暂无数据']];
-    $('mast').innerHTML = `<div><div class="kick"><span>精选 · 历史 · 热点</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Boards</span><b>分类榜</b></span></h1></div>
+    $('mast').innerHTML = `<div><div class="kick"><span>精选 · 历史 · 热点</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Boards</span><b>发现</b></span></h1></div>
       <div class="tick">${tk.map(([k, n, v]) => `<div data-go="${k}"><div class="k">${n}</div><div class="v">${v}</div></div>`).join('')}</div><div class="band"></div>`;
   }
 

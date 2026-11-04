@@ -25,7 +25,7 @@
     const r = D.run;
     const last = !r ? ['—', ''] : r.running ? [when(r.startedAt), '<small>正在更新</small>'] : [when(r.startedAt), r.failed.length ? `<small class="bad">失败 ${r.failed.length} 步</small>` : '<small class="ok">全部成功</small>'];
     const tick = [['上次更新', ...last], ['下次更新', S.daily.on ? `${D.next.today ? '今天' : '明天'} ${D.next.at}` : '已关掉', ''], ['数据源', inUse(), `<small>/ ${D.sources.length} 在用</small>`]];
-    $('mast').innerHTML = `<div><div class="kick"><span>数据源 · 定时 · 智能体 · 接入</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Settings</span><b>设置页</b></span></h1></div>
+    $('mast').innerHTML = `<div><div class="kick"><span>数据源 · 定时 · 智能体 · 接入</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Settings</span><b>设置</b></span></h1></div>
       <div class="tick">${tick.map(([k, v, s]) => `<div><div class="k">${k}</div><div class="v">${v}${s}</div></div>`).join('')}</div><div class="band"></div>`;
   }
 

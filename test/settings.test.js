@@ -126,8 +126,8 @@ test('设置页：导航第四项；数据里有各来源的日期和成败、�
   try {
     const res = await site.get('settings');
     assert.equal(res.status, 200);
-    assert.match(res.body, /<a href="\/favorites">收藏页<\/a><a href="\/settings" aria-current="page">设置页<\/a><\/nav>/);
-    assert.match(res.body, /<title>设置页 · Github·Tidings<\/title>/);
+    assert.match(res.body, /<a href="\/favorites">收藏<\/a><a href="\/settings" aria-current="page">设置<\/a><\/nav>/);
+    assert.match(res.body, /<title>设置 · Github·Tidings<\/title>/);
     const data = dataOf(res.body);
     assert.equal(data.canEdit, false);
     assert.deepEqual(data.settings, DEFAULTS);

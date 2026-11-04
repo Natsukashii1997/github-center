@@ -61,7 +61,7 @@ test('收藏和取消收藏项目、单个 Skill；“我的收藏”列出全�
     assert.deepEqual(savedOn(page.body), { saved: true, skills: ['skills/pdf'] });
 
     const mine = await site.get('favorites');
-    assert.match(mine.body, /<title>收藏页 · Github·Tidings<\/title>/);
+    assert.match(mine.body, /<title>收藏 · Github·Tidings<\/title>/);
     // 新收藏的在前；都能在站内打开（页面脚本把 Skill 链到项目页上那一条 #skill-<路径>）。
     const items = dataOf(mine.body).items;
     assert.deepEqual(favs(mine.body), [['acme/agent-kit', 'skills/pdf'], ['acme/agent-kit', '']]);

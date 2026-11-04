@@ -70,7 +70,7 @@ export function settingsData(dataDir, ctx, now = new Date()) {
 export const changeSettings = (dataDir, form) => saveSettings(dataDir, parseSettings(form));
 export { SettingsError };
 
-export const settingsPage = (data, ctx) => frame({ title: '设置页', active: '设置页', ctx, css: ['bw.css', 'settings.css'], js: ['settings.js'], data,
+export const settingsPage = (data, ctx) => frame({ title: '设置', active: '设置', ctx, css: ['bw.css', 'settings.css'], js: ['settings.js'], data,
   body: `  <div class="swrap">
     <section class="hero-box" id="mast"></section>
     <div class="sset">

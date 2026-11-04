@@ -1,4 +1,4 @@
-// #27 分类榜页面：/categories 嵌进页面的三块数据（精选、历史、热点）和详情栏内容；精选榜接口 POST /api/picks/<操作> 的权限、
+// #27 分类榜页面（2026-11-04 起叫「发现」，是首页 /）：嵌进页面的三块数据（精选、历史、热点）和详情栏内容；精选榜接口 POST /api/picks/<操作> 的权限、
 // 投票、换卡（只换进本地有数据或所有者联网查到的项目）、恢复、候选（含粘贴 GitHub 地址）、联网查仓库、改标签清单；分类榜上的项目能收藏。
 // 除 repoLookup 本身外全部走登录后的 HTTP。
 import { test } from 'node:test';
@@ -56,10 +56,10 @@ test('分类榜页面：导航可点；精选、历史、热点三块数据和�
   const dir = await seed();
   const site = await serve(dir);
   try {
-    const res = await site.get('categories');
+    const res = await site.get('');
     assert.equal(res.status, 200);
-    assert.match(res.body, /<title>分类榜 · Github·Tidings<\/title>/);
-    assert.match(res.body, /<a href="\/categories" aria-current="page">分类榜<\/a>/);
+    assert.match(res.body, /<title>发现 · Github·Tidings<\/title>/);
+    assert.match(res.body, /<a href="\/" aria-current="page">发现<\/a>/);
     const d = dataOf(res.body);
     assert.equal(d.day, '2026-11-03');
 
@@ -102,7 +102,7 @@ test('精选接口权限：伙伴只能投票，换卡、恢复、改标签回 4
   const dir = await seed();
   const site = await serve(dir);
   try {
-    const d = dataOf((await site.get('categories')).body);
+    const d = dataOf((await site.get('')).body);
     const agent = tagOf(d, AGENT).id;
     for (const [op, fields] of [['swap', { tag: agent, slot: 1, project: 9 }], ['restore', { tag: agent }], ['tags', { action: 'add', name: '安全', color: '#cf222e' }], ['tags', { action: 'remove', tag: agent }]]) {
       const r = await api(site, op, fields);
@@ -117,9 +117,9 @@ test('精选接口权限：伙伴只能投票，换卡、恢复、改标签回 4
     assert.equal((await api(site, 'vote', { tag: agent, project: 1, value: 5 })).status, 400);
     // 自己投的在页面上高亮（mine），别人只看到总数
     await api(site, 'vote', { tag: agent, project: 2, value: 1 });
-    assert.deepEqual(tagOf(dataOf((await site.get('categories')).body), AGENT).cards[1].mine, 1);
+    assert.deepEqual(tagOf(dataOf((await site.get('')).body), AGENT).cards[1].mine, 1);
     const boss = await asOwner(site, dir);
-    const seen = tagOf(dataOf((await boss.get('categories')).body), AGENT).cards[1];
+    const seen = tagOf(dataOf((await boss.get('')).body), AGENT).cards[1];
     assert.deepEqual([seen.up, seen.mine], [1, 0]);
 
     assert.equal((await api(site, 'nothing', {})).status, 404);
@@ -136,7 +136,7 @@ test('所有者：换卡只换进本地有数据的项目（含粘贴的 GitHub 
   const dir = await seed();
   const site = await asOwner(await serve(dir), dir);
   try {
-    let d = dataOf((await site.get('categories')).body);
+    let d = dataOf((await site.get('')).body);
     assert.equal(d.picks.canEdit, true);
     const agent = tagOf(d, AGENT).id;
 
@@ -163,7 +163,7 @@ test('所有者：换卡只换进本地有数据的项目（含粘贴的 GitHub 
     assert.equal((await api(site, 'swap', { tag: agent, slot: 3, project: 700 })).status, 409);
     assert.equal((await api(site, 'swap', { tag: agent, slot: 9, project: 9 })).status, 400);
     assert.equal((await api(site, 'swap', { tag: 999, slot: 1, project: 9 })).status, 404);
-    d = dataOf((await site.get('categories')).body);
+    d = dataOf((await site.get('')).body);
     assert.deepEqual(tagOf(d, AGENT).cards.map((c) => c.repo), ['h/p1', 'c/extra', 'h/p3', 'h/p4', 'h/p5', 'h/p6', 'h/p7']);
 
     const back = await api(site, 'restore', { tag: agent });
@@ -198,7 +198,7 @@ test('所有者换卡：粘贴的地址本地没有时联网查一次 GitHub，�
   const partner = await serve(dir, { lookupRepo });
   const site = await asOwner(partner, dir);
   try {
-    const agent = tagOf(dataOf((await site.get('categories')).body), AGENT).id;
+    const agent = tagOf(dataOf((await site.get('')).body), AGENT).id;
     const p = await api(partner, 'lookup', { tag: agent, q: 'https://github.com/fresh/one' });
     assert.deepEqual([p.status, p.json.error], [403, '只有所有者能改精选标签和换卡']);
     assert.deepEqual(asked, []);
@@ -222,7 +222,7 @@ test('所有者换卡：粘贴的地址本地没有时联网查一次 GitHub，�
   }
   const off = await asOwner(await serve(dir), dir);
   try {
-    const agent = tagOf(dataOf((await off.get('categories')).body), AGENT).id;
+    const agent = tagOf(dataOf((await off.get('')).body), AGENT).id;
     assert.equal((await api(off, 'lookup', { tag: agent, q: 'fresh/one' })).status, 503);
   } finally {
     off.close();
@@ -259,7 +259,7 @@ test('分类榜上的项目（历史榜、热点榜，没有项目资料）能�
     assert.equal((await http(`${site.url}api/favorites`, form({ project_id: '10', action: 'add' }, { cookie: site.cookie }))).status, 200);
     assert.equal((await http(`${site.url}api/favorites`, form({ project_id: '424242', action: 'add' }, { cookie: site.cookie }))).status, 404);
     assert.deepEqual(dataOf((await site.get('favorites')).body).items.map((x) => x.repo), ['h/p10', 't/hot']);
-    assert.equal(dataOf((await site.get('categories')).body).projects['t/hot'].saved, true);
+    assert.equal(dataOf((await site.get('')).body).projects['t/hot'].saved, true);
   } finally {
     site.close();
   }
@@ -269,7 +269,7 @@ test('没有任何分类榜数据时页面照样打开，三块都是空的', as
   const dir = mkdtempSync(join(tmpdir(), 'gc-cat27-empty-'));
   const site = await serve(dir);
   try {
-    const res = await site.get('categories');
+    const res = await site.get('');
     assert.equal(res.status, 200);
     const d = dataOf(res.body);
     assert.deepEqual([d.hist, d.hot, d.day], [null, null, null]);

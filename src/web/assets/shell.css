@@ -22,7 +22,7 @@ html, body { background: var(--bg); }
 .bar .brand .wm { font: italic 400 17.5px/1 Georgia, "Times New Roman", serif; letter-spacing: .005em; white-space: nowrap; }
 .bar .brand .wm .d { font-style: normal; color: var(--accent); padding: 0 4px; }
 .bar .nav { display: flex; gap: 2px; }
-.bar .nav a { padding: 6px 12px; border-radius: 6px; font-size: 13px; color: var(--ink-2); text-decoration: none; }
+.bar .nav a { white-space: nowrap; padding: 6px 12px; border-radius: 6px; font-size: 13px; color: var(--ink-2); text-decoration: none; }
 .bar .nav a[href]:hover { background: rgba(31,35,40,.05); }
 .bar .nav a[aria-current] { font-weight: 600; color: var(--ink); background: rgba(31,35,40,.07); }
 .bar .nav a[aria-disabled] { color: var(--ink-4); cursor: default; }
