@@ -39,7 +39,7 @@
   const vote = (c) => `<div class="vote"><button data-vote="1" aria-pressed="${c.mine === 1}" title="${c.mine === 1 ? '再点撤回' : '有用'}">▲ <b>${c.up}</b></button><button data-vote="-1" aria-pressed="${c.mine === -1}" title="${c.mine === -1 ? '再点撤回' : '没用'}">▼ <b>${c.down}</b></button></div>`;
   function card(c, i) {
     const p = P(c.repo), [owner, name] = c.repo.split('/'), d = i - cf.i, use = (p.use ?? []).slice(0, 3);
-    const text = p.line ? `<p class="g2-ln">${esc(p.line)}</p>` : p.ghDesc ? `<p class="g2-ln gh"><small>中文简介还没生成 · GitHub 上的描述</small>${esc(p.ghDesc)}</p>` : '';
+    const text = p.line ? `<p class="g2-ln">${esc(p.line)}</p>` : p.ghDesc ? `<p class="g2-ln gh"><small>GitHub 上的描述</small>${esc(p.ghDesc)}</p>` : '';
     return `<article class="gl g2" data-cfi="${i}" data-a="${Math.abs(d)}" style="--d:${d};--a:${Math.abs(d)}">
       <div class="g2-hd">${AV(c.repo, 38)}<div style="min-width:0"><h3>${esc(name)}</h3><span>${esc(owner)}${c.pinned ? ' · <i class="man">手动</i>' : ''}</span></div></div>
       ${text}

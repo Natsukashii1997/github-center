@@ -10,7 +10,7 @@ import { CATEGORIES, readCategories, gainersInCategory } from '../categories/ind
 import { bucketOf, windowDays } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';
 import { rankHistory, markRows } from '../ranking/moves.js';
-import { readProfile, currentGenerated, skillPurpose, INSTALL_AIS, PROJECT_TYPES } from '../profiles/index.js';
+import { readProfile, shownGenerated, skillPurpose, INSTALL_AIS, PROJECT_TYPES } from '../profiles/index.js';
 
 const SERIES_DAYS = 30;
 const label = (w) => `近 ${WINDOWS[w].days} 天`;
@@ -137,7 +137,7 @@ export function project(dataDir, onBoards, { account, favorites }, find) {
   const runs = {};
   for (const b of onBoards) runs[b.snapshot.runId] ??= runFigures(dataDir, b.w, b.snapshot, b.entry);
   const profile = readProfile(dataDir, entry.projectId);
-  const g = currentGenerated(profile);
+  const g = shownGenerated(profile);
   const saved = favorites.savedIn(account.id, entry.projectId);
   return {
     repo: entry.fullName,
@@ -148,6 +148,8 @@ export function project(dataDir, onBoards, { account, favorites }, find) {
     created: info?.created_at?.slice(0, 10) ?? null,
     what: g?.what ?? null,
     problem: g?.problem ?? null,
+    // 从没生成过简介（#52：当轮重试也没成）：先给 GitHub 上的描述。
+    ghDesc: g ? null : profile?.description ?? info?.description ?? null,
     ...shortOf(g),
     cats: find({ id: entry.projectId, fullName: entry.fullName })?.categories ?? [],
     maint: maintOf(profile),

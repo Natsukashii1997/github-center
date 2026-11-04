@@ -244,13 +244,31 @@ test('资料没变不重复生成：没有新提交就不重读；有新提交�
   assert.equal(generator.calls[1].description, 'Tiny, now described');
 });
 
-test('生成失败或 Codex 登录失效：项目页显示“简介生成中”，不拿猜测的内容顶替；下次运行再试', async () => {
+test('生成失败当轮重试：偶发失败重试后补上，不留到第二天（#52）', async () => {
   const dataDir = dataDirWithBoard();
-  const r = await run(dataDir, { generator: fakeGenerator({ fail: 'Not logged in. Run codex login.' }) });
+  // 每个项目第一次生成失败，第二次成功。
+  const generator = fakeGenerator();
+  const tried = new Set();
+  const flaky = { ...generator, generate: async (m) => { if (!tried.has(m.fullName)) { tried.add(m.fullName); throw new Error('Reconnecting... 5/5'); } return generator.generate(m); } };
+  const waits = [];
+  const r = await updateProfiles({ dataDir, fetch: fakeGitHub(repos()).fetch, token: 't', generator: flaky, now, sleep: async (ms) => { waits.push(ms); } });
+  assert.deepEqual(r.results.map((x) => x.status), ['generated', 'generated']);
+  assert.equal(r.rounds, 1);
+  assert.deepEqual(waits.filter((ms) => ms >= 60_000), [60_000]);
+  assert.match((await projectPage(dataDir, 'p/acme/agent-kit')).p.what, /把笔记变成能运行的智能体/);
+});
+
+test('生成失败或 Codex 登录失效：重试 3 轮还失败，不拿猜测的内容顶替，先给 GitHub 描述，不写“生成中”；下次运行再试', async () => {
+  const dataDir = dataDirWithBoard();
+  const failing = fakeGenerator({ fail: 'Not logged in. Run codex login.' });
+  const r = await run(dataDir, { generator: failing });
   assert.deepEqual(r.results.map((x) => x.status), ['failed', 'failed']);
-  // 简介生成中：有资料但还没生成简介（what 为空），页面显示生成中，不列使用条件。
+  assert.equal(r.rounds, 3);
+  assert.equal(failing.calls.length, 8, '每个项目第一遍加重试 3 轮，共 4 次');
+  // 有资料但从没生成过简介（what 为空）：给 GitHub 上的描述，不列使用条件。
   const gen = await projectPage(dataDir, 'p/acme/agent-kit');
-  assert.deepEqual([gen.page.hasProfile, gen.p.what, gen.p.problem, gen.page.conditions], [true, null, null, []]);
+  assert.deepEqual([gen.page.hasProfile, gen.p.what, gen.p.problem, gen.p.ghDesc, gen.page.conditions], [true, null, null, 'Agents from notes', []]);
+  assert.doesNotMatch(gen.body, /生成中/);
   // Skill 列表来自 SKILL.md 原文，照常显示（用途用原文的 description）。
   assert.equal(gen.p.skills.find((x) => x.name === 'pdf').desc, 'Read and fill PDF forms.');
   assert.match(JSON.parse(readFileSync(join(dataDir, 'profiles', '101.json'), 'utf8')).lastError.message, /Not logged in/);
@@ -261,16 +279,16 @@ test('生成失败或 Codex 登录失效：项目页显示“简介生成中”�
   assert.deepEqual(next.results.map((x) => x.status), ['generated', 'generated']);
   assert.match((await projectPage(dataDir, 'p/acme/agent-kit')).p.what, /把笔记变成能运行的智能体/);
 
-  // 文档更新后重新生成又失败：旧简介依据的是旧文档，不再显示，照样写“简介生成中”。
+  // 文档更新后重新生成又失败：先显示上一次的简介（#52，所有者选定），但使用条件依据的是旧文档，不列。
   const list = repos();
   list[0].info.pushed_at = '2026-10-23T03:00:00Z';
   list[0].readme = `${AGENT_README}\nNow requires a paid license.\n`;
   const again = await run(dataDir, { upstream: fakeGitHub(list), generator: fakeGenerator({ fail: 'Not logged in. Run codex login.' }) });
   assert.equal(again.results[0].status, 'failed');
   const stale = await projectPage(dataDir, 'p/acme/agent-kit');
-  assert.deepEqual([stale.p.what, stale.page.conditions], [null, []]);
-  assert.doesNotMatch(stale.body, /把笔记变成能运行的智能体|pdf 的中文用途/);
-  assert.equal(stale.p.skills.find((x) => x.name === 'pdf').desc, 'Read and fill PDF forms.');
+  assert.match(stale.p.what, /把笔记变成能运行的智能体/);
+  assert.deepEqual([stale.p.ghDesc, stale.page.conditions], [null, []]);
+  assert.equal(stale.p.skills.find((x) => x.name === 'pdf').desc, 'pdf 的中文用途');
 });
 
 test('资料读不全时保留上一次的资料和简介，下次再读', async () => {

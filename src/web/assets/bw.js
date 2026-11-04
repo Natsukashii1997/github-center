@@ -61,10 +61,11 @@ window.BW = (() => {
   }
   // 首页一行：快照里的名次、并列、本期新增、名次变化与连续期数（#17）
   const item = (w, e) => view(e.repo, e.run, { e, w, rank: e.rank, tie: e.tie, gain: e.gain, st: status(e), mv: move(e.mv) });
-  // 简介没有时如实说明：不在各榜单前 20 的项目不生成项目资料（catOnly）；分类榜上还没生成中文简介的先给 GitHub 上的描述（ghDesc）；资料还没读到；资料读到了、简介还在生成
-  const gen = (it) => (it.catOnly ? `这个项目不在各榜单前 20 里，不生成简介和 Skill 列表。${it.desc ? `GitHub 上的描述：${it.desc}` : ''}` : it.ghDesc ? `中文简介还没生成。GitHub 上的描述：${it.ghDesc}` : it.installable ? '简介生成中，通常几分钟内完成；数字已是官方数据。' : '项目资料还没读到，简介和 Skill 列表会在每天出榜后补上；数字已是官方数据。');
+  // 简介没有时：不在各榜单前 20 的项目不生成项目资料（catOnly），如实说明；其余（从没生成成功过，#52）只给 GitHub 上的描述（ghDesc），
+  // 不写“生成中”“还没读到”这类内部状态；GitHub 上也没写描述就空着。
+  const gen = (it) => (it.catOnly ? `这个项目不在各榜单前 20 里，不生成简介和 Skill 列表。${it.desc ? `GitHub 上的描述：${it.desc}` : ''}` : it.ghDesc ? `GitHub 上的描述：${it.ghDesc}` : '');
   // 复制按钮：没有项目资料就不能生成安装指令，按钮禁用并写明原因（行、详情栏、Skill 行共用）
-  const noCopy = (it) => (it.installable ? '' : ` disabled title="${it.catOnly ? '这个项目不生成项目资料，没有安装指令' : '项目资料还没读到，暂时不能生成安装指令'}"`);
+  const noCopy = (it) => (it.installable ? '' : ` disabled title="${it.catOnly ? '这个项目不生成项目资料，没有安装指令' : '这个项目暂时没有安装指令'}"`);
 
   // ── 右侧详情栏内容（首页详情栏和项目页共用） ──
   // 顶部照原型：名次、标签含语言、一句话、四格读数、30 天柱图；正文只有四段：主要用途、使用场景、包含 Skill、项目信息（不放做什么、解决什么问题、使用条件）。
@@ -83,7 +84,7 @@ window.BW = (() => {
     <div class="dw-top">${cur ? `<span>No.${pad(cur.rank)}${cur.tie ? '（并列）' : ''} · ${esc(D.windows[cur.w].label)}</span><span class="mv ${cur.mv.c}">${esc(cur.mv.t)}</span>${st(cur)}` : '<span>项目页</span>'}${page?.top ? dataDay(page.top) : ''}${home ? '<button class="x" data-close aria-label="关闭">✕</button>' : ''}</div>
     <div class="dw-id"><img class="av" src="${esc(it.avatar)}" width="44" height="44" alt=""><div><h2>${esc(it.name)}</h2><a href="https://github.com/${esc(it.repo)}" target="_blank" rel="noopener">${esc(it.repo)} ↗</a></div></div>
     <div class="dw-tags">${say(it)}${def(it)}${lang(it)}</div>
-    ${it.line ? `<p class="dw-line">${esc(it.line)}</p>` : it.what == null ? `<p class="dw-gen">${esc(gen(it))}</p>` : ''}
+    ${it.line ? `<p class="dw-line">${esc(it.line)}</p>` : it.what == null && gen(it) ? `<p class="dw-gen">${esc(gen(it))}</p>` : ''}
     <div class="dw-stats">${['d1', 'd7', 'd30'].map((x) => `<div class="${x === w ? 'cur' : ''}"><b>${it.gains[x] == null ? '暂缺' : `+${num(it.gains[x])}`}</b><span>${esc(D.windows[x].label)}</span></div>`).join('')}<div><b>${it.total == null ? '暂缺' : wan(it.total)}</b><span>总 Star</span></div></div>
     ${it.series ? `<div class="dw-chart"><div class="hd"><span>近 30 天每日新增</span><span>最高一天 +${num(it.peak)}</span></div>${bars(it.series, { w: 400, h: 76, gap: 2, tip: true, day: it.seriesDay })}<div class="ax"><span>${md(shift(it.seriesDay, -29))}</span><span>${md(shift(it.seriesDay, -15))}</span><span>${md(it.seriesDay)}</span></div></div>` : ''}
     ${ul('主要用途', it.use)}

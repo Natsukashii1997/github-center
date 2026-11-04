@@ -1,14 +1,14 @@
 // 项目归类（#10）：网站各榜单这一期涉及的项目都归上类。涨星榜是三个窗口这一期全部已核数的候选（分类榜在里面重新取前 20），
 // 其他三个榜单是榜上的项目；分类榜上显示的（精选卡、历史榜前 50 所在的仓库、热点榜前 15，和补资料同一份名单 profileProjects）也归。按名称、描述和 topics 一批批交给可替换的归类器；已归过的不重归。
 // 各榜单显示的项目（每榜前 20）有了项目页资料后，再用完整资料复核一次；资料变了再复核。
-// 一批归类失败不影响其他批，这些项目算“还没归类”，下次运行再归；每归完一批就存一次，中途停下不丢已归的。
+// 一批归类失败不影响其他批，当轮重试 3 轮（#52），还不行这些项目算“还没归类”，下次运行再归；每归完一批就存一次，中途停下不丢已归的。
 //
 // 归类器接口：{ version, classify(items, { review }) → [{ i, categories }] }，i 是项目在这一批里的序号；
 // items 是 { fullName, description, topics }，复核时另有 what、problem、skills（Skill 名字）。
 import { WINDOWS } from '../ranking/stat-day.js';
 import { readLatestSnapshot, readCandidates, openStore } from '../ranking/store.js';
 import { fetchMeta } from '../ranking/meta.js';
-import { mapLimit } from '../ranking/rank-day.js';
+import { withRetries } from '../retry.js';
 import { readProfile, findProfile, currentGenerated } from '../profiles/store.js';
 import { profileProjects } from '../profiles/update.js';
 import { readCategories, saveCategories, categoryKey, pickCategories, lookup } from './store.js';
@@ -54,7 +54,7 @@ async function targets({ dataDir, gh, now, cats }) {
   return { list: out, requests };
 }
 
-export async function updateCategories({ dataDir, classifier, gh, now = () => new Date(), batch = BATCH, reviewBatch = REVIEW_BATCH }) {
+export async function updateCategories({ dataDir, classifier, gh, now = () => new Date(), batch = BATCH, reviewBatch = REVIEW_BATCH, sleep }) {
   const cats = readCategories(dataDir);
   const items = cats.items;
   const { list, requests } = await targets({ dataDir, gh, now, cats });
@@ -73,17 +73,28 @@ export async function updateCategories({ dataDir, classifier, gh, now = () => ne
     return n;
   }
 
+  // 失败的批当轮重试（#52，见 src/retry.js）；失败数和错误只算重试完还失败的。
   async function run(todo, size, review, extra) {
-    const stat = { todo: todo.length, classified: 0, failed: 0, errors: [] };
-    await mapLimit(chunks(todo, size), CONCURRENCY, async (group) => {
-      try {
-        const results = await classifier.classify(group.map((x) => x.view ?? x), { review });
-        stat.classified += apply(group, results, review ? 'review' : 'batch', extra);
-        saveCategories(dataDir, items);
-      } catch (e) {
-        stat.failed += group.length;
-        stat.errors.push(e.message);
-      }
+    const groups = chunks(todo, size);
+    const { results, rounds } = await withRetries(groups, {
+      concurrency: CONCURRENCY,
+      attempt: async (group) => {
+        try {
+          const results = await classifier.classify(group.map((x) => x.view ?? x), { review });
+          const classified = apply(group, results, review ? 'review' : 'batch', extra);
+          saveCategories(dataDir, items);
+          return { classified };
+        } catch (e) {
+          return { error: e.message };
+        }
+      },
+      isFailed: (r) => r.error != null,
+      ...(sleep && { sleep }),
+    });
+    const stat = { todo: todo.length, classified: 0, failed: 0, errors: [], rounds };
+    results.forEach((r, i) => {
+      if (r.error == null) stat.classified += r.classified;
+      else { stat.failed += groups[i].length; stat.errors.push(r.error); }
     });
     stat.unclassified = stat.todo - stat.classified - stat.failed;
     return stat;

@@ -1,7 +1,8 @@
 // 项目资料（#6）：给各榜单上的项目读 README、主要文档、仓库目录和 Skill，交给可替换的生成器写简介和使用条件。
 // 补哪些项目只在 profileProjects 一处定：涨星榜和官方热门榜（boardProjects）排前面，再加分类榜上显示的（#27）。
 // 只为首次上榜或资料过期的生成：项目没有新提交、简介和默认分支也没变就不重读；重读后资料哈希没变就不重新生成。
-// 生成失败（含 Codex 登录失效）时不拿猜测的内容顶替：项目页显示“简介生成中”，下次运行再试。
+// 生成失败（含 Codex 登录失效）时不拿猜测的内容顶替：当轮重试 3 轮（#52），还不行就显示上一次的简介，
+// 从没生成过的显示 GitHub 上的描述（shownGenerated），下次运行再试。
 //
 // 生成器接口：{ version, generate(material) → { what, problem, line, use, scene, tag, type, conditions: [{ kind, text, quote }], skills: [{ path, purpose }] } }。
 // version 变了，所有项目重新生成。
@@ -11,6 +12,7 @@ import { join } from 'node:path';
 import { githubClient } from '../ranking/github.js';
 import { openStore } from '../ranking/store.js';
 import { mapLimit } from '../ranking/rank-day.js';
+import { withRetries } from '../retry.js';
 import { isSkillFile, parseSkill } from './skills.js';
 import { boardProjects, readProfile, saveProfile } from './store.js';
 import { readSkillsBoard } from '../boards/skills.js';
@@ -224,7 +226,7 @@ async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
     saveProfile(dataDir, { ...base, material: saved, generated, lastError: null });
     return { name: info.full_name, status: 'generated' };
   } catch (e) {
-    // 旧简介照样存着（依据的是旧资料，页面不显示它，只显示“简介生成中”）。
+    // 旧简介照样存着：依据的是旧资料，网站先显示它（#52，所有者选定），重新生成好了再换。
     saveProfile(dataDir, { ...base, material: saved, generated: old?.generated ?? null, lastError: { at, message: e.message } });
     return { name: info.full_name, status: 'failed', error: e.message };
   }
@@ -255,12 +257,17 @@ export function profileProjects(dataDir) {
 }
 
 // 跑一次：处理网站上各榜单当前显示的项目（profileProjects）。一个项目出错不影响其他项目。
+// 生成失败、资料读不全的当轮重试（#52，见 src/retry.js）；rounds 是重试了几轮。
 export async function updateProfiles({ dataDir, fetch = globalThis.fetch, token, generator, now = () => new Date(), sleep }) {
   const runId = `profiles_${now().toISOString().replace(/[:.]/g, '-')}`;
   const store = openStore(dataDir, runId);
   const gh = githubClient({ fetch, token, sleep });
   const projects = profileProjects(dataDir);
-  const results = await mapLimit(projects, CONCURRENCY, (c) =>
-    updateOne({ c, dataDir, gh, fetch, store, generator, now }).catch((e) => ({ name: c.name, status: 'error', error: e.message })));
-  return { runId, results, requests: gh.stats };
+  const { results, rounds } = await withRetries(projects, {
+    concurrency: CONCURRENCY,
+    attempt: (c) => updateOne({ c, dataDir, gh, fetch, store, generator, now }).catch((e) => ({ name: c.name, status: 'error', error: e.message })),
+    isFailed: (r) => r.status === 'failed' || r.status === 'error',
+    ...(sleep && { sleep }),
+  });
+  return { runId, results, rounds, requests: gh.stats };
 }

@@ -9,7 +9,7 @@ import { readSkillsBoard, readHotBoard, HOT_SOURCES, SLOTS, PicksError } from '.
 import { poolFrom } from '../boards/picks-update.js';
 import { parseRepoInput } from '../boards/repo-link.js';
 import { readCategories } from '../categories/index.js';
-import { readProfile, currentGenerated } from '../profiles/index.js';
+import { readProfile, shownGenerated } from '../profiles/index.js';
 import { rankHistory } from '../ranking/moves.js';
 import { base, detail, latestBoards } from './pages.js';
 import { frame } from './home.js';
@@ -36,7 +36,7 @@ function details(dataDir, ctx, list) {
     if (keys.has(k)) continue;
     const profile = id ? readProfile(dataDir, id) : null;
     const { card, ranks, newest } = detail(dataDir, { id, name: profile?.fullName ?? x.repo, profile, onCategory: null }, ctx, opts);
-    const g = currentGenerated(profile);
+    const g = shownGenerated(profile);
     projects[card.repo] = { ...card, ownerId: card.ownerId ?? x.ownerId ?? null, ghDesc: x.description ?? null, generated: Boolean(g?.line) };
     views[card.repo] = { run: newest[0]?.snapshot.runId ?? null, win: ranks[0]?.w ?? null, total: newest.length ? null : x.total ?? null };
     keys.set(k, card.repo);
@@ -139,7 +139,7 @@ function candidates(dataDir, picks, form) {
     byId.set(x.id, { projectId: x.id, fullName: x.fullName, ownerId: x.ownerId ?? null, total: x.total ?? null, inTags: inTags(x.id), description: x.description ?? null });
   }
   const items = [...byId.values()].sort((a, b) => (b.total ?? -1) - (a.total ?? -1) || a.projectId - b.projectId).slice(0, CANDIDATES)
-    .map((c) => ({ ...c, line: currentGenerated(readProfile(dataDir, c.projectId))?.line ?? null }));
+    .map((c) => ({ ...c, line: shownGenerated(readProfile(dataDir, c.projectId))?.line ?? null }));
   // 粘贴的地址：已在这个标签里的回 already；候选里也没有的回 missing。
   const same = (name) => repo && name.toLowerCase() === repo.toLowerCase();
   const already = tag.cards.find((c) => same(c.fullName))?.fullName ?? null;

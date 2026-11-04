@@ -6,12 +6,13 @@ import { beijing } from '../update-steps.js';
 const STUCK_HOURS = 3;
 const GRACE_MINUTES = 120; // 到了更新时间再等 2 小时（平时 15 分钟跑完）才要求今天已跑过
 const BACKUP_STALE_DAYS = 2;
+const UNFINISHED_LISTED = 5;
 const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400_000);
 const minutesOf = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
 
 // run：lastRun()；settings：readSettings()；remote：有没有配服务器；server：服务器上网站的状态（'active' 等）或连不上时的 Error；
-// backups：listBackups()（新的在前）。
-export function healthProblems({ run, settings, remote, server, backups, now = new Date() }) {
+// backups：listBackups()（新的在前）；unfinished：榜单上简介没和当前资料对上的项目名（#52，当轮重试也没补上，网站先显示旧简介或 GitHub 描述）。
+export function healthProblems({ run, settings, remote, server, backups, unfinished = [], now = new Date() }) {
   const out = [];
   const today = beijing(now);
   if (settings.daily.on) {
@@ -24,6 +25,10 @@ export function healthProblems({ run, settings, remote, server, backups, now = n
       if (started.day < expect) out.push(`每日更新 ${daysBetween(started.day, today.day)} 天没跑了（最后一次 ${started.day} ${started.time}）：Mac 可能一直关机或睡着，网站上的数据停在那天。`);
       if (run.failed.length) out.push(`最近一次每日更新（${started.day}）有步骤失败：${run.failed.join('、')}。详情看 data/logs/update.log。`);
     }
+  }
+  if (unfinished.length) {
+    const shown = unfinished.slice(0, UNFINISHED_LISTED).join('、') + (unfinished.length > UNFINISHED_LISTED ? ' 等' : '');
+    out.push(`有 ${unfinished.length} 个榜单项目的简介没生成成功（重试过也没成），网站上先显示旧简介或 GitHub 描述：${shown}。详情看 data/logs/update.log。`);
   }
   if (remote) {
     if (server instanceof Error) out.push(`连不上服务器：${server.message}`);

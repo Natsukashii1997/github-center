@@ -36,7 +36,7 @@ function dataDir({ day = DAY, extra = {}, status } = {}) {
 }
 const build = (dir, at = '2026-11-02T02:40:00Z') => buildWeekly({ dataDir: dir, now: () => new Date(at) });
 
-test('取近 7 天最新一期前 10，末位并列一起列出；一句话取 line，没有就用 what，资料没对上写“简介生成中”', () => {
+test('取近 7 天最新一期前 10，末位并列一起列出；一句话取 line，没有就用 what，资料没对上先用上一次的（#52）', () => {
   const dir = dataDir();
   const r = build(dir);
   assert.equal(r.status, 'published');
@@ -45,7 +45,7 @@ test('取近 7 天最新一期前 10，末位并列一起列出；一句话取 l
   assert.equal(weekly.entries.length, 11);
   assert.deepEqual(weekly.entries.slice(-3).map((e) => [e.rank, e.repo, e.tie]), [[9, 'acme/p9', false], [10, 'acme/tie-a', true], [10, 'acme/tie-b', true]]);
   assert.ok(!weekly.entries.some((e) => e.repo === 'acme/p12'));
-  assert.deepEqual(weekly.entries.slice(0, 3).map((e) => e.line), ['把脚本一键变成\n命令行工具', '一个本地优先的笔记应用。', null]);
+  assert.deepEqual(weekly.entries.slice(0, 3).map((e) => e.line), ['把脚本一键变成\n命令行工具', '一个本地优先的笔记应用。', '旧一句话']);
   assert.deepEqual(readWeekly(dir, DAY), weekly);
 });
 
@@ -58,10 +58,16 @@ test('飞书消息：标题带日期区间，每个项目写名次、近 7 天�
   assert.match(text, /^## GitHub 本周涨星前 10 · 10 月 26 日–11 月 1 日\n\n涨星榜近 7 天，数据截至 11 月 1 日（UTC 统计日），11 月 2 日 10:40（北京时间）生成。\n\n\*\*1\. /);
   assert.ok(text.includes('**1. [acme/rocket](http://127.0.0.1:5310/p/acme/rocket)**　近 7 天 +12,000　总 Star 120,000　[GitHub](https://github.com/acme/rocket)\n把脚本一键变成 命令行工具\n'));
   assert.ok(text.includes('[GitHub](https://github.com/acme/notes)\n一个本地优先的笔记应用。\n'));
-  assert.ok(text.includes('[GitHub](https://github.com/acme/old)\n简介生成中。\n'));
+  assert.ok(text.includes('[GitHub](https://github.com/acme/old)\n旧一句话\n'));
   assert.ok(text.includes('**10. [acme/tie-b](http://127.0.0.1:5310/p/acme/tie-b)**（并列）　近 7 天 +1,000'));
   assert.ok(!text.includes('**提示**'));
   assert.ok(!text.includes('acme/p12'));
+  // 从没生成过一句话（#52）：给 GitHub 上的描述，也没有就只列名字和数字，不写“生成中”。
+  const bare = { ...r.weekly, entries: [{ ...r.weekly.entries[0], line: null, desc: 'Ship scripts\nas CLIs' }, { ...r.weekly.entries[1], line: null, desc: null }] };
+  const md = weeklyMarkdown(bare);
+  assert.ok(md.includes('[GitHub](https://github.com/acme/rocket)\nGitHub 上的描述：Ship scripts as CLIs\n'));
+  assert.ok(md.includes('[GitHub](https://github.com/acme/notes)\n\n数字来自'));
+  assert.doesNotMatch(md, /生成中/);
 });
 
 test('数据不是最新：没有失败记录时写明最近一期应是哪天、下面是哪天的数据', () => {

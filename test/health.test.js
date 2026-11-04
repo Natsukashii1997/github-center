@@ -42,3 +42,10 @@ test('服务器和备份', () => {
   assert.deepEqual(healthProblems({ ...ok, backups: ['center-2026-11-02.db'] }), [], '前天的备份还行');
   assert.deepEqual(healthProblems({ ...ok, backups: ['center-2026-10-31.db'] }), ['服务器库的最新备份是 2026-10-31，已经 4 天没备份了。']);
 });
+
+test('榜单项目的简介重试后还没生成成功：报出个数和前 5 个名字（#52）', () => {
+  assert.deepEqual(healthProblems({ ...ok, unfinished: ['acme/a', 'acme/b'] }),
+    ['有 2 个榜单项目的简介没生成成功（重试过也没成），网站上先显示旧简介或 GitHub 描述：acme/a、acme/b。详情看 data/logs/update.log。']);
+  const many = ['a/1', 'a/2', 'a/3', 'a/4', 'a/5', 'a/6'];
+  assert.match(healthProblems({ ...ok, unfinished: many })[0], /^有 6 个榜单项目.*：a\/1、a\/2、a\/3、a\/4、a\/5 等。/);
+});

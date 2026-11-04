@@ -13,7 +13,7 @@ const t0 = performance.now();
 const token = process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const r = await updateCategories({ dataDir: values.data, gh: githubClient({ fetch: globalThis.fetch, token }), classifier: codexClassifier({ effort: readSettings(values.data).effort.classify }) });
 
-const line = (name, s) => `${name}：要归 ${s.todo} 个，归上 ${s.classified} 个，没归上 ${s.unclassified} 个，失败 ${s.failed} 个${s.errors.length ? `（${s.errors.length} 批，如 ${s.errors[0]}）` : ''}`;
+const line = (name, s) => `${name}：要归 ${s.todo} 个，归上 ${s.classified} 个，没归上 ${s.unclassified} 个，失败 ${s.failed} 个${s.errors.length ? `（${s.errors.length} 批，如 ${s.errors[0]}）` : ''}${s.rounds ? `；失败的批当轮重试了 ${s.rounds} 轮` : ''}`;
 console.log(`这一期涉及项目 ${r.targets} 个；补取其他榜单项目资料的 GraphQL 请求 ${r.requests.graphql} 次`);
 console.log(line('批量归类（名称、描述、topics）', r.batch));
 console.log(line('上榜项目复核（项目页资料）', r.review));

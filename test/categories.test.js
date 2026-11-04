@@ -46,7 +46,7 @@ test('已核数的候选都归上类：只认清单里的分类，去重，最�
   const answers = { 'a/one': ['Skill', 'Agent／MCP', 'Skill', 'AI 应用工具'], 'b/two': ['不存在的分类'], 'c/three': [], 'd/four': ['其他'] };
   const classifier = fakeClassifier({ answer: (x) => answers[x.fullName] });
   const r = await updateCategories({ dataDir, classifier, gh: noGh });
-  assert.deepEqual({ ...r.batch, errors: undefined }, { todo: 4, classified: 2, unclassified: 2, failed: 0, errors: undefined });
+  assert.deepEqual({ ...r.batch, errors: undefined }, { todo: 4, classified: 2, unclassified: 2, failed: 0, errors: undefined, rounds: 0 });
   const cats = readCategories(dataDir);
   assert.deepEqual(cats.get({ id: 1, fullName: 'a/one' }).categories, ['Skill', 'Agent／MCP']);
   assert.equal(cats.get({ id: 1, fullName: 'a/one' }).source, 'batch');
@@ -103,15 +103,27 @@ test('分类榜上显示的项目也归类：历史榜（Skill 安装量）上�
   assert.ok(readCategories(dataDir).get({ id: 1092047360, fullName: 'luongnv89/claude-howto' }));
 });
 
-test('一批归类失败不影响其他批：已归的存下，失败的算没归类，下次再归', async () => {
+test('一批归类失败不影响其他批：重试 3 轮还失败的算没归类，下次再归；已归的存下', async () => {
   const dataDir = seed({ items: [item(1, 'a/one'), item(2, 'b/two'), item(3, 'c/three'), item(4, 'd/four')] });
-  const r = await updateCategories({ dataDir, classifier: fakeClassifier({ throwIf: (x) => x.fullName === 'c/three' }), gh: noGh, batch: 2 });
+  const r = await updateCategories({ dataDir, classifier: fakeClassifier({ throwIf: (x) => x.fullName === 'c/three' }), gh: noGh, batch: 2, sleep: async () => {} });
   assert.equal(r.batch.failed, 2);
   assert.equal(r.batch.classified, 2);
-  assert.match(r.batch.errors[0], /Codex 生成失败/);
+  assert.equal(r.batch.rounds, 3);
+  assert.deepEqual(r.batch.errors, ['Codex 生成失败（退出码 1）'], '只记重试完还失败的那一批');
   const cats = readCategories(dataDir);
   assert.ok(cats.get({ id: 1, fullName: 'a/one' }) && cats.get({ id: 2, fullName: 'b/two' }));
   assert.equal(cats.get({ id: 3, fullName: 'c/three' }), null);
+});
+
+test('归类偶发失败当轮重试补上（#52）', async () => {
+  const dataDir = seed({ items: [item(1, 'a/one'), item(2, 'b/two'), item(3, 'c/three'), item(4, 'd/four')] });
+  let failures = 1;
+  const classifier = fakeClassifier({ throwIf: (x) => x.fullName === 'c/three' && failures-- > 0 });
+  const waits = [];
+  const r = await updateCategories({ dataDir, classifier, gh: noGh, batch: 2, sleep: async (ms) => { waits.push(ms); } });
+  assert.deepEqual([r.batch.classified, r.batch.failed, r.batch.errors, r.batch.rounds], [4, 0, [], 1]);
+  assert.deepEqual(waits, [60_000]);
+  assert.ok(readCategories(dataDir).get({ id: 3, fullName: 'c/three' }));
 });
 
 test('上榜项目有了项目页资料后用完整资料复核一次，结果覆盖批量归类；资料变了再复核', async () => {

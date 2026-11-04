@@ -4,6 +4,7 @@ import { readSettings } from '../src/settings/index.js';
 import { lastRun } from '../src/update-steps.js';
 import { readRemote, serverStatus, listBackups } from '../src/remote/index.js';
 import { healthProblems } from '../src/remote/health.js';
+import { boardProjects, readProfile, findProfile, currentGenerated } from '../src/profiles/store.js';
 
 const remote = readRemote('data');
 let server = null;
@@ -14,5 +15,10 @@ if (remote) {
     server = e;
   }
 }
-const problems = healthProblems({ run: lastRun('data'), settings: readSettings('data'), remote: Boolean(remote), server, backups: listBackups('data') });
+// 各榜单前 20 里还没有和当前资料对上的简介的项目（#52）。只读快照和项目资料文件，不开库；
+// 分类榜上的项目没生成成功时，补资料这一步退出码为 1，上面“有步骤失败”会报。
+const unfinished = boardProjects('data')
+  .filter((p) => !currentGenerated(p.id ? readProfile('data', p.id) : findProfile('data', p.name)))
+  .map((p) => p.name);
+const problems = healthProblems({ run: lastRun('data'), settings: readSettings('data'), remote: Boolean(remote), server, backups: listBackups('data'), unfinished });
 if (problems.length) console.log(`🌟 Github·Tidings 自检\n${problems.map((p) => `- ${p}`).join('\n')}`);
