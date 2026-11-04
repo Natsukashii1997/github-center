@@ -179,6 +179,22 @@ async function resolveTop({ gh, ranked }) {
   return { entries: [...byId.values()].sort((a, b) => b.heat - a.heat), resolve };
 }
 
+// 帖子 → 一天的快照（各来源计入几个帖子、核热度最高的仓库、按热度排名）。
+async function snapshotOf({ gh, day, at, from, sources, posts }) {
+  for (const [s, x] of Object.entries(sources)) x.posts = posts.filter((p) => p.source === s).length;
+  const { entries, resolve } = await resolveTop({ gh, ranked: aggregate(posts) });
+  return {
+    board: BOARD,
+    statDay: day,
+    fetchedAt: at.toISOString(),
+    window: { from: new Date(from * 1000).toISOString(), to: at.toISOString() },
+    sources,
+    resolve,
+    entries: entries.map((e, i) => ({ rank: i + 1, repo: e.repo, id: e.id, ownerId: e.ownerId, description: e.description, total: e.total, heat: e.heat, sources: e.sources, posts: e.posts, aliases: e.aliases })),
+    posts,
+  };
+}
+
 // 跑一次：返回 { status: 'published' | 'exists' | 'failed', path?, snapshot?, error?, requests }。
 // gh：ranking/github.js 的 githubClient（只用 graphql，一次请求）；get：jsonGetter().get。
 export async function updateHot({ dataDir, gh, get, now = () => new Date(), enabled = {} }) {
@@ -215,22 +231,43 @@ export async function updateHot({ dataDir, gh, get, now = () => new Date(), enab
     && (!SOURCES[p.source].complete || sources[p.source].status !== 'ok')
     && Date.parse(p.createdAt) / 1000 > from && !seen.has(`${p.source}:${p.id}`));
   const posts = [...fresh, ...carried];
-  for (const [s, x] of Object.entries(sources)) x.posts = posts.filter((p) => p.source === s).length;
-
-  const { entries, resolve } = await resolveTop({ gh, ranked: aggregate(posts) });
-  const snapshot = {
-    board: BOARD,
-    statDay: day,
-    fetchedAt: at.toISOString(),
-    window: { from: new Date(from * 1000).toISOString(), to: at.toISOString() },
-    sources,
-    resolve,
-    entries: entries.map((e, i) => ({ rank: i + 1, repo: e.repo, id: e.id, ownerId: e.ownerId, description: e.description, total: e.total, heat: e.heat, sources: e.sources, posts: e.posts, aliases: e.aliases })),
-    posts,
-  };
+  const snapshot = await snapshotOf({ gh, day, at, from, sources, posts });
   const r = writeOnce(dataDir, join('snapshots', BOARD, `${day}.json`), JSON.stringify(snapshot));
   recordStatus(dataDir, { day, at: at.toISOString(), boards: { [BOARD]: { status: r.status } } });
   return { ...r, snapshot };
+}
+
+// 补录（所有者 2026-11-04 定）：给过去没存快照的某天补一份，当作那天北京时间 10:00（每日更新的默认时间）量的。
+// 过去某一刻的点数、评论数查不到，只能用补录这一刻接口给的数回推：窗口里离那天最近一两天发的帖子，当时还没涨到现在这么多，补出来偏高；
+// V2EX 接口翻不到旧帖，只用已存快照里见过的帖子（取最近一次量到的回复数），偏低。快照记 backfilled，页面写明哪几天是补录的。
+// 只补今天（UTC）以前、还没有快照的日子；不改 status.json。返回 { status: 'published' | 'exists', path, snapshot? }，HN 失败直接抛错。
+export const BACKFILL_NOTE = '补录：按补录时量到的点数、评论数回推，离这天最近一两天发的帖子会偏高；V2EX 旧帖翻不到，只算见过的，会偏低';
+export async function backfillHot({ dataDir, gh, get, day, now = () => new Date() }) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day >= now().toISOString().slice(0, 10)) throw new Error(`只能补今天以前的日子：${day}`);
+  const done = findSnapshot(dataDir, BOARD, day);
+  if (done) return { status: 'exists', ...done };
+  const at = new Date(`${day}T02:00:00Z`);
+  const to = at.getTime() / 1000;
+  const from = to - WINDOW_DAYS * 86400;
+  const saved = new Map();
+  for (const [, file] of [...dailySnapshots(dataDir)].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    for (const p of readJson(file).posts ?? []) saved.set(`${p.source}:${p.id}`, p);
+  }
+  const inWindow = (p) => Date.parse(p.createdAt) / 1000 > from && Date.parse(p.createdAt) / 1000 <= to;
+  const sources = {};
+  const posts = [];
+  for (const [s, src] of Object.entries(SOURCES)) {
+    if (src.complete) {
+      const r = await src.fetch({ get, from, to });
+      sources[s] = { status: 'ok', fetched: r.posts.length, ...(r.truncated ? { truncated: r.truncated } : {}) };
+      posts.push(...r.posts);
+    } else {
+      sources[s] = { status: 'ok', fetched: 0 };
+      posts.push(...[...saved.values()].filter((p) => p.source === s && inWindow(p)));
+    }
+  }
+  const snapshot = { ...(await snapshotOf({ gh, day, at, from, sources, posts })), backfilled: { at: now().toISOString(), note: BACKFILL_NOTE } };
+  return { ...writeOnce(dataDir, join('snapshots', BOARD, `${day}.json`), JSON.stringify(snapshot)), snapshot };
 }
 
 // 存下的每日快照（按日期）。
@@ -244,6 +281,7 @@ function dailySnapshots(dataDir) {
 // 返回 { day, fetchedAt, days, complete, sources, entries: [{ rank, repo, id, ownerId, description, total, heat, sources, posts,
 //   series: [{ day, heat }]（7 个，从早到晚）, change: { yesterday, delta, ratio } | null }], failure } ；没有快照返回 null。
 // days：近 7 天里存了快照的天数；不满 7（complete 为 false）时页面写「记录不满 7 天（已记 N 天）」。
+// backfilled：近 7 天里哪几天是补录的（见 backfillHot），页面写明。
 // change：前一天没有快照为 null；前一天热度是 0（新上来的）时 ratio 为 null。
 export function readHotBoard(dataDir, { show = SHOW } = {}) {
   const snapshot = readLatestSnapshot(dataDir, BOARD);
@@ -251,8 +289,10 @@ export function readHotBoard(dataDir, { show = SHOW } = {}) {
   if (!snapshot) return failure ? { day: null, fetchedAt: null, days: 0, complete: false, sources: {}, entries: [], failure } : null;
   const files = dailySnapshots(dataDir);
   const days = windowDays(snapshot.statDay, WINDOW_DAYS);
+  const backfilled = [];
   const heatByDay = new Map(days.map((d) => {
     const s = d === snapshot.statDay ? snapshot : files.has(d) ? readJson(files.get(d)) : null;
+    if (s?.backfilled) backfilled.push(d);
     return [d, s && new Map(aggregate(s.posts).map((r) => [r.key, r.heat]))];
   }));
   const heatOn = (d, aliases) => {
@@ -271,6 +311,7 @@ export function readHotBoard(dataDir, { show = SHOW } = {}) {
     fetchedAt: snapshot.fetchedAt,
     days: recorded,
     complete: recorded >= WINDOW_DAYS,
+    backfilled,
     sources: snapshot.sources,
     entries,
     failure: failure && { day: failure.day, at: failure.at, error: failure.error },

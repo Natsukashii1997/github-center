@@ -1,18 +1,32 @@
 // 更新热点榜：npm run hot -- [--data data]
+// 补录过去没存快照的日子（见 src/boards/hot.js 的 backfillHot，页面会写明是补录的）：npm run hot -- --backfill 2026-10-29 [--until 2026-11-02]
+//   每天 HN 7 次请求、GitHub GraphQL 1 次；V2EX 不请求，只用已存快照里见过的帖子。已有快照的日子跳过。
 // 从 Hacker News（Algolia 公开搜索接口，7 次请求）和 V2EX（公开接口，7 次请求）找近 7 天指向 GitHub 仓库的帖子，
 // 热度 = 点赞数 + 评论数，存成当天（UTC）的快照；再用一次 GitHub GraphQL 核热度最高的 40 个仓库。当天已存过就不再请求。
 // token 取法和出榜一样。两个来源都失败时保留上一次快照、记进 status.json，退出码为 1；只有一个来源失败时照常发布并写明。
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { githubClient } from '../src/ranking/github.js';
-import { updateHot, readHotBoard, jsonGetter, HOT_SOURCES } from '../src/boards/index.js';
+import { updateHot, backfillHot, readHotBoard, jsonGetter, HOT_SOURCES } from '../src/boards/index.js';
 import { readSettings } from '../src/settings/index.js';
 
-const { values } = parseArgs({ options: { data: { type: 'string', default: 'data' } } });
+const { values } = parseArgs({ options: { data: { type: 'string', default: 'data' }, backfill: { type: 'string' }, until: { type: 'string' } } });
 const t0 = performance.now();
 const token = process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const gh = githubClient({ fetch: globalThis.fetch, token });
 const http = jsonGetter();
+if (values.backfill) {
+  const last = values.until ?? values.backfill;
+  for (let d = values.backfill; d <= last; d = new Date(Date.parse(d) + 864e5).toISOString().slice(0, 10)) {
+    const r = await backfillHot({ dataDir: values.data, gh, get: http.get, day: d });
+    if (r.status === 'exists') { console.log(`${d}：已有快照，跳过`); continue; }
+    const s = r.snapshot;
+    console.log(`${d}：已补录 ${r.path}；HN 链到仓库的帖子 ${s.sources.hn.fetched} 个${s.sources.hn.truncated ? `（${s.sources.hn.truncated} 条超出单次上限没取到）` : ''}，V2EX 沿用见过的 ${s.sources.v2ex.posts} 个；上榜仓库 ${s.entries.length} 个（核了 ${s.resolve.requested} 个，查到 ${s.resolve.found} 个${s.resolve.failed ? '；GraphQL 失败，未核' : ''}）；第一名 ${s.entries[0]?.repo ?? '—'} ${s.entries[0]?.heat ?? ''}`);
+  }
+  const b = readHotBoard(values.data);
+  console.log(`走势已记 ${b.days} 天，其中补录 ${b.backfilled.length} 天；公开接口请求 ${http.stats.requests} 次，GitHub GraphQL ${gh.stats.graphql} 次；耗时 ${((performance.now() - t0) / 1000).toFixed(1)} 秒`);
+  process.exit();
+}
 // 设置页关掉的来源不抓，沿用上一次的帖子。
 const r = await updateHot({ dataDir: values.data, gh, get: http.get, enabled: readSettings(values.data).sources });
 
