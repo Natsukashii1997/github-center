@@ -127,7 +127,9 @@ function dataDirWithBoard() {
   return dir;
 }
 const now = () => new Date('2026-10-23T02:00:00Z');
-const run = (dataDir, { upstream = fakeGitHub(repos()), generator = fakeGenerator() } = {}) => updateProfiles({ dataDir, fetch: upstream.fetch, token: 't', generator, now, sleep: async () => {} });
+// 31 天后：简介过了 30 天，资料变了才重读、重新生成（#54）。
+const later = () => new Date('2026-11-23T02:00:00Z');
+const run = (dataDir, { upstream = fakeGitHub(repos()), generator = fakeGenerator(), at = now } = {}) => updateProfiles({ dataDir, fetch: upstream.fetch, token: 't', generator, now: at, sleep: async () => {} });
 
 test('首次上榜：读 README、仓库目录和 Skill 生成项目资料；项目页有简介、原文里有的使用条件、Skill 列表和原项目链接', async () => {
   const dataDir = dataDirWithBoard();
@@ -214,7 +216,7 @@ test('分类榜上显示的项目也补资料（#27）：涨星榜的排前面�
   assert.ok(!existsSync(join(bare, 'center.db')));
 });
 
-test('资料没变不重复生成：没有新提交就不重读；有新提交但资料没变也不重新生成；README 变了才重新生成', async () => {
+test('资料没变不重复生成：没有新提交就不重读；简介不到 30 天，有新提交也不重读；过了 30 天，资料没变不重新生成，README 变了才重新生成', async () => {
   const dataDir = dataDirWithBoard();
   await run(dataDir);
   const list = repos();
@@ -226,20 +228,28 @@ test('资料没变不重复生成：没有新提交就不重读；有新提交�
   assert.ok(!again.calls.some((u) => /readme|trees|raw\.githubusercontent/.test(u)), '没有新提交就不重读资料');
 
   list[0].info.pushed_at = '2026-10-23T01:00:00Z';
-  r = await run(dataDir, { upstream: fakeGitHub(list), generator });
+  list[0].readme = `${AGENT_README}\nNow also supports Go.\n`;
+  const pushed = fakeGitHub(list);
+  r = await run(dataDir, { upstream: pushed, generator });
+  assert.deepEqual(r.results.map((x) => x.status), ['unchanged', 'unchanged']);
+  assert.ok(!pushed.calls.some((u) => /readme|trees|raw\.githubusercontent/.test(u)), '简介不到 30 天，有新提交也不重读');
+  assert.equal(generator.calls.length, 0);
+
+  list[0].readme = AGENT_README;
+  r = await run(dataDir, { upstream: fakeGitHub(list), generator, at: later });
   assert.deepEqual(r.results.map((x) => x.status), ['reused', 'unchanged']);
   assert.equal(generator.calls.length, 0);
 
   list[0].info.pushed_at = '2026-10-23T02:00:00Z';
   list[0].readme = `${AGENT_README}\nNow also supports Python.\n`;
-  r = await run(dataDir, { upstream: fakeGitHub(list), generator });
+  r = await run(dataDir, { upstream: fakeGitHub(list), generator, at: later });
   assert.deepEqual(r.results.map((x) => x.status), ['generated', 'unchanged']);
   assert.equal(generator.calls.length, 1);
   assert.match(generator.calls[0].readme.text, /supports Python/);
 
   // 没有新提交、只改了 GitHub 上的简介，也算资料变了。
   list[1].info.description = 'Tiny, now described';
-  r = await run(dataDir, { upstream: fakeGitHub(list), generator });
+  r = await run(dataDir, { upstream: fakeGitHub(list), generator, at: later });
   assert.deepEqual(r.results.map((x) => x.status), ['unchanged', 'generated']);
   assert.equal(generator.calls[1].description, 'Tiny, now described');
 });
@@ -283,7 +293,7 @@ test('生成失败或 Codex 登录失效：重试 3 轮还失败，不拿猜测�
   const list = repos();
   list[0].info.pushed_at = '2026-10-23T03:00:00Z';
   list[0].readme = `${AGENT_README}\nNow requires a paid license.\n`;
-  const again = await run(dataDir, { upstream: fakeGitHub(list), generator: fakeGenerator({ fail: 'Not logged in. Run codex login.' }) });
+  const again = await run(dataDir, { upstream: fakeGitHub(list), generator: fakeGenerator({ fail: 'Not logged in. Run codex login.' }), at: later });
   assert.equal(again.results[0].status, 'failed');
   const stale = await projectPage(dataDir, 'p/acme/agent-kit');
   assert.match(stale.p.what, /把笔记变成能运行的智能体/);
@@ -297,7 +307,7 @@ test('资料读不全时保留上一次的资料和简介，下次再读', async
   const list = repos();
   list[0].info.pushed_at = '2026-10-23T01:00:00Z';
   list[0].rawMissing = ['skills/pdf/SKILL.md'];
-  const r = await run(dataDir, { upstream: fakeGitHub(list) });
+  const r = await run(dataDir, { upstream: fakeGitHub(list), at: later });
   assert.equal(r.results[0].status, 'error');
   assert.match(r.results[0].error, /skills\/pdf\/SKILL\.md 读取失败/);
   const saved = JSON.parse(readFileSync(join(dataDir, 'profiles', '101.json'), 'utf8'));

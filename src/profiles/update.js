@@ -1,6 +1,7 @@
 // 项目资料（#6）：给各榜单上的项目读 README、主要文档、仓库目录和 Skill，交给可替换的生成器写简介和使用条件。
 // 补哪些项目只在 profileProjects 一处定：涨星榜和官方热门榜（boardProjects）排前面，再加分类榜上显示的（#27）。
 // 只为首次上榜或资料过期的生成：项目没有新提交、简介和默认分支也没变就不重读；重读后资料哈希没变就不重新生成。
+// 简介生成不到 30 天的，资料变了也不重读、不重新生成（#54：热门项目几乎天天推送，原先每次都重读重生成，Codex 额度扛不住）。
 // 生成失败（含 Codex 登录失效）时不拿猜测的内容顶替：当轮重试 3 轮（#52），还不行就显示上一次的简介，
 // 从没生成过的显示 GitHub 上的描述（shownGenerated），下次运行再试。
 //
@@ -33,6 +34,8 @@ const MAX_SKILLS = 200;
 const MAX_LISTING = 200;
 // 同时处理的项目数：Codex 生成慢，4 个同时跑（#50 实测：2→4 快 1.7 倍；6 开始限流、单次变慢并出现失败）。
 const CONCURRENCY = 4;
+// 简介最多多久刷新一次（#54）。
+const REFRESH_DAYS = 30;
 const RAW = 'https://raw.githubusercontent.com';
 const RAW_TIMEOUT_MS = 30_000;
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
@@ -194,8 +197,11 @@ async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
   // 没有新提交，GitHub 上的简介、topics、默认分支也没变，资料就没变。
   const sameSource = old?.material && old.pushedAt === info.pushed_at && old.defaultBranch === info.default_branch
     && old.material.description === info.description && JSON.stringify(old.material.topics) === JSON.stringify(info.topics ?? []);
-  if (sameSource && upToDate(old.generated, old.material.hash)) {
-    saveProfile(dataDir, { ...old, ...base });
+  // 简介和存下的资料对得上、生成不到 30 天：资料变了也先沿用，不重读、不重新生成（#54）。
+  const recent = old?.generated && Date.parse(at) - Date.parse(old.generated.at) < REFRESH_DAYS * 86400_000;
+  if (upToDate(old?.generated, old?.material?.hash) && (sameSource || recent)) {
+    // 沿用时来源信息（最近推送、默认分支、简介）不更新，过了 30 天才比得出资料变没变；最新正式版照这次查到的写。
+    saveProfile(dataDir, sameSource ? { ...old, ...base } : { ...old, release, checkedAt: at });
     return { name: info.full_name, status: 'unchanged' };
   }
   let read;

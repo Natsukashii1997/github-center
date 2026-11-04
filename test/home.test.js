@@ -127,7 +127,7 @@ test('自检不通过或有候选核数失败时，标“可能不完整”并�
     incomplete: true,
   });
   const { body, data } = await home(dir);
-  assert.deepEqual(data.windows.d1.notes, [{ tone: 'warn', icon: 'warn', title: '可能不完整', text: '自检未通过，估计漏掉一个该上榜项目的概率约万分之 1.1（要求小于百万分之一）；1 个候选的官方核数失败，名次可能有出入。' }, { icon: 'calendar', title: '没有上一期', text: '暂不显示名次变化。' }]);
+  assert.deepEqual(data.windows.d1.notes, [{ tone: 'warn', icon: 'warn', title: '可能不完整', text: '自检未通过，估计漏掉一个该上榜项目的概率约万分之 1.1（要求小于百分之一）；1 个候选的官方核数失败，名次可能有出入。' }, { icon: 'calendar', title: '没有上一期', text: '暂不显示名次变化。' }]);
   assert.deepEqual(data.windows.d1.top, { tone: 'warn', text: '可能不完整 · 10 月 22 日数据' });
   // 事件记录次数和候选门槛只用于自检，不上页面。
   assert.doesNotMatch(body, /3891|门槛/);
