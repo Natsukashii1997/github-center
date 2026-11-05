@@ -2,6 +2,11 @@
 
 更新日期：2026-10-24（上午，#11、#10 已关闭）。最近运行只读回读：13:58（北京时间，Claude接手核验，与13:44一致）；严格实验状态 10-24 10:22 只读回读：runner.py 随 09:29 电脑重启停止，status.json 停在 09:29（cold 仍在 collect_initial），尚无日榜结果。
 
+## 2026-11-05 · 周报加飞书卡片（#59，PR #60 `04b2b36`）
+
+- 每期周报另写 `data/weekly/<统计日>.card.json`（卡片 JSON 2.0，常浩选的 B 版排行榜）；本仓库只生成，不发送。发送由 digital-twin 的猛鬼兽定时任务每周一 11:30 发到常浩私聊（digital-twin #55 / PR #56），约定见 `docs/handoff/weekly-hermes.md`「卡片」。
+- 合并前跑过 code-review，修了提示标题转义、提示正文并成一行、交接文档关于补卡片的错误说法。`npm test` 201 项通过。合并后主目录跑 `npm run weekly` 补出了 `2026-11-04.card.json`。
+
 ## 交接入口与本地变更
 
 用户要求由Claude接手，交接文档见[HANDOFF.md](HANDOFF.md)，可复制任务见[CLAUDE_HANDOFF_PROMPT.md](CLAUDE_HANDOFF_PROMPT.md)。本轮仅写文档，未移交运行写入权、未暂停github-2、未恢复采集、未提交或推送。远端基线仍为d4d0539088956f4ba131e6ef122e0863b2e7a397；交接与本次需求补全为本地未提交版本。
