@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildWeekly, weeklyMarkdown, readWeekly } from '../src/weekly/index.js';
+import { buildWeekly, weeklyMarkdown, weeklyCard, readWeekly } from '../src/weekly/index.js';
 
 const DAY = '2026-11-01';
 const put = (dir, path, obj) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), JSON.stringify(obj)); };
@@ -96,10 +96,68 @@ test('按统计日只写一次：再跑不重写；消息文件中途没写成�
   assert.deepEqual([again.status, again.statDay, again.weekly], ['exists', DAY, undefined]);
   assert.deepEqual(readWeekly(dir, DAY), first.weekly);
   rmSync(join(dir, first.feishuPath));
+  rmSync(join(dir, first.cardPath));
   build(dir);
   assert.equal(readFileSync(join(dir, first.feishuPath), 'utf8'), weeklyMarkdown(first.weekly));
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, first.cardPath), 'utf8')), weeklyCard(first.weekly));
   writeFileSync(join(dir, first.feishuPath), '已经交给机器人的版本');
   build(dir);
   assert.equal(readFileSync(join(dir, first.feishuPath), 'utf8'), '已经交给机器人的版本');
   assert.equal(build(mkdtempSync(join(tmpdir(), 'gc-weekly-'))).status, 'missing');
+});
+
+// #59：飞书卡片（B 版排行榜，卡片 JSON 2.0）。横幅图由猛鬼兽插在最前面，这里不含图片。
+const texts = (els) => els.flatMap((el) => (el.tag === 'column_set' ? el.columns.flatMap((c) => texts(c.elements)) : [el.content ?? el.text?.content ?? '']));
+
+test('飞书卡片：橙色标题栏带日期区间；前 3 名灰底带奖牌和总 Star，其余三列；整行点开 GitHub；并列、新项目、按钮和来源都在', () => {
+  const dir = dataDir();
+  const r = build(dir);
+  assert.equal(r.cardPath, `weekly/${DAY}.card.json`);
+  const card = JSON.parse(readFileSync(join(dir, r.cardPath), 'utf8'));
+  assert.deepEqual(card, weeklyCard(r.weekly));
+  assert.equal(card.schema, '2.0');
+  assert.deepEqual([card.header.template, card.header.title.content, card.header.subtitle.content, card.header.text_tag_list[0].text.content],
+    ['orange', '🏆 GitHub 本周涨星榜', '10 月 26 日–11 月 1 日 · 近 7 天新增 Star', 'TOP 10']);
+  assert.equal(card.config.summary.content, 'GitHub 本周涨星前 10 · 10 月 26 日–11 月 1 日');
+
+  const els = card.body.elements;
+  const rows = els.filter((e) => e.tag === 'column_set' && e.action);
+  assert.equal(rows.length, 11);
+  assert.deepEqual(rows.map((e) => e.action.multi_url.url).slice(0, 2), ['https://github.com/acme/rocket', 'https://github.com/acme/notes']);
+  assert.deepEqual(rows.map((e) => e.background_style ?? null).slice(0, 4), ['grey-100', 'grey-100', 'grey-100', null]);
+  assert.deepEqual(texts([rows[0]]), ['🥇', '**acme/rocket**\n<font color=\'grey\'>把脚本一键变成 命令行工具</font>', "<font color='orange'>**+12,000**</font>\n<font color='grey'>总 12 万</font>"]);
+  assert.deepEqual(texts([rows[3]]), ["<font color='grey'>**4**</font>", '**acme/p4**', "<font color='orange'>**+5,000**</font>"]);
+  assert.ok(texts([rows[10]])[1].startsWith('**acme/tie-b**（并列）'));
+  assert.ok(!JSON.stringify(card).includes('acme/p12'));
+  assert.ok(!JSON.stringify(card).includes('新项目'));
+
+  const buttons = els.find((e) => e.tag === 'column_set' && !e.action).columns.map((c) => c.elements[0]);
+  assert.deepEqual(buttons.map((b) => [b.text.content, b.behaviors[0].default_url]), [
+    ['GitHub 周趋势', 'https://github.com/trending?since=weekly'],
+    ['完整涨星榜（电脑）', 'http://127.0.0.1:5310/stars?w=d7'],
+    ['我的收藏（电脑）', 'http://127.0.0.1:5310/favorites'],
+  ]);
+  assert.equal(els.at(-2).tag, 'hr');
+  assert.match(els.at(-1).content, /^来自 Github·Tidings · 数据截至 11 月 1 日（UTC 统计日），11 月 2 日 10:40（北京时间）生成。/);
+});
+
+test('飞书卡片：有提示先列提示；新项目打标签；没有一句话用 GitHub 描述或只列名字；Markdown 符号转义；没有项目写明', () => {
+  const r = build(dataDir(), '2026-11-04T02:40:00Z');
+  const base = r.weekly.entries[0];
+  const w = { ...r.weekly, entries: [
+    { ...base, repo: 'a_b/x*y', gain: 9000, total: 9500, line: null, desc: 'Ship <scripts>\nfast' },
+    { ...base, rank: 2, repo: 'acme/bare', line: null, desc: null },
+  ] };
+  const els = weeklyCard(w).body.elements;
+  assert.equal(els[0].content, "<font color='orange'>**⚠️ 提示**</font>\n- 不是最新数据：最近一期应是 11 月 3 日，还没出；下面是 11 月 1 日的数据。");
+  assert.equal(texts([els[1]])[1], "**a&#95;b/x&#42;y** <text_tag color='red'>新项目</text_tag>\n<font color='grey'>GitHub 上的描述：Ship &#60;scripts&#62; fast</font>");
+  assert.equal(texts([els[2]])[1], '**acme/bare**');
+  assert.equal(weeklyCard({ ...w, notes: [], entries: [] }).body.elements[0].content, '这一期没有核出项目。');
+  // 提示的标题和正文也转义；失败原因里的换行并成一行，免得断开提示列表。
+  const note = weeklyCard({ ...w, notes: [{ title: '更新_失败', text: 'GH Archive [3]\n`下载` 失败 & 重试' }] }).body.elements[0].content;
+  assert.equal(note.split('\n')[1], '- 更新&#95;失败：GH Archive &#91;3&#93; &#96;下载&#96; 失败 &#38; 重试');
+  // 前 3 名并列：都是灰底，奖牌按名次给。
+  const tied = weeklyCard({ ...w, notes: [], entries: [{ ...base, rank: 3, tie: true }, { ...base, rank: 3, tie: true, repo: 'acme/twin' }] }).body.elements;
+  assert.deepEqual(tied.slice(0, 2).map((e) => [e.background_style, e.columns[0].elements[0].content]), [['grey-100', '🥉'], ['grey-100', '🥉']]);
+  assert.match(texts([tied[1]])[1], /^\*\*acme\/twin\*\*（并列）/);
 });
