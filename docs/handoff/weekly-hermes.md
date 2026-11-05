@@ -14,6 +14,7 @@
 每个统计日一份，文件名就是统计日（UTC，`YYYY-MM-DD`）：
 
 - `data/weekly/<统计日>.feishu.md`：要发的消息正文（Markdown）。
+- `data/weekly/<统计日>.card.json`：同一份内容的飞书卡片（卡片 JSON 2.0，#59，B 版排行榜样式）。**按卡片发时用它**，见下面「卡片」。
 - `data/weekly/<统计日>.json`：同一份内容的结构化数据，一般不用读。
 
 取最新一份：
@@ -34,6 +35,15 @@ ls -1 /Users/nat/Documents/ChatGPT/个人/work/github-center/data/weekly/*.feish
 - 前 10 每项两行：`**名次. [作者/仓库](本机项目页)**（并列）　近 7 天 +新增　总 Star 数　[GitHub](链接)`，下一行一句话简介（还没生成时写「简介生成中。」）
 - 末尾一行数据来源说明。本机项目页链接只在运行本中心的电脑上能打开，手机上点 GitHub 链接。
 
+## 卡片
+
+`<统计日>.card.json` 原样作为 `msg_type: interactive` 的消息内容发出，不要改写。约定：
+
+- 横幅图不在文件里。发送方用自己的飞书身份上传一张固定横幅（`image_type: message`），把下面这个元素插在 `body.elements` 最前面：`{"tag": "img", "img_key": "<上传得到的 key>", "alt": {"tag": "plain_text", "content": "本周 GitHub 涨星榜"}, "scale_type": "crop_center", "preview": false, "corner_radius": "8px"}`。没有横幅就不插，卡片照样能发。
+- 前 3 名是灰底整行，4 名以后三列；整行点开 GitHub。底部三个按钮：GitHub 周趋势、完整涨星榜（电脑）、我的收藏（电脑）。
+- 2026-11-05 实发核对过：飞书卡片 JSON 2.0 的 `column_set` 不认 `padding` 和 `behaviors`，整行跳转要用 `action.multi_url`。
+- 和 Markdown 一样只写一次、已有不重写；老的统计日没有卡片文件时，跑一次 `npm run weekly` 会照周报补上。
+
 ## 先检查再发
 
 周一 11:30 时，最新一份的统计日应当是**昨天（周日）**。
@@ -44,6 +54,6 @@ ls -1 /Users/nat/Documents/ChatGPT/个人/work/github-center/data/weekly/*.feish
 
 ## 不要做的事
 
-- 不改写数字、不补数据、不加没有依据的原因。
+- 不改写数字、不补数据、不加没有依据的原因。卡片里的数字和文字也一样。
 - 不把内容发到群聊或其他机器人。
 - 本仓库不提供也不需要任何 token；发送用猛鬼兽自己的飞书身份。
