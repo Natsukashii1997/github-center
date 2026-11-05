@@ -42,7 +42,9 @@ ls -1 /Users/nat/Documents/ChatGPT/个人/work/github-center/data/weekly/*.feish
 - 横幅图不在文件里。发送方用自己的飞书身份上传一张固定横幅（`image_type: message`），把下面这个元素插在 `body.elements` 最前面：`{"tag": "img", "img_key": "<上传得到的 key>", "alt": {"tag": "plain_text", "content": "本周 GitHub 涨星榜"}, "scale_type": "crop_center", "preview": false, "corner_radius": "8px"}`。没有横幅就不插，卡片照样能发。
 - 前 3 名是灰底整行，4 名以后三列；整行点开 GitHub。底部三个按钮：GitHub 周趋势、完整涨星榜（电脑）、我的收藏（电脑）。
 - 2026-11-05 实发核对过：飞书卡片 JSON 2.0 的 `column_set` 不认 `padding` 和 `behaviors`，整行跳转要用 `action.multi_url`。
-- 和 Markdown 一样只写一次、已有不重写；老的统计日没有卡片文件时，跑一次 `npm run weekly` 会照周报补上。
+- 仓库名、一句话、提示里会被当成格式的字符（`* _ ~ [ ] < > & 反引号`）已按飞书官方「富文本（Markdown）组件」的转义写法换成 `&#实体编号;`，发送方不用再处理。
+- 和 Markdown 一样只写一次、已有不重写。最新一期有周报但缺卡片文件（比如中途断掉）时，跑一次 `npm run weekly` 会照周报补上；更早的统计日不补。
+- 取最新一份卡片：同上，按文件名取最新的统计日，再读同名的 `.card.json`。有 `.feishu.md` 而卡片缺失、为空或读不出来时，按下面「先检查再发」只发一句说明，不发旧卡片。
 
 ## 先检查再发
 

@@ -71,7 +71,7 @@ const button = (text, url, type) => col('auto', [{ tag: 'button', text: { tag: '
 export function weeklyCard(w) {
   const range = `${md(w.from)}–${md(w.statDay)}`;
   const elements = [];
-  if (w.notes.length) elements.push(md2(`<font color='orange'>**⚠️ 提示**</font>\n${w.notes.map((n) => `- ${n.title}：${esc(n.text)}`).join('\n')}`));
+  if (w.notes.length) elements.push(md2(`<font color='orange'>**⚠️ 提示**</font>\n${w.notes.map((n) => `- ${esc(n.title)}：${esc(oneLine(n.text))}`).join('\n')}`));
   if (!w.entries.length) elements.push(md2('这一期没有核出项目。'));
   elements.push(...w.entries.map(cardRow));
   elements.push(

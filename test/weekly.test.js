@@ -153,4 +153,11 @@ test('飞书卡片：有提示先列提示；新项目打标签；没有一句�
   assert.equal(texts([els[1]])[1], "**a&#95;b/x&#42;y** <text_tag color='red'>新项目</text_tag>\n<font color='grey'>GitHub 上的描述：Ship &#60;scripts&#62; fast</font>");
   assert.equal(texts([els[2]])[1], '**acme/bare**');
   assert.equal(weeklyCard({ ...w, notes: [], entries: [] }).body.elements[0].content, '这一期没有核出项目。');
+  // 提示的标题和正文也转义；失败原因里的换行并成一行，免得断开提示列表。
+  const note = weeklyCard({ ...w, notes: [{ title: '更新_失败', text: 'GH Archive [3]\n`下载` 失败 & 重试' }] }).body.elements[0].content;
+  assert.equal(note.split('\n')[1], '- 更新&#95;失败：GH Archive &#91;3&#93; &#96;下载&#96; 失败 &#38; 重试');
+  // 前 3 名并列：都是灰底，奖牌按名次给。
+  const tied = weeklyCard({ ...w, notes: [], entries: [{ ...base, rank: 3, tie: true }, { ...base, rank: 3, tie: true, repo: 'acme/twin' }] }).body.elements;
+  assert.deepEqual(tied.slice(0, 2).map((e) => [e.background_style, e.columns[0].elements[0].content]), [['grey-100', '🥉'], ['grey-100', '🥉']]);
+  assert.match(texts([tied[1]])[1], /^\*\*acme\/twin\*\*（并列）/);
 });
