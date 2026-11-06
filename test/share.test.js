@@ -76,9 +76,9 @@ test('导出四页和两份共用文件：样式脚本内联、站内链接改�
   assert.ok(av['n/anthropics'] && !av['n/php']);
 });
 
-test('scrub：收藏、能不能改、账号名去掉；收藏页整页给空的', () => {
-  const d = { account: { name: 'Nat' }, picks: { canEdit: true }, projects: { 'a/b': { saved: true, savedSkills: ['x'] } }, items: [1] };
-  assert.deepEqual(scrub('index', d), { account: { name: '访客' }, picks: { canEdit: false }, projects: { 'a/b': { saved: false, savedSkills: [] } }, items: [1] });
+test('scrub：收藏、投票、能不能改、账号名去掉；收藏页整页给空的', () => {
+  const d = { account: { name: 'Nat' }, picks: { canEdit: true, tags: [{ id: 't', cards: [{ repo: 'a/b', up: 1, down: 2, mine: 1 }] }] }, projects: { 'a/b': { saved: true, savedSkills: ['x'] } }, items: [1] };
+  assert.deepEqual(scrub('index', d), { account: { name: '访客' }, picks: { canEdit: false, tags: [{ id: 't', cards: [{ repo: 'a/b', up: 0, down: 0, mine: 0 }] }] }, projects: { 'a/b': { saved: false, savedSkills: [] } }, items: [1] });
   assert.deepEqual(scrub('favorites', d).items, []);
   assert.deepEqual(scrub('favorites', d).projects, {});
   assert.deepEqual(scrub('settings', { me: 'Nat', canEdit: true }), { me: '访客', canEdit: false });

@@ -1,4 +1,4 @@
-// 只读快照（#63）：把本机网站的发现、涨星、收藏、设置四页导出成不靠本机服务、别人能直接打开的文件，
+// 分享页（#63）：把本机网站的发现、涨星、收藏、设置四页导出成不靠本机服务、别人能直接打开的文件，
 // 用来更新 Claude Artifact 上的分享页。本进程起一个临时网站（端口 0，不碰常驻的 5310）取页面和安装指令，再下载项目头像。
 // 产物（outDir）：
 //   index.html             发现页，去掉外层 html/head/body（Artifact 发布时给主页面套壳），发布时作主页面
@@ -13,23 +13,28 @@ import { request } from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { startServer } from '../web/server.js';
 import { openAccounts } from '../web/accounts.js';
+import { embed } from '../web/home.js';
+import { mapLimit } from '../ranking/rank-day.js';
 
 export const PAGES = [['index', '/'], ['stars', '/stars'], ['favorites', '/favorites'], ['settings', '/settings']];
 const FILES = { '': 'index.html', stars: 'stars.html', favorites: 'favorites.html', settings: 'settings.html' };
 const ASSETS = new URL('../web/assets/', import.meta.url);
 const SHIM = new URL('./shim.js', import.meta.url);
 const DATA = /(<script type="application\/json" id="gc-data">)([^<]*)(<\/script>)/;
-// 收藏星标、投票、换卡、账号头像都是个人的，快照里藏起来
+// 收藏星标、投票、换卡、账号头像都是个人的，分享页里藏起来
 const CSS = `[data-star], .vote, [data-swap], .me, form[action="/logout"] { display: none !important; }
 .share-tag { font-size: 12px; color: #57606a; border: 1px solid #d0d7de; border-radius: 999px; padding: 2px 10px; white-space: nowrap; }
 #snap-toast { position: fixed; z-index: 61; left: 50%; top: 18px; transform: translate(-50%, -8px); opacity: 0; transition: .2s; padding: 8px 14px; border-radius: 8px; background: #1f2328; color: #fff; font-size: 13px; pointer-events: none; }
 #snap-toast.on { opacity: 1; transform: translate(-50%, 0); }`;
 
-// 去掉个人的东西：收藏、能不能改、账号名；收藏页整页给空的
+// 去掉个人的东西：收藏、投票（自己投的和票数，单人使用时票数也就是自己的票）、能不能改、账号名；收藏页整页给空的
 export function scrub(kind, data) {
   const d = structuredClone(data);
   for (const p of Object.values(d.projects ?? {})) Object.assign(p, { saved: false, savedSkills: [] });
-  if (d.picks && typeof d.picks === 'object') d.picks.canEdit = false;
+  if (d.picks && typeof d.picks === 'object') {
+    d.picks.canEdit = false;
+    for (const t of d.picks.tags ?? []) for (const c of t.cards ?? []) Object.assign(c, { up: 0, down: 0, mine: 0 });
+  }
   if ('account' in d) d.account = { name: '访客' };
   if (kind === 'favorites') Object.assign(d, { items: [], shelves: [], projects: {}, views: {} });
   if (kind === 'settings') Object.assign(d, { me: '访客', canEdit: false });
@@ -58,12 +63,10 @@ export function installJobs(datas) {
   return jobs;
 }
 
-// 一页：换数据、内联样式脚本、加垫片和只读标签、站内链接改成快照里的文件名
+// 一页：换数据、内联样式脚本、加垫片和只读标签、站内链接改成分享页的文件名
 export function sharePage(html, kind, data, label) {
   const m = DATA.exec(html);
-  if (!m) throw new Error(`${kind} 页里没有找到嵌入数据`);
-  const json = JSON.stringify(data).replace(/</g, '\\u003c');
-  html = html.slice(0, m.index) + m[1] + json + m[3] + html.slice(m.index + m[0].length);
+  html = html.slice(0, m.index) + m[1] + embed(data) + m[3] + html.slice(m.index + m[0].length);
   html = html.replace(/<link rel="stylesheet" href="\/assets\/([\w.-]+\.css)">/g, (_, f) => `<style>\n${readFileSync(new URL(f, ASSETS), 'utf8')}\n</style>`);
   html = html.replace(/<script src="\/assets\/([\w.-]+\.js)"><\/script>/g, (_, f) => `<script>\n${readFileSync(new URL(f, ASSETS), 'utf8').replace(/<\/script/gi, '<\\/script')}\n</script>`);
   if (/(?:href|src)="\/assets\//.test(html)) throw new Error(`${kind} 页里还有没内联的 /assets/ 文件`);
@@ -103,22 +106,10 @@ function local(url) {
   });
 }
 
-async function pool(items, n, fn) {
-  const out = [];
-  let i = 0;
-  await Promise.all(Array.from({ length: n }, async () => {
-    while (i < items.length) {
-      const k = i++;
-      out[k] = await fn(items[k]);
-    }
-  }));
-  return out;
-}
-
 const MIME = [[[0x89, 0x50, 0x4e, 0x47], 'image/png'], [[0xff, 0xd8], 'image/jpeg'], [[0x47, 0x49, 0x46], 'image/gif']];
 const sniff = (b) => MIME.find(([sig]) => sig.every((x, i) => b[i] === x))?.[1] ?? (b.slice(8, 12).toString() === 'WEBP' ? 'image/webp' : null);
 
-// 导出。account 不填就用所有者账号（只用来打开页面，账号名和收藏不进快照）。fetch 用来下载头像，测试时换成假的。
+// 导出。account 不填就用所有者账号（只用来打开页面，账号名和收藏不进分享页）。fetch 用来下载头像，测试时换成假的。
 export async function takeShare({ dataDir, outDir, account, fetch = globalThis.fetch, now = new Date() }) {
   const accounts = openAccounts(dataDir);
   let name;
@@ -137,17 +128,21 @@ export async function takeShare({ dataDir, outDir, account, fetch = globalThis.f
       if (r.status !== 200) throw new Error(`取 ${path} 失败（${r.status}）`);
       raw[kind] = r.text;
     }
-    const datas = Object.fromEntries(PAGES.map(([kind]) => [kind, scrub(kind, JSON.parse(DATA.exec(raw[kind])[2]))]));
+    const datas = Object.fromEntries(PAGES.map(([kind]) => {
+      const m = DATA.exec(raw[kind]);
+      if (!m) throw new Error(`${kind} 页里没有找到嵌入数据（gc-data），页面结构可能改了`);
+      return [kind, scrub(kind, JSON.parse(m[2]))];
+    }));
     const jobs = [...installJobs(Object.values(datas)).entries()];
     const install = {};
-    await pool(jobs, 8, async ([key, j]) => {
+    await mapLimit(jobs, 8, async ([key, j]) => {
       const q = new URLSearchParams({ project: j.project, ai: j.ai, ...(j.skill ? { skill: j.skill } : {}) });
       const r = await local(`${url}api/install?${q}`);
       if (r.status === 200) install[key] = r.text;
     });
     const urls = [...avatarUrls(Object.values(datas)).entries()];
     const avatars = {};
-    await pool(urls, 12, async ([key, u]) => {
+    await mapLimit(urls, 12, async ([key, u]) => {
       try {
         const r = await fetch(u);
         if (!r.ok) return;

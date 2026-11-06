@@ -1,5 +1,5 @@
-// 只读快照的垫片（#63，由 index.js 内联进每一页，在页面脚本之前运行）：头像换成 tidings-avatars.js 里的内嵌图，
-// 站内链接换成快照里的页面，安装指令从同目录的 tidings-install.gz.txt 取，收藏、投票、换卡这类要账号的操作提示不可用。
+// 分享页的垫片（#63，由 index.js 内联进每一页，在页面脚本之前运行）：头像换成 tidings-avatars.js 里的内嵌图，
+// 站内链接换成分享页里的页面，安装指令从同目录的 tidings-install.gz.txt 取，收藏、投票、换卡这类要账号的操作提示不可用。
 // Artifact 只放行同源和 data:，GitHub 头像地址一律不能真去请求。
 (() => {
   const AV = window.__AV || {};
@@ -33,7 +33,7 @@
     else m.addedNodes.forEach(scan);
   })).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] });
 
-  // 站内地址 → 快照里的页面；没有的返回 null
+  // 站内地址 → 分享页里的页面；没有的返回 null
   const map = (href) => {
     const u = new URL(href, 'http://x');
     if (u.pathname === '/' ) return HOME + u.search + u.hash;
@@ -70,7 +70,7 @@
     };
   }
 
-  // 接口：安装指令从快照文件取；收藏、换卡不可用
+  // 接口：安装指令从分享页的文件取；收藏、换卡不可用
   const realFetch = window.fetch.bind(window);
   let install;
   // 安装指令 gzip 压过再转成 base64 文本（9MB → 约 440KB；Artifact 不托管 .gz）
