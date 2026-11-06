@@ -45,15 +45,13 @@
     return row(`<span class="sdot ${dot}"></span>${esc(s.name)}${s.unavailable ? ' <span class="tag t-off">未接</span>' : ''}`, `${host}${esc(s.use)}${err}`, `${state}${ctl}`);
   }
 
-  // 周报推送下次什么时候（按这台电脑的时间算，和猛鬼兽一致）：今天还没到点就是今天，否则下一个设定的星期
+  // 周报推送这一期或下一期：和猛鬼兽一样按北京时间算（用 UTC+8 的日期），今天就是设定那天就写今天（发没发要看飞书），否则下一个设定的星期
   function nextWeekly() {
     const { day, at } = S.weekly;
-    const now = new Date();
-    const t = new Date(now);
-    t.setHours(Number(at.slice(0, 2)), Number(at.slice(3)), 0, 0);
-    t.setDate(t.getDate() + ((day - now.getDay() + 7) % 7));
-    if (t <= now) t.setDate(t.getDate() + 7);
-    return `${t.getMonth() + 1}/${t.getDate()} ${D.days[day]} ${at}`;
+    const t = new Date(Date.now() + 8 * 3600e3);
+    const ahead = (day - t.getUTCDay() + 7) % 7;
+    t.setUTCDate(t.getUTCDate() + ahead);
+    return `${ahead ? '' : '今天 '}${t.getUTCMonth() + 1}/${t.getUTCDate()} ${D.days[day]} ${at}`;
   }
   const dayOpts = () => D.days.map((t, i) => `<option value="${i}"${S.weekly.day === i ? ' selected' : ''}>每${t}</option>`).join('');
   function body() {
