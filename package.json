@@ -16,6 +16,7 @@
     "history": "node --use-env-proxy bin/history.js",
     "skills": "node --use-env-proxy bin/skills.js",
     "hot": "node --use-env-proxy bin/hot.js",
-    "picks": "node bin/picks.js"
+    "picks": "node bin/picks.js",
+    "share": "node --use-env-proxy bin/share.js"
   }
 }
