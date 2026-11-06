@@ -45,15 +45,23 @@
     return row(`<span class="sdot ${dot}"></span>${esc(s.name)}${s.unavailable ? ' <span class="tag t-off">未接</span>' : ''}`, `${host}${esc(s.use)}${err}`, `${state}${ctl}`);
   }
 
+  // 周报推送这一期或下一期：和猛鬼兽一样按北京时间算（用 UTC+8 的日期），今天就是设定那天就写今天（发没发要看飞书），否则下一个设定的星期
+  function nextWeekly() {
+    const { day, at } = S.weekly;
+    const t = new Date(Date.now() + 8 * 3600e3);
+    const ahead = (day - t.getUTCDay() + 7) % 7;
+    t.setUTCDate(t.getUTCDate() + ahead);
+    return `${ahead ? '' : '今天 '}${t.getUTCMonth() + 1}/${t.getUTCDate()} ${D.days[day]} ${at}`;
+  }
   const dayOpts = () => D.days.map((t, i) => `<option value="${i}"${S.weekly.day === i ? ' selected' : ''}>每${t}</option>`).join('');
   function body() {
     const steps = '出榜 → 全站 Star 前 100 → 历史榜 → 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准，共 9 步，一步失败照样跑后面的';
     const cards = [
       ['s-src', '数据源', `${inUse()}/${D.sources.length}`, `数据源 <small>每天跟着每日更新一起抓；关掉的来源不再抓，网站上用到它的部分沿用最后一次的数据</small>`, D.sources.map(sourceRow).join('')],
-      ['s-time', '定时与推送', '2', '定时与推送 <small>本机 launchd 任务</small>', [
+      ['s-time', '定时与推送', '2', '定时与推送 <small>每日更新是本机 launchd 任务；周报推送由猛鬼兽按这里的设置发</small>', [
         row(`<span class="sdot${S.daily.on ? '' : ' off'}"></span>每日更新`, `${steps}。<br>统计日按 UTC 划分、北京时间 08:00 才结束，事件文件还要晚约 1 小时，所以不能早于 ${D.earliest}；按 15 分钟一档。到点时电脑睡着的，醒来后补跑。<span class="err" id="at-err"></span>`,
           `每天<input class="sin" id="daily-at" aria-label="每日更新时间" type="time" value="${S.daily.at}" min="${D.earliest}" step="900"${lock}>${sw('daily.on', '每日更新', S.daily.on, lock)}`),
-        row(`<span class="sdot off"></span>周报推送 <span class="tag t-off">未接入</span>`, '把最新一期周报（本周涨星前 10）发到飞书私聊，由猛鬼兽（Hermes）发送；猛鬼兽那边的定时还没装，开了也暂时不会发',
+        row(`<span class="sdot${S.weekly.on ? '' : ' off'}"></span>周报推送 <span class="tag t-on">已接入</span>`, `到点后 15 分钟内，由猛鬼兽（Hermes）把最新一期周报卡片（本周涨星前 10）发到你的飞书私聊；关掉就不发。当期数据还没生成会先等，最多等 3 小时，还没有就只发一句说明；电脑整天关机错过的不隔天补发。<br>${S.weekly.on ? `下次：${nextWeekly()}` : '已关掉，不会发'}`,
           `<select class="sin" id="weekly-day" aria-label="周报推送星期"${lock}>${dayOpts()}</select><input class="sin" id="weekly-at" aria-label="周报推送时间" type="time" value="${S.weekly.at}"${lock}>${sw('weekly.on', '周报推送', S.weekly.on, lock)}`),
         row('<span class="sdot"></span>网站服务', '常驻在本机，只本机能打开，出错自动重启', `<span class="mono">${esc(location.host)}</span>`),
       ].join('')],
@@ -101,7 +109,7 @@
     'daily.on': s.daily.on ? 'on' : 'off', 'daily.at': s.daily.at,
     'weekly.on': s.weekly.on ? 'on' : 'off', 'weekly.day': String(s.weekly.day), 'weekly.at': s.weekly.at,
   });
-  async function save(next) {
+  async function save(next, done = '已保存 · 下次每日更新起生效') {
     const before = S;
     S = next;
     draw();
@@ -111,13 +119,14 @@
       if (!r.ok) throw new Error(j.error ?? `保存失败（${r.status}）`);
       S = j.settings;
       draw();
-      toast('已保存 · 下次每日更新起生效');
+      toast(done);
     } catch (e) {
       S = before;
       draw();
       toast(e.message);
     }
   }
+  const WEEKLY_DONE = '已保存 · 猛鬼兽 15 分钟内按新设置来';
   const clone = () => JSON.parse(JSON.stringify(S));
 
   document.addEventListener('click', (e) => {
@@ -127,7 +136,7 @@
       const [group, key] = b.dataset.sw.split('.');
       if (group === 'sources') next.sources[key] = !next.sources[key];
       else next[group][key] = !next[group][key];
-      return save(next);
+      return save(next, group === 'weekly' ? WEEKLY_DONE : undefined);
     }
     const ag = e.target.closest('[data-agent]:not(:disabled)');
     if (ag && S.agent !== ag.dataset.agent) return save({ ...clone(), agent: ag.dataset.agent });
@@ -155,7 +164,7 @@
       const next = clone();
       if (t.id === 'weekly-at') next.weekly.at = t.value;
       else next.weekly.day = Number(t.value);
-      save(next);
+      save(next, WEEKLY_DONE);
     }
   });
 

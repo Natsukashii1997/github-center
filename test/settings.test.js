@@ -33,6 +33,7 @@ test('读设置：没存过用默认值；文件坏了、缺项、乱填都回�
   assert.equal(DEFAULTS.sources.reddit, false);
   assert.deepEqual(DEFAULTS.effort, { profiles: 'low', classify: 'low', picks: 'low' });
   assert.equal(DEFAULTS.agent, 'codex');
+  assert.deepEqual(DEFAULTS.weekly, { on: true, day: 1, at: '11:30' }); // 猛鬼兽 tidings_weekly.py 用同一组默认值
   put(dir, 'settings.json', '{坏的');
   assert.deepEqual(readSettings(dir), DEFAULTS);
   put(dir, 'settings.json', { sources: { gharchive: false, reddit: true, hn: false, v2ex: 'x' }, agent: 'gemini', effort: { classify: 'high', picks: 'max' }, daily: { at: '08:00' }, weekly: { day: 9, on: true } });

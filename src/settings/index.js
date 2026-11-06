@@ -1,7 +1,8 @@
 // 设置（所有者 2026-11-03 加设置页，原型 design/candidates/redesign/brand/settings.html#A）：存在 data/settings.json，没存过就用默认值。
 // 数据源开关、用哪个智能体、补资料／归类／精选的思考强度、每日更新时间、周报推送。只有所有者能改（见 web/settings.js），保存前整份校验，不合规就整份不存。
 // 谁读：bin/update.js（每日更新开关、整步跳过）、出榜和热点榜（来源开关）、补资料／归类／精选榜（智能体、思考强度）；每次运行开头读一次。
-// 每日更新时间还没接（批 3 接到 launchd），周报推送等猛鬼兽接入。
+// 周报推送（weekly）本仓库不读：猛鬼兽（Hermes）每 15 分钟读一次 data/settings.json 决定发不发（#61，约定见 docs/handoff/weekly-hermes.md）。
+// 改默认值或字段时同步改 digital-twin 的 hermes/scripts/tidings_weekly.py。
 import { join } from 'node:path';
 import { readJson, writeAtomic } from '../ranking/store.js';
 
@@ -23,7 +24,7 @@ export const DEFAULTS = {
   agent: 'codex',
   effort: Object.fromEntries(EFFORT_TASKS.map((t) => [t, 'low'])),
   daily: { on: true, at: '10:00' },
-  weekly: { on: false, day: 1, at: '11:30' },
+  weekly: { on: true, day: 1, at: '11:30' },   // 所有者 2026-11-06 定：默认开，周一 11:30
 };
 
 export class SettingsError extends Error {}
