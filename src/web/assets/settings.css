@@ -47,7 +47,7 @@ select.sin { font: 500 12.5px var(--sans); padding-right: 24px; }
 .segs button:disabled { cursor: not-allowed; }
 .mono { font-family: var(--mono); }
 
-.t-plan { background: #fbefff; color: #8250df; } .t-off { background: #f3f4f6; color: var(--ink-3); }
+.t-plan { background: #fbefff; color: #8250df; } .t-on { background: #dafbe1; color: #1a7f37; } .t-off { background: #f3f4f6; color: var(--ink-3); }
 .schip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 1px solid #d0d7de; border-radius: 999px; background: #fff; font-size: 12px; color: var(--ink-3); }
 .schip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
 .scode { display: block; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #f6f8fa; font: 12px/1.6 var(--mono); color: var(--ink-2); white-space: pre; overflow: auto; }
