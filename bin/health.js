@@ -5,6 +5,7 @@ import { lastRun } from '../src/update-steps.js';
 import { readRemote, serverStatus, listBackups } from '../src/remote/index.js';
 import { healthProblems } from '../src/remote/health.js';
 import { boardProjects, readProfile, findProfile, currentGenerated } from '../src/profiles/store.js';
+import { aiProblems } from '../src/ai-access.js';
 
 const remote = readRemote('data');
 let server = null;
@@ -20,5 +21,6 @@ if (remote) {
 const unfinished = boardProjects('data')
   .filter((p) => !currentGenerated(p.id ? readProfile('data', p.id) : findProfile('data', p.name)))
   .map((p) => p.name);
-const problems = healthProblems({ run: lastRun('data'), settings: readSettings('data'), remote: Boolean(remote), server, backups: listBackups('data'), unfinished });
+const settings = readSettings('data');
+const problems = healthProblems({ run: lastRun('data'), settings, ai: aiProblems('data', settings), remote: Boolean(remote), server, backups: listBackups('data'), unfinished });
 if (problems.length) console.log(`🌟 Github·Tidings 自检\n${problems.map((p) => `- ${p}`).join('\n')}`);

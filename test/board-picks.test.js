@@ -40,7 +40,7 @@ function fakeTagger({ answer, throwIf = () => false } = {}) {
     async suggest(tags, items) {
       calls.push({ tags: tags.map((t) => t.name), items: items.map((x) => x.fullName) });
       if (items.some((x) => throwIf(x.fullName))) throw new Error('Codex 生成失败（退出码 1）');
-      return items.map((x, i) => ({ i, tags: answer(x.fullName) }));
+      return { results: items.map((x, i) => ({ i, tags: answer(x.fullName) })), ai: { by: 'codex', via: 'cli', model: null, at: '2026-11-07T00:00:00.000Z' } };
     },
   };
 }
@@ -85,6 +85,8 @@ test('默认填法：Codex 建议标签（只认清单里的、最多 2 个）�
   assert.equal(b.canEdit, true);
   assert.deepEqual(tagOf(b, AGENT).cards[0], { slot: 1, projectId: 1, fullName: 'h/p1', ownerId: 100, total: 120_000, pinned: false, up: 0, down: 0, mine: 0 });
   assert.equal(tagOf(b, SKILL).cards[2].ownerId, null, '候选里来的没有作者 id');
+  // 每条建议带这一批的留痕（#69），随候选池推到服务器。
+  assert.deepEqual(JSON.parse(picks.exportPool().find((x) => x.project_id === 1).ai), { by: 'codex', via: 'cli', model: null, at: '2026-11-07T00:00:00.000Z' });
   picks.close();
 
   const again = await updatePicks({ dataDir, tagger, batch: 5 });

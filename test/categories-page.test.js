@@ -41,7 +41,7 @@ async function seed() {
   const accounts = openAccounts(dir);
   accounts.create({ name: 'boss', role: 'owner' });
   accounts.close();
-  await updatePicks({ dataDir: dir, tagger: { version: 'fake', suggest: async (tags, items) => items.map((x, i) => ({ i, tags: x.fullName === 'h/p1' ? [AGENT, SKILL] : /^h\/p[2-8]$/.test(x.fullName) ? [AGENT] : [] })) } });
+  await updatePicks({ dataDir: dir, tagger: { version: 'fake', suggest: async (tags, items) => ({ results: items.map((x, i) => ({ i, tags: x.fullName === 'h/p1' ? [AGENT, SKILL] : /^h\/p[2-8]$/.test(x.fullName) ? [AGENT] : [] })) }) } });
   return dir;
 }
 const api = (site, op, fields, headers = {}) => http(`${site.url}api/picks/${op}`, form(fields, { cookie: site.cookie, ...headers })).then((r) => ({ ...r, json: JSON.parse(r.body || 'null') }));

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { readSettings, parseSettings, saveSettings, checkDaily, DEFAULTS, SettingsError } from '../src/settings/index.js';
+import { readSettings, parseSettings, saveSettings, checkDaily, agentOf, DEFAULTS, SettingsError } from '../src/settings/index.js';
 import { nextRun } from '../src/web/settings.js';
 import { parseRun as lastRun } from '../src/update-steps.js';
 import { openAccounts } from '../src/web/accounts.js';
@@ -19,6 +19,7 @@ const put = (dir, path, text) => {
 const fieldsOf = (s, over = {}) => ({
   ...Object.fromEntries(Object.entries(s.sources).map(([k, v]) => [`sources.${k}`, v ? 'on' : 'off'])),
   agent: s.agent,
+  ...Object.fromEntries(Object.entries(s.agentFor).map(([k, v]) => [`agentFor.${k}`, v])),
   ...Object.fromEntries(Object.entries(s.effort).map(([k, v]) => [`effort.${k}`, v])),
   'daily.on': s.daily.on ? 'on' : 'off', 'daily.at': s.daily.at,
   'weekly.on': s.weekly.on ? 'on' : 'off', 'weekly.day': String(s.weekly.day), 'weekly.at': s.weekly.at,
@@ -32,7 +33,8 @@ test('读设置：没存过用默认值；文件坏了、缺项、乱填都回�
   assert.equal(DEFAULTS.sources.gharchive, true);
   assert.equal(DEFAULTS.sources.reddit, false);
   assert.deepEqual(DEFAULTS.effort, { profiles: 'low', classify: 'low', picks: 'low' });
-  assert.equal(DEFAULTS.agent, 'codex');
+  assert.equal(DEFAULTS.agent, 'relay', '#69 前的默认行为：Codex 优先·Claude 接力');
+  assert.deepEqual(DEFAULTS.agentFor, { profiles: 'default', classify: 'default', picks: 'default' });
   assert.deepEqual(DEFAULTS.weekly, { on: true, day: 1, at: '11:30' }); // 猛鬼兽 tidings_weekly.py 用同一组默认值
   put(dir, 'settings.json', '{坏的');
   assert.deepEqual(readSettings(dir), DEFAULTS);
@@ -43,18 +45,28 @@ test('读设置：没存过用默认值；文件坏了、缺项、乱填都回�
   assert.equal(s.sources.hn, false);
   assert.equal(s.sources.v2ex, true);
   assert.deepEqual(s.effort, { profiles: 'low', classify: 'high', picks: 'low' });
-  assert.equal(s.agent, 'codex');
+  assert.equal(s.agent, 'relay');
   assert.equal(s.daily.at, '10:00');
+  // #69 前存的 codex 就是「Codex 失败 Claude 接力」，按 relay 读；#69 后存的（带 agentFor）照原样，单独指定的功能各用各的。
+  put(dir, 'settings.json', { agent: 'codex' });
+  assert.equal(readSettings(dir).agent, 'relay');
+  put(dir, 'settings.json', { agent: 'codex', agentFor: { profiles: 'claude', classify: 'gemini' } });
+  const n = readSettings(dir);
+  assert.deepEqual([n.agent, n.agentFor], ['codex', { profiles: 'claude', classify: 'default', picks: 'default' }]);
+  assert.deepEqual(['profiles', 'classify', 'picks'].map((t) => agentOf(n, t)), ['claude', 'codex', 'codex']);
   assert.deepEqual(s.weekly, { on: true, day: 1, at: '11:30' });
 });
 
-test('校验：GH Archive 不能关，Reddit 不能开，智能体只认 Codex、Claude，强度只认低中高，每日更新不早于 09:00、按 15 分钟一档，缺项不收', () => {
+test('校验：GH Archive 不能关，Reddit 不能开，执行方只认只用 Codex、只用 Claude、Codex 优先·Claude 接力（功能另可跟随默认），强度只认低中高，每日更新不早于 09:00、按 15 分钟一档，缺项不收', () => {
   const ok = parse({ 'sources.hn': 'off', 'effort.classify': 'high', 'daily.at': '09:00', 'weekly.on': 'on', 'weekly.day': '0', 'weekly.at': '20:05' });
   assert.equal(ok.sources.hn, false);
   assert.equal(ok.effort.classify, 'high');
-  assert.equal(ok.agent, 'codex');
+  assert.equal(ok.agent, 'relay');
   assert.equal(parse({ agent: 'claude' }).agent, 'claude');
-  assert.throws(() => parse({ agent: 'gemini' }), /智能体只能是 codex、claude/);
+  assert.equal(parse({ agent: 'codex' }).agent, 'codex');
+  assert.throws(() => parse({ agent: 'gemini' }), /默认执行方只能是 codex、claude、relay/);
+  assert.deepEqual(parse({ 'agentFor.picks': 'claude' }).agentFor, { profiles: 'default', classify: 'default', picks: 'claude' });
+  assert.throws(() => parse({ 'agentFor.picks': 'gemini' }), /功能的执行方只能是 default、codex、claude、relay/);
   assert.deepEqual(ok.daily, { on: true, at: '09:00' });
   assert.deepEqual(ok.weekly, { on: true, day: 0, at: '20:05' });
   assert.throws(() => parse({ 'sources.gharchive': 'off' }), /GH Archive.*不能关/);

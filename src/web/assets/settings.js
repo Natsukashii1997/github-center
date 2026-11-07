@@ -105,6 +105,7 @@
   const fields = (s) => ({
     ...Object.fromEntries(Object.entries(s.sources).map(([k, v]) => [`sources.${k}`, v ? 'on' : 'off'])),
     agent: s.agent,
+    ...Object.fromEntries(Object.entries(s.agentFor).map(([k, v]) => [`agentFor.${k}`, v])),
     ...Object.fromEntries(Object.entries(s.effort).map(([k, v]) => [`effort.${k}`, v])),
     'daily.on': s.daily.on ? 'on' : 'off', 'daily.at': s.daily.at,
     'weekly.on': s.weekly.on ? 'on' : 'off', 'weekly.day': String(s.weekly.day), 'weekly.at': s.weekly.at,

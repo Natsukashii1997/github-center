@@ -35,7 +35,7 @@ function fakeClassifier({ answer = () => ['开发者工具与基础设施'], thr
     async classify(items, { review = false } = {}) {
       calls.push({ review, items });
       if (items.some(throwIf)) throw new Error('Codex 生成失败（退出码 1）');
-      return items.map((x, i) => ({ i, categories: answer(x) }));
+      return { results: items.map((x, i) => ({ i, categories: answer(x) })), ai: { by: 'codex', via: 'cli', model: null, at: '2026-11-07T00:00:00.000Z' } };
     },
   };
 }
@@ -50,6 +50,8 @@ test('已核数的候选都归上类：只认清单里的分类，去重，最�
   const cats = readCategories(dataDir);
   assert.deepEqual(cats.get({ id: 1, fullName: 'a/one' }).categories, ['Skill', 'Agent／MCP']);
   assert.equal(cats.get({ id: 1, fullName: 'a/one' }).source, 'batch');
+  // 每条归类带这一批的留痕（#69）。
+  assert.equal(cats.get({ id: 1, fullName: 'a/one' }).ai.by, 'codex');
   assert.equal(cats.get({ id: 2, fullName: 'b/two' }), null);
   assert.deepEqual(cats.get({ fullName: 'd/four' }).categories, ['其他']);
   // 归类器看到的是名称、描述和 topics。

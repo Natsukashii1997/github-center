@@ -53,7 +53,7 @@ export function openPicks(dataDir) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS pick_tags(id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, color TEXT NOT NULL, sort INTEGER NOT NULL, note TEXT NOT NULL DEFAULT '');
     CREATE TABLE IF NOT EXISTS pick_pool(project_id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, owner_id INTEGER, total INTEGER,
-      tags TEXT NOT NULL DEFAULT '[]', tagset TEXT, version TEXT, suggested_at TEXT, updated_at TEXT NOT NULL);
+      tags TEXT NOT NULL DEFAULT '[]', tagset TEXT, version TEXT, suggested_at TEXT, updated_at TEXT NOT NULL, ai TEXT);
     CREATE TABLE IF NOT EXISTS picks(tag_id INTEGER NOT NULL REFERENCES pick_tags(id), slot INTEGER NOT NULL CHECK (slot BETWEEN 1 AND ${SLOTS}),
       project_id INTEGER NOT NULL, full_name TEXT NOT NULL, pinned INTEGER NOT NULL DEFAULT 0, pinned_by INTEGER, pinned_at TEXT,
       PRIMARY KEY (tag_id, slot), UNIQUE (tag_id, project_id));
@@ -62,6 +62,8 @@ export function openPicks(dataDir) {
   `);
   // 说明（note，#27 加）：旧库补上这一列，默认标签还没写说明的补上默认说明（指纹跟着变，下次 npm run picks 全部重新建议）。
   if (!db.prepare("SELECT 1 FROM pragma_table_info('pick_tags') WHERE name = 'note'").get()) db.exec("ALTER TABLE pick_tags ADD COLUMN note TEXT NOT NULL DEFAULT ''");
+  // 留痕（ai，#69 加）：这条建议是哪个执行方、怎么接进来、什么模型做的（JSON）；旧库补上这一列，以前的建议没有记。
+  if (!db.prepare("SELECT 1 FROM pragma_table_info('pick_pool') WHERE name = 'ai'").get()) db.exec('ALTER TABLE pick_pool ADD COLUMN ai TEXT');
   if (fresh) DEFAULT_TAGS.forEach((t, i) => db.prepare('INSERT INTO pick_tags(name, color, sort, note) VALUES (?, ?, ?, ?)').run(t.name, t.color, i + 1, t.note));
   else DEFAULT_TAGS.forEach((t) => db.prepare("UPDATE pick_tags SET note = ? WHERE name = ? AND note = ''").run(t.note, t.name));
 
@@ -251,13 +253,14 @@ export function openPicks(dataDir) {
       const done = db.prepare('SELECT tagset FROM pick_pool WHERE project_id = ?');
       return rows.filter((r) => done.get(r.id)?.tagset !== set).map((r) => r.id);
     },
-    // 记下 Codex 建议的标签（只认当前清单里的名字，最多 2 个）。
-    saveSuggestions(results, { version }) {
+    // 记下智能体建议的标签（只认当前清单里的名字，最多 2 个）和这一批的留痕 ai。
+    saveSuggestions(results, { version, ai = null }) {
       const names = tags().map((t) => t.name);
       const set = tagsetOf(tags());
       const now = new Date().toISOString();
-      const st = db.prepare('UPDATE pick_pool SET tags = ?, tagset = ?, version = ?, suggested_at = ? WHERE project_id = ?');
-      tx(() => results.forEach((r) => st.run(JSON.stringify(pickTags(r.tags, names)), set, version, now, r.projectId)));
+      const st = db.prepare('UPDATE pick_pool SET tags = ?, tagset = ?, version = ?, suggested_at = ?, ai = ? WHERE project_id = ?');
+      const trace = ai ? JSON.stringify(ai) : null;
+      tx(() => results.forEach((r) => st.run(JSON.stringify(pickTags(r.tags, names)), set, version, now, trace, r.projectId)));
     },
 
     // 放到服务器上（#46，见 ../remote）：标签清单、换卡和投票在服务器的库里改，候选池和 Codex 建议在 Mac 上算。
@@ -278,10 +281,10 @@ export function openPicks(dataDir) {
     // exportPool / importPool：Mac 把整份候选池（含建议的标签）写成文件推上去，服务器按项目 id 覆盖进自己的库，换卡时加进来的项目保留。
     exportPool: () => db.prepare('SELECT * FROM pick_pool ORDER BY project_id').all(),
     importPool(rows) {
-      const up = db.prepare(`INSERT INTO pick_pool(project_id, full_name, owner_id, total, tags, tagset, version, suggested_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      const up = db.prepare(`INSERT INTO pick_pool(project_id, full_name, owner_id, total, tags, tagset, version, suggested_at, updated_at, ai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(project_id) DO UPDATE SET full_name = excluded.full_name, owner_id = COALESCE(excluded.owner_id, owner_id), total = excluded.total,
-        tags = excluded.tags, tagset = excluded.tagset, version = excluded.version, suggested_at = excluded.suggested_at, updated_at = excluded.updated_at`);
-      tx(() => rows.forEach((r) => up.run(r.project_id, r.full_name, r.owner_id ?? null, r.total ?? null, r.tags ?? '[]', r.tagset ?? null, r.version ?? null, r.suggested_at ?? null, r.updated_at)));
+        tags = excluded.tags, tagset = excluded.tagset, version = excluded.version, suggested_at = excluded.suggested_at, updated_at = excluded.updated_at, ai = excluded.ai`);
+      tx(() => rows.forEach((r) => up.run(r.project_id, r.full_name, r.owner_id ?? null, r.total ?? null, r.tags ?? '[]', r.tagset ?? null, r.version ?? null, r.suggested_at ?? null, r.updated_at, r.ai ?? null)));
     },
     close: () => db.close(),
   };

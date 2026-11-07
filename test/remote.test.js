@@ -66,7 +66,7 @@ function seed(dataDir) {
   return dataDir;
 }
 const [AGENT, SKILL] = DEFAULT_TAGS.map((t) => t.name);
-const tagger = { version: 'fake-1', suggest: async (tags, items) => items.map((x, i) => ({ i, tags: Number(x.fullName.slice(3)) % 2 ? [AGENT] : [SKILL, '新标签'].filter((t) => tags.some((g) => g.name === t)) })) };
+const tagger = { version: 'fake-1', suggest: async (tags, items) => ({ results: items.map((x, i) => ({ i, tags: Number(x.fullName.slice(3)) % 2 ? [AGENT] : [SKILL, '新标签'].filter((t) => tags.some((g) => g.name === t)) })) }) };
 const layout = (dataDir) => {
   const picks = openPicks(dataDir);
   try {
