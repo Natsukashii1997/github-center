@@ -10,6 +10,7 @@
   // 类别色（同定稿原型 all.js、收藏页）；还没归类的用灰
   const CC = { 'Agent／MCP': '#0969da', Skill: '#8250df', 'AI 应用工具': '#bf3989', '开发者工具与基础设施': '#1a7f37', '开发框架与组件库': '#0f8f8a', '工作流自动化': '#bc4c00', '知识管理与办公效率': '#9a6700', '数据库与数据工具': '#3a43b8', 其他: '#8c959f' };
   const NONE = '还没归类';
+  const AI_NAMES = { codex: 'Codex', claude: 'Claude' }; // 精选卡上「X 建议」（#69 留痕，只有所有者看得到）
   const cc = (c) => CC[c] ?? '#8c959f';
   const SN = { 'Agent／MCP': 'Agent / MCP', 'AI 应用工具': 'AI 应用', '开发者工具与基础设施': '开发者工具', '开发框架与组件库': '开发框架', '工作流自动化': '工作流', '知识管理与办公效率': '知识办公', '数据库与数据工具': '数据库' };
   const HOT = '#cf222e';
@@ -41,7 +42,7 @@
     const p = P(c.repo), [owner, name] = c.repo.split('/'), d = i - cf.i, use = (p.use ?? []).slice(0, 3);
     const text = p.line ? `<p class="g2-ln">${esc(p.line)}</p>` : p.ghDesc ? `<p class="g2-ln gh"><small>GitHub 上的描述</small>${esc(p.ghDesc)}</p>` : '';
     return `<article class="gl g2" data-cfi="${i}" data-a="${Math.abs(d)}" style="--d:${d};--a:${Math.abs(d)}">
-      <div class="g2-hd">${AV(c.repo, 38)}<div style="min-width:0"><h3>${esc(name)}</h3><span>${esc(owner)}${c.pinned ? ' · <i class="man">手动</i>' : ''}</span></div></div>
+      <div class="g2-hd">${AV(c.repo, 38)}<div style="min-width:0"><h3>${esc(name)}</h3><span>${esc(owner)}${c.pinned ? ' · <i class="man">手动</i>' : c.suggestedBy ? ` · <i class="sug" title="精选标签由 ${esc(AI_NAMES[c.suggestedBy] ?? c.suggestedBy)} 建议（本机 CLI），设置页「AI 功能」可换">${esc(AI_NAMES[c.suggestedBy] ?? c.suggestedBy)} 建议</i>` : ''}</span></div></div>
       ${text}
       ${use.length ? `<div class="g2-sec"><h5>能做什么</h5><ul>${use.map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
       <div class="g2-sp"><div><span>类型</span><b>${esc(p.type ?? '—')}</b></div><div><span>总 Star</span><b>${c.total == null ? '—' : wan(c.total)}</b></div><div><span>Skill</span><b>${p.skills.length || '—'}</b></div></div>

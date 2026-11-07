@@ -25,13 +25,48 @@
     const r = D.run;
     const last = !r ? ['—', ''] : r.running ? [when(r.startedAt), '<small>正在更新</small>'] : [when(r.startedAt), r.failed.length ? `<small class="bad">失败 ${r.failed.length} 步</small>` : '<small class="ok">全部成功</small>'];
     const tick = [['上次更新', ...last], ['下次更新', S.daily.on ? `${D.next.today ? '今天' : '明天'} ${D.next.at}` : '已关掉', ''], ['数据源', inUse(), `<small>/ ${D.sources.length} 在用</small>`]];
-    $('mast').innerHTML = `<div><div class="kick"><span>数据源 · 定时 · 智能体 · 接入</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Settings</span><b>设置</b></span></h1></div>
+    $('mast').innerHTML = `<div><div class="kick"><span>数据源 · 定时 · AI 接入</span></div><h1><span class="tt"><span class="ghost" aria-hidden="true">Settings</span><b>设置</b></span></h1></div>
       <div class="tick">${tick.map(([k, v, s]) => `<div><div class="k">${k}</div><div class="v">${v}${s}</div></div>`).join('')}</div><div class="band"></div>`;
   }
 
   const sw = (name, label, on, extra = '') => `<button class="ssw" type="button" data-sw="${name}" aria-label="${esc(label)}" aria-pressed="${on}"${extra}></button>`;
   const segs = (task) => `<div class="segs" role="group" aria-label="思考强度">${Object.entries(D.efforts).map(([v, t]) => `<button type="button" data-effort="${task}" data-v="${v}" aria-selected="${S.effort[task] === v}"${lock}>${t}</button>`).join('')}</div>`;
-  const agentSegs = () => `<div class="segs" role="group" aria-label="用哪个智能体">${Object.entries(D.agents).map(([v, t]) => `<button type="button" data-agent="${v}" aria-selected="${S.agent === v}"${lock}>${t}</button>`).join('')}</div>`;
+  const agentSegs = () => `<div class="segs" role="group" aria-label="默认执行方">${Object.entries(D.agents).map(([v, t]) => `<button type="button" data-agent="${v}" aria-selected="${S.agent === v}"${lock}>${esc(t)}</button>`).join('')}</div>`;
+
+  // ── AI 接入（#69，全局规则 P-13；所有者选的 C 版：执行方、功能、对外开放、数据对象各一张卡） ──
+  const A = D.ai;
+  const TASKS = Object.fromEntries(A.features.map((f) => [f.task, f.name]));
+  const callLine = (c) => (c ? `${when(c.at)} · ${esc(TASKS[c.task] ?? c.task)}` : '—');
+  function agentRow(by) {
+    const a = A.status?.agents?.[by];
+    const c = A.status?.calls?.[by];
+    const ok = a?.state === 'ok';
+    const model = by === 'codex' ? '默认模型（Codex 不报具体名）' : c?.lastOk?.model ?? 'Sonnet（--model sonnet）';
+    const state = a ? `<span class="tag ${ok ? 't-on' : 't-bad'}">${esc(A.states[a.state] ?? a.state)}</span>` : '<span class="tag t-off">没查过</span>';
+    const fail = c?.lastFail && (!c.lastOk || c.lastFail.at > c.lastOk.at)
+      ? `<span class="err">${callLine(c.lastFail)} · ${esc(c.lastFail.error)}</span>` : c?.lastFail ? callLine(c.lastFail) : '—';
+    const head = `<span class="sdot${a ? (ok ? '' : ' bad') : ' off'}"></span>${esc(A.names[by])}${state}${a?.version ? `<span class="mono ver">${esc(a.version)}</span>` : ''}`;
+    const ds = a ? `${esc(a.detail ?? '')} · 模型：${esc(model)}<br>最近成功：${callLine(c?.lastOk)}　最近失败：${fail}`
+      : '每次跑补资料、归类、精选标签建议前会在本机查一次；也可以在本机跑 <code>npm run ai</code>';
+    return row(head, ds, '');
+  }
+  // 选定的执行方用不了（没查过不算）：只用一家看那家，接力看两家是不是都用不了。和 src/ai-access.js 的 unavailable 同一规则。
+  const usable = (by) => A.status?.agents?.[by]?.state === 'ok';
+  const unusable = (mode) => Boolean(A.status?.agents) && (mode === 'relay' ? !usable('codex') && !usable('claude') : !usable(mode));
+  const forOpts = (task) => [['default', '跟随默认'], ...Object.entries(D.agents)].map(([v, t]) => `<option value="${v}"${S.agentFor[task] === v ? ' selected' : ''}>${esc(t)}</option>`).join('');
+  function featureRow(f) {
+    const set = S.agentFor[f.task];
+    const tag = set === 'default' ? '<span class="tag t-off">跟随默认</span>' : '<span class="tag t-blue">单独指定</span>';
+    const problem = unusable(set === 'default' ? S.agent : set) ? `<div class="err fx-err">选的执行方现在用不了：下次运行这一步会报错退出，不会换另一家。在本机修好（如重新登录），或在这里换执行方。</div>` : '';
+    return `<div class="srow fx"><div><details${open.has(f.task) ? ' open' : ''} data-fx="${f.task}"><summary><span class="car" aria-hidden="true">▶</span><span><span class="nm">${esc(f.name)}${tag}</span><span class="ds">${esc(f.makes)} · ${esc(A.vias[f.via])}</span></span></summary>
+      <dl class="fx-body"><dt>接入方式</dt><dd>${esc(A.vias[f.via])}（在空的临时目录里跑，不给执行命令的工具，不加载 MCP 和插件）</dd><dt>读</dt><dd>${esc(f.reads)}</dd><dt>写到</dt><dd><code>${esc(f.writes)}</code></dd><dt>什么时候跑</dt><dd>${esc(f.when)}</dd></dl></details>${problem}</div>
+      <div class="ct"><select class="sin" data-agentfor="${f.task}" aria-label="${esc(f.name)}的执行方"${lock}>${forOpts(f.task)}</select>思考强度${segs(f.task)}</div></div>`;
+  }
+  const open = new Set();
+  function openRow(o) {
+    return row(`<span class="sdot${o.on ? '' : ' plan'}"></span>${esc(o.who)} <span class="tag ${o.on ? 't-on' : 't-plan'}">${o.on ? '开放中' : '没有开放'}</span>`,
+      `${esc(o.via)}<br>能读：${esc(o.reads)}<br>能写：${esc(o.writes)}<br>在哪关：${esc(o.off)}`, '');
+  }
   const row = (nm, ds, ct, cls = '') => `<div class="srow${cls}"><div><div class="nm">${nm}</div>${ds ? `<div class="ds">${ds}</div>` : ''}</div>${ct === null ? '' : `<div class="ct">${ct}</div>`}</div>`;
 
   function sourceRow(s) {
@@ -65,17 +100,15 @@
           `<select class="sin" id="weekly-day" aria-label="周报推送星期"${lock}>${dayOpts()}</select><input class="sin" id="weekly-at" aria-label="周报推送时间" type="time" value="${S.weekly.at}"${lock}>${sw('weekly.on', '周报推送', S.weekly.on, lock)}`),
         row('<span class="sdot"></span>网站服务', '常驻在本机，只本机能打开，出错自动重启', `<span class="mono">${esc(location.host)}</span>`),
       ].join('')],
-      ['s-agent', '智能体', '3', '智能体 <small>生成项目的一句话、用途、场景，归类和挑精选</small>', [
-        row('用哪个智能体', '本机已登录的命令行，不另付费；在临时空目录里运行，不给执行命令的工具，不加载 MCP 和插件。<br>选 Codex 时，Codex 失败的那次改用 Claude 重做；一次更新里连续失败 3 次就当额度用完，剩下的都交给 Claude', agentSegs()),
-        row('补资料', '历史榜前 50 和上榜项目，缺的补、过期的重写', `思考强度${segs('profiles')}`),
-        row('归类', '定义标签 + 说明标签，复核一遍', `思考强度${segs('classify')}`),
-        row('精选榜', '从候选池里每类挑最多 7 个', `思考强度${segs('picks')}`),
+      ['s-ai', 'AI 执行方', '2', `AI 执行方 <small>本机已登录的命令行，不另付费</small><span class="when">${A.status?.checkedAt ? `检查于 ${when(A.status.checkedAt)}` : '还没检查过'}</span>`, [
+        row('默认执行方', '只用一家时，那家用不了这一步就报错、不换另一家；「接力」时 Codex 失败那次改用 Claude，一次更新里连续失败 3 次剩下的都交给 Claude。下次运行起生效，正在跑的按原来的跑完', agentSegs()),
+        ...Object.keys(A.names).map(agentRow),
       ].join('')],
-      ['s-mcp', '接入（MCP）', '规划', '接入（MCP） <span class="tag t-plan">规划中</span><small>让 Claude Code、Codex、猛鬼兽直接读这里的数据；还没做，这里是做好以后的样子</small>', [
-        row('<span class="sdot plan"></span>Tidings MCP 服务', '提供 4 个工具：查涨星榜、查项目资料、列收藏、加收藏。只本机能连。', sw('mcp', 'Tidings MCP 服务', false, ' disabled title="规划中"')),
-        row('允许连接的智能体', '每个智能体一个独立令牌，随时可以吊销', '<span class="schip on">Claude Code</span><span class="schip on">Codex</span><span class="schip">猛鬼兽 Hermes</span>'),
-        row('<code class="scode">claude mcp add tidings --transport http http://127.0.0.1:5310/mcp</code>', '', null, ' one'),
-      ].join('')],
+      ['s-aifx', 'AI 功能', String(A.features.length), 'AI 功能 <small>每个用到 AI 的功能：谁做、读什么、写到哪</small>', A.features.map(featureRow).join('')],
+      ['s-open', '对外开放', String(A.openings.length), '对外开放 <small>外部 AI 连进来读写这里的数据</small>', A.openings.map(openRow).join('')],
+      ['s-data', '数据对象', String(A.dataObjects.length), '数据对象 <small>只展示或采集的 AI 数据</small>', A.dataObjects.length
+        ? A.dataObjects.map((d) => row(esc(d.name), esc(d.from), '')).join('')
+        : row('<span class="sdot off"></span>无', '本应用不展示、不采集 AI 自己的数据（如用量）。', '')],
       ['s-acc', '账号与访问', '', '账号与访问', [
         row('访问方式', D.guest ? '现在免登录，打开的人都当作下面这个账号；对外上线后改成伙伴账号' : '要登录，每人用自己的账号', D.guest ? '免登录' : '要登录'),
         row('当前账号', D.canEdit ? '所有者，能改这一页的设置' : '伙伴，只能看，不能改设置', esc(D.me)),
@@ -150,6 +183,11 @@
   });
   // 时间框：改完（失焦或回车）才存；每日更新不合规就标红、写明原因，不存
   const dailyBad = (t) => (!/^\d\d:\d\d$/.test(t) ? '时间格式不对' : t < D.earliest ? `不能早于 ${D.earliest}` : Number(t.slice(3)) % 15 ? '按 15 分钟一档：分钟只能是 00、15、30、45' : '');
+  // 功能行展开与否重画后保留
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (d.dataset?.fx) d.open ? open.add(d.dataset.fx) : open.delete(d.dataset.fx);
+  }, true);
   document.addEventListener('change', (e) => {
     const t = e.target;
     if (t.id === 'daily-at') {
@@ -159,6 +197,10 @@
       if (bad || t.value === S.daily.at) return;
       const next = clone();
       next.daily.at = t.value;
+      save(next);
+    } else if (t.dataset.agentfor) {
+      const next = clone();
+      next.agentFor[t.dataset.agentfor] = t.value;
       save(next);
     } else if (t.id === 'weekly-at' || t.id === 'weekly-day') {
       if (t.id === 'weekly-at' && !/^\d\d:\d\d$/.test(t.value)) return t.classList.add('bad');

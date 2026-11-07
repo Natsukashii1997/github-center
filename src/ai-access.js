@@ -80,8 +80,9 @@ export const saveChecks = (dataDir, agents, now = new Date()) => update(dataDir,
 export const recordCalls = (dataDir, task, stats, now = new Date()) => update(dataDir, (s) => {
   s.calls ??= {};
   for (const [by, c] of Object.entries(stats?.calls ?? {})) {
+    if (!c.ok && !c.fail) continue;
     const row = (s.calls[by] ??= {});
-    if (c.ok) row.lastOk = { at: now.toISOString(), task };
+    if (c.ok) row.lastOk = { at: now.toISOString(), task, ...(c.model ? { model: c.model } : {}) };
     if (c.fail) row.lastFail = { at: now.toISOString(), task, error: String(c.lastError ?? '').slice(0, 300) };
   }
 });

@@ -35,7 +35,7 @@ test('调用成败：记各执行方最近一次成功和失败；设置页、�
   const dir = fresh();
   recordCalls(dir, 'profiles', { calls: { codex: { ok: 3, fail: 1, lastError: '额度用完' }, claude: { ok: 0, fail: 0, lastError: null } } }, new Date('2026-11-07T08:00:00Z'));
   recordCalls(dir, 'classify', { calls: { codex: { ok: 1, fail: 0, lastError: null }, claude: { ok: 0, fail: 0, lastError: null } } }, new Date('2026-11-07T09:00:00Z'));
-  assert.deepEqual(readAiStatus(dir).calls, { codex: { lastOk: { at: '2026-11-07T09:00:00.000Z', task: 'classify' }, lastFail: { at: '2026-11-07T08:00:00.000Z', task: 'profiles', error: '额度用完' } }, claude: {} });
+  assert.deepEqual(readAiStatus(dir).calls, { codex: { lastOk: { at: '2026-11-07T09:00:00.000Z', task: 'classify' }, lastFail: { at: '2026-11-07T08:00:00.000Z', task: 'profiles', error: '额度用完' } } });
 
   // 没查过可用状态时不报；查到选定的那家用不了才报，健康检查把这句放在最前面。
   const s = settings('claude', { profiles: 'codex' });

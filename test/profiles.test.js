@@ -114,6 +114,7 @@ function fakeGenerator({ fail, short = SHORT } = {}) {
         ...short,
         conditions: material.fullName === 'acme/agent-kit' ? AGENT_CONDITIONS : [],
         skills: material.skills.map((s) => ({ path: s.path, purpose: `${s.name} 的中文用途` })),
+        ai: { by: 'claude', via: 'cli', model: 'claude-sonnet-4-5', at: '2026-11-08T02:00:00.000Z' },
       };
     },
   };
@@ -155,6 +156,8 @@ test('首次上榜：读 README、仓库目录和 Skill 生成项目资料；项
   assert.equal(page.hasProfile, true);
   assert.match(p.what, /^acme\/agent-kit 把笔记变成能运行的智能体。/);
   assert.match(p.problem, /作者称它是最快的智能体框架/);
+  // 留痕（#69）：简介是谁做的存进 generated.ai，详情栏末尾写出来；还没归类所以没有分类的留痕。
+  assert.deepEqual(p.aiBy, { profile: { by: 'claude', via: 'cli', model: 'claude-sonnet-4-5', at: '2026-11-08T02:00:00.000Z' }, cats: null });
   const cond = (kind, text) => page.conditions.find((c) => c.kind === kind && c.text.startsWith(text));
   assert.deepEqual(cond('密钥', '需要 OpenAI 的 API Key'), { kind: '密钥', text: '需要 OpenAI 的 API Key', quote: 'Requires an OpenAI API key.' });
   // 原文里带链接、弯引号的，摘录没带也核对得上；文档里写的条件也算。

@@ -77,6 +77,20 @@ window.BW = (() => {
   // 项目页顶行：数据的统计日和实际更新时间（和首页近 1 天报头同口径，需求第 23 条）
   const dataDay = (top) => `<span class="fresh${top.tone === 'ok' ? '' : ` ${top.tone}`}"><i></i>${esc(top.text)}</span>`;
   const ul = (title, list) => (list.length ? `<div class="dw-sec"><h4>${title}</h4><ul class="dw-ul">${list.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
+  // AI 产出留痕（#69）：一句话、用途、场景和分类各是谁做的；#69 之前生成的没有记录，照实写。
+  const AI_NAMES = { codex: 'Codex', claude: 'Claude' }, AI_VIAS = { cli: '本机 CLI' };
+  const hm = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+  // what：「上面的一句话、用途、场景」或「分类」；did：「根据 README 整理」或「给出」。
+  const aiSay = (x, what, did) => (x.by
+    ? `${what}由 <b>${esc(AI_NAMES[x.by] ?? x.by)}</b>（${esc(AI_VIAS[x.via] ?? x.via)}，${esc(x.model ?? (x.by === 'codex' ? '默认模型' : '模型没取到'))}${x.relayed ? '，Codex 失败后接力' : ''}）在 ${hm(x.at)} ${did}`
+    : `${what}由 AI ${did}（2026-11-08 之前生成，没有记录是哪个执行方）`);
+  function aiFoot(a) {
+    if (!a || (!a.profile && !a.cats)) return '';
+    const parts = [];
+    if (a.profile) parts.push(aiSay(a.profile, '上面的一句话、用途、场景', '根据 README 整理'));
+    if (a.cats) parts.push(aiSay(a.cats, '分类', '给出'));
+    return `<p class="dw-ai">${parts.join('；')}。</p>`;
+  }
   function drawer(it, { cur, w, home, page } = {}) {
     const skills = it.skills.length ? `<div class="dw-sec"><h4>包含 Skill · ${it.skills.length}</h4><div class="dw-sk">${it.skills.map((s) => `<div id="skill-${esc(s.path)}"><div><code>${esc(s.name)}</code><span>${esc(s.desc)}</span></div><div class="acts"><button class="star" data-star="${esc(it.repo)}" data-skill="${esc(s.path)}" aria-label="收藏这个 Skill"></button><button class="btn sm" data-copy="${esc(it.repo)}" data-skill="${esc(s.path)}"${noCopy(it)}>复制安装</button></div></div>`).join('')}</div>${page?.skillsTruncated ? '<p class="dw-note">仓库太大，Skill 列表可能不全。</p>' : ''}</div>` : '';
     const mt = it.maint;
@@ -97,6 +111,7 @@ window.BW = (() => {
       <dt>最近更新</dt><dd>${mt.pushed ? ymd(mt.pushed) : '未知'}</dd>
       <dt>最新版本</dt><dd>${release(mt.release)}</dd>
     </dl></div>
+    ${aiFoot(it.aiBy)}
     ${home ? '<div class="dw-hint"><span class="kbd">↑</span> <span class="kbd">↓</span> 切换项目 · <span class="kbd">Esc</span> 关闭</div>' : ''}
   </div>
   <div class="dw-foot"><div class="segs">${D.ais.map(([id, n]) => `<button data-ai="${esc(id)}" aria-selected="${id === target}">${esc(n)}</button>`).join('')}</div><button class="btn pri" data-copy="${esc(it.repo)}"${noCopy(it)}>复制安装指令</button><button class="star" data-star="${esc(it.repo)}" aria-label="收藏"${it.id ? '' : ' disabled title="这个项目还没核出 GitHub 编号，暂时不能收藏"'}></button></div>`;

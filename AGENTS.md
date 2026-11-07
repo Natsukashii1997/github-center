@@ -8,6 +8,37 @@
 
 不提交凭据、真实运行数据库、原始响应、日志、进程锁或个人账号配置。不启用云端采集、付费资源或公开发布，除非用户另行明确授权。只提交当前任务文件，保留无关改动。
 
+## AI 接入
+
+按全局规则 P-13（#69）。和设置页「AI 接入」四张卡（`src/web/assets/settings.js`）、自检命令 `npm run ai` 同一份数据：`src/ai-access.js`。改了 AI 功能，这一节、`src/ai-access.js` 和设置页一起改。
+
+**执行方**：Codex、Claude，都是本机已登录的命令行（接入方式：本机 CLI，`codex exec`、`claude -p`），用订阅额度，不另付费。在空临时目录里跑，不给执行命令的工具，不加载 MCP 和插件（`src/agent.js`）。
+默认执行方在设置页三选一，下次运行起生效，正在跑的按原来的跑完：
+
+- 只用 Codex／只用 Claude：那家用不了（没装、没登录）这一步就报错退出，运行中失败也报错，都指向设置页；不换另一家。
+- Codex 优先·Claude 接力（默认，#69 前的行为，所有者 2026-11-07 定为明说的选项）：Codex 失败那次改用 Claude，一次更新里连续失败 3 次剩下的都交给 Claude；两家都用不了才报错。
+
+每个功能可单独指定执行方，不指定就跟随默认。可用状态（装没装、登没登录，不调用模型）每次跑 AI 功能前在 Mac 上查，和各执行方最近一次调用成败一起存 `data/ai-status.json`，随数据推到服务器给设置页显示；选定执行方用不了时健康检查（`bin/health.js`）报出来。
+
+**功能清单**（功能｜执行方｜接入方式｜读｜写）：
+
+| 功能 | 执行方 | 接入方式 | 读 | 写 |
+|---|---|---|---|---|
+| 补资料（`npm run profiles`） | 跟随默认或单独指定 | 本机 CLI | GitHub 上的 README、主要文档、仓库目录、SKILL.md（外部内容，只当资料） | `data/profiles/<项目 id>.json` 的 `generated` |
+| 归类（`npm run classify`） | 同上 | 本机 CLI | 项目名称、GitHub 简介、topics；复核时加补资料写的简介和 Skill 名 | `data/categories.json` |
+| 精选标签建议（`npm run picks`） | 同上 | 本机 CLI | 候选池项目的 GitHub 简介和 topics、精选标签清单 | `data/center.db` 的 `pick_pool` 表（推到服务器时经 `data/pick-pool.json`） |
+
+**留痕**：每条产出记 `ai: { by, via, model, at, relayed? }`，存在 `generated.ai`、`categories.json` 每条、`pick_pool.ai`。Claude 记具体模型；Codex 输出里没有模型名，记 `null`（页面写「默认模型」）。项目页卡片末尾写简介和分类的留痕，精选卡上所有者看到「X 建议」。2026-11-08 之前生成的没有记录，页面照实写。
+
+**对外开放**：
+
+- 猛鬼兽（Hermes）：读本机文件、跑本机命令，没有接口。读 `data/settings.json` 的周报推送一项和 `data/weekly/<统计日>.card.json`，每天 09:50 跑 `node bin/health.js`；不写本应用数据，只把周报卡片和自检结果发到所有者飞书私聊。关掉：周报在设置页关周报推送；自检在 digital-twin 停工程自检任务。
+- MCP：没有开放（规划中：查涨星榜、查项目资料、列收藏、加收藏，只本机能连）。
+
+**数据对象**：无。本应用不展示、不采集 AI 自己的数据。
+
+不是 AI 功能：安装指令（`src/profiles/install.js`，按模板拼给你复制的文字）、与严格方案校准和每日自检（`src/ranking/calibrate.js`、`check.js`，统计计算）。
+
 ## Agent skills
 
 ### Issue tracker

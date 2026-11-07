@@ -130,6 +130,10 @@ export const maintOf = (profile) => ({ pushed: profile?.pushedAt?.slice(0, 10) ?
 
 // 一个上榜项目在卡片上要的全部内容。onBoards：它出现在哪些窗口的快照里，最新生成的在前；语言、创建日期取最新存下的项目信息，
 // 数字按运行分开放（runs），卡片按这一期榜单的运行取。
+// AI 产出留痕（#69，全局规则 P-13）：简介和分类各是谁做的（执行方、接入方式、模型、时间），详情栏末尾写出来。
+// 没生成过的给 null；#69 之前生成的没有记录，给 {}。
+export const aiBy = (g, cat) => ({ profile: g ? g.ai ?? {} : null, cats: cat ? cat.ai ?? {} : null });
+
 export function project(dataDir, onBoards, { account, favorites }, find) {
   const { entry } = onBoards[0];
   const projectRaw = onBoards.find((b) => b.entry.evidence?.project)?.entry.evidence.project;
@@ -152,6 +156,7 @@ export function project(dataDir, onBoards, { account, favorites }, find) {
     ghDesc: g ? null : profile?.description ?? info?.description ?? null,
     ...shortOf(g),
     cats: find({ id: entry.projectId, fullName: entry.fullName })?.categories ?? [],
+    aiBy: aiBy(g, find({ id: entry.projectId, fullName: entry.fullName })),
     maint: maintOf(profile),
     installable: Boolean(profile?.material),
     skills: (profile?.material?.skills ?? []).map((s) => ({ name: s.name, path: s.path, desc: skillPurpose(s, g) })),

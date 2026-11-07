@@ -214,3 +214,7 @@ a { color: inherit; }
 /* 提示气泡 */
 .toast { position: fixed; left: 50%; bottom: 28px; z-index: 9; transform: translate(-50%, 12px); opacity: 0; pointer-events: none; padding: 8px 14px; border-radius: 8px; background: var(--ink); color: #fff; font-size: 12.5px; transition: opacity .2s, transform .2s; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* 详情栏末尾的 AI 产出留痕（#69，所有者选的 C 版：卡片末尾一段说明） */
+.dw-ai { margin: 18px 0 0; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 12px; line-height: 1.7; color: var(--ink-3); }
+.dw-ai b { font-weight: 600; color: var(--ink-2); }

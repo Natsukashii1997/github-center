@@ -46,7 +46,7 @@ test('Codex 优先·Claude 接力（默认）：成功就不碰 Claude；失败�
   assert.equal(cx.calls().length, 3);
   assert.equal(cl.calls().length, 1);
   assert.equal(stats.relayed, 1);
-  assert.deepEqual(stats.calls, { codex: { ok: 2, fail: 1, lastError: 'Codex 生成失败（退出码 1）：codex 出错了' }, claude: { ok: 1, fail: 0, lastError: null } });
+  assert.deepEqual(stats.calls, { codex: { ok: 2, fail: 1, lastError: 'Codex 生成失败（退出码 1）：codex 出错了', model: null }, claude: { ok: 1, fail: 0, lastError: null, model: 'claude-sonnet-4-5' } });
 });
 
 test(`Codex 优先·Claude 接力：连续失败 ${RELAY_AFTER} 次当额度用完，这次运行剩下的直接交给 Claude；开跑前查到 Codex 用不了就一次都不试`, async () => {

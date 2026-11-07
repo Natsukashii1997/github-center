@@ -154,6 +154,10 @@ test('设置页：导航第四项；数据里有各来源的日期和成败、�
     assert.deepEqual(data.sources.find((s) => s.key === 'reddit').unavailable, true);
     assert.deepEqual(data.run, { startedAt: '2026-11-03T02:00:01.000Z', endedAt: '2026-11-03T02:20:00.000Z', failed: ['历史榜（Skill 安装量）'], running: false });
     assert.equal(data.next.at, '10:00');
+    // AI 接入（#69）：功能清单、对外开放、数据对象，两家还没查过可用状态（页面写「没查过」，不在这里查）。
+    assert.deepEqual(data.ai.features.map((f) => [f.name, f.mode, f.via]), [['补资料', 'relay', 'cli'], ['归类', 'relay', 'cli'], ['精选标签建议', 'relay', 'cli']]);
+    assert.deepEqual(data.ai.openings.map((o) => [o.who, o.on]), [['猛鬼兽（Hermes）', true], ['MCP', false]]);
+    assert.deepEqual([data.ai.dataObjects, data.ai.status, data.ai.vias], [[], null, { cli: '本机 CLI' }]);
     assert.equal((await site.get('assets/settings.js')).status, 200);
     assert.equal((await site.get('assets/settings.css')).status, 200);
     const refused = await post(site, fieldsOf(DEFAULTS, { 'sources.hn': 'off' }));

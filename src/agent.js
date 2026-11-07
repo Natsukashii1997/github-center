@@ -97,6 +97,7 @@ export function agentJson({ agent = 'relay', bin, claudeBin, timeoutMs, codexDow
     try {
       const { data, model } = await fn();
       stats.calls[by].ok++;
+      stats.calls[by].model = model;
       return { data, ai: { by, via: VIA, model, at: now().toISOString(), ...(relayed ? { relayed: true } : {}) } };
     } catch (e) {
       stats.calls[by].fail++;

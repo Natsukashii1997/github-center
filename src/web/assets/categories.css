@@ -37,6 +37,7 @@
 .gl::before { content: ""; position: absolute; left: 24px; right: 24px; top: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--c), transparent); }
 .gl .act { display: flex; align-items: center; gap: 6px; }
 .gl .man { font-style: normal; font-size: 10.5px; font-weight: 700; color: var(--c); }
+.gl .sug { font-style: normal; font-size: 10.5px; color: var(--ink-4); cursor: help; } /* #69：所有者看到这张卡的标签是哪个执行方建议的 */
 .g2-hd { display: flex; align-items: center; gap: 10px; } .g2-hd .av { border-radius: 12px; }
 .g2-hd h3 { margin: 0; font-size: 18px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .g2-hd span { display: block; font: 11px var(--mono); color: var(--ink-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g2-ln { margin: 14px 0 0; font-size: 15px; font-weight: 700; line-height: 1.5; color: var(--ink); }

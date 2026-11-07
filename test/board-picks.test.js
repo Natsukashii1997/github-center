@@ -83,7 +83,9 @@ test('默认填法：Codex 建议标签（只认清单里的、最多 2 个）�
   const picks = openPicks(dataDir);
   const b = picks.board(owner);
   assert.equal(b.canEdit, true);
-  assert.deepEqual(tagOf(b, AGENT).cards[0], { slot: 1, projectId: 1, fullName: 'h/p1', ownerId: 100, total: 120_000, pinned: false, up: 0, down: 0, mine: 0 });
+  // 所有者看得到这张卡的标签是哪个执行方建议的（#69 留痕）；伙伴看不到。
+  assert.deepEqual(tagOf(b, AGENT).cards[0], { slot: 1, projectId: 1, fullName: 'h/p1', ownerId: 100, total: 120_000, pinned: false, suggestedBy: 'codex', up: 0, down: 0, mine: 0 });
+  assert.equal(tagOf(picks.board(null), AGENT).cards[0].suggestedBy, undefined);
   assert.equal(tagOf(b, SKILL).cards[2].ownerId, null, '候选里来的没有作者 id');
   // 每条建议带这一批的留痕（#69），随候选池推到服务器。
   assert.deepEqual(JSON.parse(picks.exportPool().find((x) => x.project_id === 1).ai), { by: 'codex', via: 'cli', model: null, at: '2026-11-07T00:00:00.000Z' });
