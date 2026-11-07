@@ -25,7 +25,7 @@ export function poolFrom(dataDir, limit = POOL) {
   return [...byId.values()].sort((a, b) => b.total - a.total || a.id - b.id).slice(0, limit);
 }
 
-// tagger：{ version, suggest(tags, items) → [{ i, tags }] }（picks-codex.js）。
+// tagger：{ version, suggest(tags, items) → { results: [{ i, tags }], ai? } }（picks-codex.js；ai 是这一批的留痕，#69）。
 export async function updatePicks({ dataDir, tagger, limit = POOL, batch = BATCH }) {
   const pool = poolFrom(dataDir, limit);
   const picks = openPicks(dataDir);
@@ -37,9 +37,9 @@ export async function updatePicks({ dataDir, tagger, limit = POOL, batch = BATCH
     if (tags.length) {
       await mapLimit(chunks(todo, batch), CONCURRENCY, async (group) => {
         try {
-          const results = await tagger.suggest(tags, group.map(({ fullName, description, topics }) => ({ fullName, description, topics })));
+          const { results, ai } = await tagger.suggest(tags, group.map(({ fullName, description, topics }) => ({ fullName, description, topics })));
           const got = (Array.isArray(results) ? results : []).filter((r) => Number.isInteger(r?.i) && group[r.i]);
-          picks.saveSuggestions(got.map((r) => ({ projectId: group[r.i].id, tags: r.tags })), { version: tagger.version });
+          picks.saveSuggestions(got.map((r) => ({ projectId: group[r.i].id, tags: r.tags })), { version: tagger.version, ai });
           stat.suggested += got.length;
         } catch (e) {
           stat.failed += group.length;

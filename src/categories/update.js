@@ -3,7 +3,7 @@
 // 各榜单显示的项目（每榜前 20）有了项目页资料后，再用完整资料复核一次；资料变了再复核。
 // 一批归类失败不影响其他批，当轮重试 3 轮（#52），还不行这些项目算“还没归类”，下次运行再归；每归完一批就存一次，中途停下不丢已归的。
 //
-// 归类器接口：{ version, classify(items, { review }) → [{ i, categories }] }，i 是项目在这一批里的序号；
+// 归类器接口：{ version, classify(items, { review }) → { results: [{ i, categories }], ai? } }，i 是项目在这一批里的序号，ai 是这一批的留痕（#69，存在每条归类上）；
 // items 是 { fullName, description, topics }，复核时另有 what、problem、skills（Skill 名字）。
 import { WINDOWS } from '../ranking/stat-day.js';
 import { readLatestSnapshot, readCandidates, openStore } from '../ranking/store.js';
@@ -60,14 +60,14 @@ export async function updateCategories({ dataDir, classifier, gh, now = () => ne
   const { list, requests } = await targets({ dataDir, gh, now, cats });
 
   // 归上类就记下（项目有了 id 时，换掉原来按名字存的那条）。返回归上类的个数。
-  function apply(group, results, source, extra = () => ({})) {
+  function apply(group, results, source, extra = () => ({}), ai = null) {
     let n = 0;
     for (const r of Array.isArray(results) ? results : []) {
       const x = Number.isInteger(r?.i) ? group[r.i] : null;
       const categories = x ? pickCategories(r.categories) : [];
       if (!categories.length) continue;
       if (x.id) delete items[categoryKey({ fullName: x.fullName })];
-      items[categoryKey(x)] = { id: x.id ?? null, fullName: x.fullName, categories, source, version: classifier.version, at: now().toISOString(), ...extra(x) };
+      items[categoryKey(x)] = { id: x.id ?? null, fullName: x.fullName, categories, source, version: classifier.version, at: now().toISOString(), ...(ai ? { ai } : {}), ...extra(x) };
       n++;
     }
     return n;
@@ -80,8 +80,8 @@ export async function updateCategories({ dataDir, classifier, gh, now = () => ne
       concurrency: CONCURRENCY,
       attempt: async (group) => {
         try {
-          const results = await classifier.classify(group.map((x) => x.view ?? x), { review });
-          const classified = apply(group, results, review ? 'review' : 'batch', extra);
+          const { results, ai } = await classifier.classify(group.map((x) => x.view ?? x), { review });
+          const classified = apply(group, results, review ? 'review' : 'batch', extra, ai);
           saveCategories(dataDir, items);
           return { classified };
         } catch (e) {

@@ -114,6 +114,7 @@ function fakeGenerator({ fail, short = SHORT } = {}) {
         ...short,
         conditions: material.fullName === 'acme/agent-kit' ? AGENT_CONDITIONS : [],
         skills: material.skills.map((s) => ({ path: s.path, purpose: `${s.name} 的中文用途` })),
+        ai: { by: 'claude', via: 'cli', model: 'claude-sonnet-4-5', at: '2026-11-08T02:00:00.000Z' },
       };
     },
   };
@@ -155,6 +156,8 @@ test('首次上榜：读 README、仓库目录和 Skill 生成项目资料；项
   assert.equal(page.hasProfile, true);
   assert.match(p.what, /^acme\/agent-kit 把笔记变成能运行的智能体。/);
   assert.match(p.problem, /作者称它是最快的智能体框架/);
+  // 留痕（#69）：简介是谁做的存进 generated.ai，详情栏末尾写出来；还没归类所以没有分类的留痕。
+  assert.deepEqual(p.aiBy, { profile: { by: 'claude', via: 'cli', model: 'claude-sonnet-4-5', at: '2026-11-08T02:00:00.000Z' }, cats: null });
   const cond = (kind, text) => page.conditions.find((c) => c.kind === kind && c.text.startsWith(text));
   assert.deepEqual(cond('密钥', '需要 OpenAI 的 API Key'), { kind: '密钥', text: '需要 OpenAI 的 API Key', quote: 'Requires an OpenAI API key.' });
   // 原文里带链接、弯引号的，摘录没带也核对得上；文档里写的条件也算。
@@ -368,8 +371,10 @@ test('Codex 生成器：非交互、结构化输出、只读沙箱、关掉执�
   `);
   const { PROJECT_TYPES } = await import('../src/profiles/update.js');
   const material = { fullName: 'acme/agent-kit', description: 'Agents', topics: ['agent'], listing: ['README.md', 'skills/'], readme: { path: 'README.md', text: AGENT_README, truncated: false }, docs: [{ path: 'docs/install.md', text: 'Install with npm.', truncated: false }], skills: [{ path: 'skills/pdf', name: 'pdf', description: 'Read PDFs.' }] };
-  const result = await codexGenerator({ bin }).generate(material);
+  const { ai, ...result } = await codexGenerator({ bin }).generate(material);
   assert.deepEqual(result, { what: '干什么', problem: '解决什么', conditions: [], skills: [] });
+  // 留痕（#69）：Codex 做的、本机 CLI 接入；Codex 输出里没有模型名。
+  assert.deepEqual({ ...ai, at: typeof ai.at }, { by: 'codex', via: 'cli', model: null, at: 'string' });
   const seen = JSON.parse(readFileSync(log, 'utf8'));
   assert.equal(seen.args[0], 'exec');
   for (const flag of ['--ephemeral', '--ignore-user-config', '--skip-git-repo-check']) assert.ok(seen.args.includes(flag), flag);
@@ -392,7 +397,7 @@ test('Codex 生成器：非交互、结构化输出、只读沙箱、关掉执�
   assert.match(seen.cwd, /gc-codex-/);
   assert.ok(!readdirSync(tmpdir()).includes(seen.cwd.split('/').pop()));
 
-  // Codex 失败时 Claude 接力（../src/agent.js），这里给一个也失败的假 claude，不碰本机真的 Claude。
+  // 默认执行方「Codex 优先·Claude 接力」时 Codex 失败由 Claude 接力（../src/agent.js），这里给一个也失败的假 claude，不碰本机真的 Claude。
   const noClaude = fakeCodex(fresh(), 'process.exit(1);');
   const broken = fakeCodex(fresh(), "process.stderr.write('Error: Not logged in. Run codex login.\\n'); process.exit(1);");
   await assert.rejects(codexGenerator({ bin: broken, claudeBin: noClaude }).generate(material), /Codex 生成失败（退出码 1）：Error: Not logged in/);

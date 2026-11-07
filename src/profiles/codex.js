@@ -66,13 +66,16 @@ ${material.skills.map((s) => `- path: ${s.path}\n  name: ${s.name}\n  descriptio
 </material>`;
 }
 
-// effort：设置页「补资料」的思考强度，不给用默认 low；agent：设置页选的智能体，不给用 Codex（额度用完 Claude 接力）。
-// 换强度、换智能体都不改 version，已生成的不因此重写。stats.relayed：Claude 接力的次数。
-export function codexGenerator({ bin, claudeBin, timeoutMs, effort, agent } = {}) {
-  const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs });
+// effort：设置页「补资料」的思考强度，不给用默认 low；agent、codexDown：设置页「AI 接入」给补资料选的执行方（见 ../agent.js）。
+// 换强度、换执行方都不改 version，已生成的不因此重写。stats.relayed：Claude 接力的次数。生成结果带 ai：这条的留痕（谁做的、怎么接、模型、时间）。
+export function codexGenerator({ bin, claudeBin, timeoutMs, effort, agent, codexDown } = {}) {
+  const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs, codexDown });
   return {
     version: `codex-${PROMPT_VERSION}`,
     stats,
-    generate: (material) => json({ schema: SCHEMA, input: prompt(material), effort }),
+    async generate(material) {
+      const { data, ai } = await json({ schema: SCHEMA, input: prompt(material), effort });
+      return { ...data, ai };
+    },
   };
 }

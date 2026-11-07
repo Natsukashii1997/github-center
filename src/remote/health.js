@@ -11,9 +11,10 @@ const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400
 const minutesOf = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3));
 
 // run：lastRun()；settings：readSettings()；remote：有没有配服务器；server：服务器上网站的状态（'active' 等）或连不上时的 Error；
-// backups：listBackups()（新的在前）；unfinished：榜单上简介没和当前资料对上的项目名（#52，当轮重试也没补上，网站先显示旧简介或 GitHub 描述）。
-export function healthProblems({ run, settings, remote, server, backups, unfinished = [], now = new Date() }) {
-  const out = [];
+// backups：listBackups()（新的在前）；unfinished：榜单上简介没和当前资料对上的项目名（#52，当轮重试也没补上，网站先显示旧简介或 GitHub 描述）；
+// ai：设置页「AI 接入」选定的执行方用不了的功能，每个一句（../ai-access.js 的 aiProblems，#69）。
+export function healthProblems({ run, settings, remote, server, backups, unfinished = [], ai = [], now = new Date() }) {
+  const out = [...ai];
   const today = beijing(now);
   if (settings.daily.on) {
     if (!run) out.push('每日更新还没跑过（data/logs/update.log 里没有记录）。');

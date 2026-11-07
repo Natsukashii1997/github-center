@@ -5,7 +5,8 @@
 // 生成失败（含 Codex 登录失效）时不拿猜测的内容顶替：当轮重试 3 轮（#52），还不行就显示上一次的简介，
 // 从没生成过的显示 GitHub 上的描述（shownGenerated），下次运行再试。
 //
-// 生成器接口：{ version, generate(material) → { what, problem, line, use, scene, tag, type, conditions: [{ kind, text, quote }], skills: [{ path, purpose }] } }。
+// 生成器接口：{ version, generate(material) → { what, problem, line, use, scene, tag, type, conditions: [{ kind, text, quote }], skills: [{ path, purpose }], ai? } }。
+// ai 是这条简介的留痕（谁做的、怎么接、模型、时间，#69），原样存进 generated.ai。
 // version 变了，所有项目重新生成。
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -228,7 +229,8 @@ async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
     return { name: info.full_name, status: 'reused' };
   }
   try {
-    const generated = { version: generator.version, materialHash: hash, at: now().toISOString(), ...keepGrounded(await generator.generate(material), material) };
+    const { ai, ...result } = await generator.generate(material);
+    const generated = { version: generator.version, materialHash: hash, at: now().toISOString(), ...(ai ? { ai } : {}), ...keepGrounded(result, material) };
     saveProfile(dataDir, { ...base, material: saved, generated, lastError: null });
     return { name: info.full_name, status: 'generated' };
   } catch (e) {

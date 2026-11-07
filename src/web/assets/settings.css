@@ -52,3 +52,21 @@ select.sin { font: 500 12.5px var(--sans); padding-right: 24px; }
 .schip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
 .scode { display: block; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #f6f8fa; font: 12px/1.6 var(--mono); color: var(--ink-2); white-space: pre; overflow: auto; }
 .snote { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line-2); font-size: 12px; color: var(--ink-4); }
+
+/* AI 接入（#69，所有者选的 C 版）：执行方、功能、对外开放、数据对象四张卡 */
+.scard > h3 .when { margin-left: auto; font: 400 11.5px var(--mono); color: var(--ink-4); }
+.t-bad { background: #ffebe9; color: #cf222e; } .t-warn { background: #fff8c5; color: #9a6700; }
+.sdot.warn { background: #bf8700; box-shadow: 0 0 0 3px rgba(191,135,0,.16); } .t-blue { background: var(--accent-soft); color: var(--accent-ink); }
+.srow .nm .ver { font-weight: 400; }
+.srow.fx { align-items: start; }
+.srow.fx details > summary { list-style: none; display: grid; grid-template-columns: 14px minmax(0,1fr); gap: 8px; align-items: start; cursor: pointer; }
+.srow.fx details > summary::-webkit-details-marker { display: none; }
+.srow.fx details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.srow.fx .car { padding-top: 3px; font-size: 10px; color: var(--ink-4); transition: transform .15s; }
+.srow.fx details[open] .car { transform: rotate(90deg); }
+.srow.fx .ds { display: block; }
+.srow.fx .ct { padding-top: 2px; }
+.fx-body { display: grid; grid-template-columns: 76px minmax(0,1fr); gap: 4px 12px; margin: 10px 0 2px 22px; font-size: 12px; color: var(--ink-2); line-height: 1.55; }
+.fx-body dt { color: var(--ink-4); } .fx-body dd { margin: 0; min-width: 0; } .fx-body code { font: 11.5px var(--mono); }
+.fx-err { margin: 6px 0 0 22px; font-size: 12px; color: #cf222e; }
+@media (prefers-reduced-motion: reduce) { .srow.fx .car { transition: none; } }

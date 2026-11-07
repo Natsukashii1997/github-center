@@ -72,15 +72,16 @@ Topics：${topics(x.topics)}
 </projects>`;
 }
 
-// effort：设置页「归类」的思考强度，不给用默认；换强度不改 version；agent：设置页选的智能体（见 ../agent.js），换智能体也不改 version。
-export function codexClassifier({ bin, claudeBin, timeoutMs, effort, agent } = {}) {
-  const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs });
+// effort：设置页「归类」的思考强度，不给用默认；换强度不改 version；agent、codexDown：设置页「AI 接入」给归类选的执行方（见 ../agent.js），换执行方也不改 version。
+// classify 返回 { results, ai }：ai 是这一批的留痕。
+export function codexClassifier({ bin, claudeBin, timeoutMs, effort, agent, codexDown } = {}) {
+  const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs, codexDown });
   return {
     version: `codex-${PROMPT_VERSION}`,
     stats,
     async classify(items, { review = false } = {}) {
-      const out = await json({ schema: SCHEMA, input: (review ? reviewPrompt : batchPrompt)(items), effort });
-      return out.results;
+      const { data, ai } = await json({ schema: SCHEMA, input: (review ? reviewPrompt : batchPrompt)(items), effort });
+      return { results: data.results, ai };
     },
   };
 }

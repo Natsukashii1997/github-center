@@ -5,7 +5,7 @@ import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, SINCES } from '.
 import { readCategories } from '../categories/index.js';
 import { readProfile, findProfile, currentGenerated, shownGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
 import { boardProjects } from '../profiles/store.js';
-import { project as projectCard, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, shortOf, maintOf, frame, MARK, WORDMARK, FAVICON } from './home.js';
+import { project as projectCard, aiBy, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, shortOf, maintOf, frame, MARK, WORDMARK, FAVICON } from './home.js';
 import { rankHistory } from '../ranking/moves.js';
 
 const labels = () => Object.fromEntries(Object.entries(WINDOWS).map(([id, { days }]) => [id, { label: `近 ${days} 天` }]));
@@ -33,7 +33,7 @@ function brief(dataDir, { id, fullName }, ctx, find, profile = id ? readProfile(
   return {
     repo: profile?.fullName ?? fullName, id, ownerId: null, runs: {}, lang: null, created: null,
     what: g?.what ?? null, problem: g?.problem ?? null, ghDesc: g ? null : profile?.description ?? null, ...shortOf(g),
-    cats: find({ id, fullName })?.categories ?? [], maint: maintOf(profile), installable: Boolean(profile?.material),
+    cats: find({ id, fullName })?.categories ?? [], aiBy: aiBy(g, find({ id, fullName })), maint: maintOf(profile), installable: Boolean(profile?.material),
     skills: (profile?.material?.skills ?? []).map((s) => ({ name: s.name, path: s.path, desc: skillPurpose(s, g) })),
     saved: saved.has(''), savedSkills: [...saved].filter(Boolean),
   };

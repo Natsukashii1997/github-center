@@ -17,6 +17,7 @@
     "skills": "node --use-env-proxy bin/skills.js",
     "hot": "node --use-env-proxy bin/hot.js",
     "picks": "node bin/picks.js",
-    "share": "node --use-env-proxy bin/share.js"
+    "share": "node --use-env-proxy bin/share.js",
+    "ai": "node bin/ai.js"
   }
 }

@@ -1,5 +1,5 @@
 // 设置（所有者 2026-11-03 加设置页，原型 design/candidates/redesign/brand/settings.html#A）：存在 data/settings.json，没存过就用默认值。
-// 数据源开关、用哪个智能体、补资料／归类／精选的思考强度、每日更新时间、周报推送。只有所有者能改（见 web/settings.js），保存前整份校验，不合规就整份不存。
+// 数据源开关、AI 接入（默认执行方、各功能的执行方）、补资料／归类／精选的思考强度、每日更新时间、周报推送。只有所有者能改（见 web/settings.js），保存前整份校验，不合规就整份不存。
 // 谁读：bin/update.js（每日更新开关、整步跳过）、出榜和热点榜（来源开关）、补资料／归类／精选榜（智能体、思考强度）；每次运行开头读一次。
 // 周报推送（weekly）本仓库不读：猛鬼兽（Hermes）每 15 分钟读一次 data/settings.json 决定发不发（#61，约定见 docs/handoff/weekly-hermes.md）。
 // 改默认值或字段时同步改 digital-twin 的 hermes/scripts/tidings_weekly.py。
@@ -10,8 +10,12 @@ import { readJson, writeAtomic } from '../ranking/store.js';
 export const SOURCES = ['trending', 'gharchive', 'clickhouse', 'skills', 'hn', 'v2ex', 'reddit'];
 export const REQUIRED = new Set(['gharchive']);
 export const UNAVAILABLE = new Set(['reddit']);
-// 补资料、归类、精选榜用哪个智能体（2026-11-04 所有者加）：选 Codex 时额度用完 Claude 接力，规则见 ../agent.js。
-export const AGENTS = { codex: 'Codex', claude: 'Claude' };
+// 补资料、归类、精选榜交给哪个执行方（2026-11-04 所有者加；#69 按全局规则 P-13 改成三选一，可按功能单独指定）：
+// 只用 Codex、只用 Claude 时，不可用就报错，不换另一家；「Codex 优先·Claude 接力」是所有者 2026-11-07 选定保留的明示选项，规则见 ../agent.js。
+export const AGENTS = { codex: '只用 Codex', claude: '只用 Claude', relay: 'Codex 优先·Claude 接力' };
+// 各功能的执行方：default 跟随上面的默认执行方，否则同 AGENTS。
+export const AGENT_TASKS = ['profiles', 'classify', 'picks'];
+export const FOLLOW = 'default';
 // 思考强度：页面上的低／中／高，对应 codex 的 model_reasoning_effort、claude 的 --effort。
 export const EFFORTS = { low: '低', medium: '中', high: '高' };
 export const EFFORT_TASKS = ['profiles', 'classify', 'picks'];
@@ -21,7 +25,8 @@ export const DAYS = ['周日', '周一', '周二', '周三', '周四', '周五',
 
 export const DEFAULTS = {
   sources: Object.fromEntries(SOURCES.map((s) => [s, !UNAVAILABLE.has(s)])),
-  agent: 'codex',
+  agent: 'relay',   // #69 前的默认（Codex，失败 Claude 接力），行为不变
+  agentFor: Object.fromEntries(AGENT_TASKS.map((t) => [t, FOLLOW])),
   effort: Object.fromEntries(EFFORT_TASKS.map((t) => [t, 'low'])),
   daily: { on: true, at: '10:00' },
   weekly: { on: true, day: 1, at: '11:30' },   // 所有者 2026-11-06 定：默认开，周一 11:30
@@ -30,6 +35,7 @@ export const DEFAULTS = {
 export class SettingsError extends Error {}
 
 const path = (dataDir) => join(dataDir, 'settings.json');
+const isAgentFor = (v) => v === FOLLOW || Object.hasOwn(AGENTS, v);
 const isTime = (t) => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 
 // 读设置：文件里缺的项用默认值补上，认不出的项丢掉（文件被手改坏了也不影响页面和更新）。
@@ -44,7 +50,9 @@ export function readSettings(dataDir) {
   const pick = (v, ok, d) => (ok(v) ? v : d);
   return {
     sources: Object.fromEntries(SOURCES.map((k) => [k, REQUIRED.has(k) ? true : UNAVAILABLE.has(k) ? false : pick(s.sources?.[k], (v) => typeof v === 'boolean', DEFAULTS.sources[k])])),
-    agent: pick(s.agent, (v) => Object.hasOwn(AGENTS, v), DEFAULTS.agent),
+    // #69 前存的 codex 实际是「Codex 失败 Claude 接力」，按 relay 读（那时还没有 agentFor），行为不变；#69 后存的照原样。
+    agent: s.agent === 'codex' && !s.agentFor ? 'relay' : pick(s.agent, (v) => Object.hasOwn(AGENTS, v), DEFAULTS.agent),
+    agentFor: Object.fromEntries(AGENT_TASKS.map((k) => [k, pick(s.agentFor?.[k], isAgentFor, FOLLOW)])),
     effort: Object.fromEntries(EFFORT_TASKS.map((k) => [k, pick(s.effort?.[k], (v) => Object.hasOwn(EFFORTS, v), DEFAULTS.effort[k])])),
     daily: {
       on: pick(s.daily?.on, (v) => typeof v === 'boolean', DEFAULTS.daily.on),
@@ -86,7 +94,12 @@ export function parseSettings(form) {
     if (UNAVAILABLE.has(k) && sources[k]) throw new SettingsError('Reddit 还没接，不能打开');
   }
   const agent = get('agent');
-  if (!Object.hasOwn(AGENTS, agent)) throw new SettingsError(`智能体只能是 ${Object.keys(AGENTS).join('、')}`);
+  if (!Object.hasOwn(AGENTS, agent)) throw new SettingsError(`默认执行方只能是 ${Object.keys(AGENTS).join('、')}`);
+  const agentFor = {};
+  for (const k of AGENT_TASKS) {
+    agentFor[k] = get(`agentFor.${k}`);
+    if (!isAgentFor(agentFor[k])) throw new SettingsError(`功能的执行方只能是 ${[FOLLOW, ...Object.keys(AGENTS)].join('、')}`);
+  }
   const effort = {};
   for (const k of EFFORT_TASKS) {
     effort[k] = get(`effort.${k}`);
@@ -99,8 +112,11 @@ export function parseSettings(form) {
   if (!/^[0-6]$/.test(day)) throw new SettingsError('周报推送的星期不对');
   const wat = get('weekly.at');
   if (!isTime(wat)) throw new SettingsError('周报推送时间格式不对，要写成 11:30 这样');
-  return { sources, agent, effort, daily: { on: bool('daily.on'), at }, weekly: { on: bool('weekly.on'), day: Number(day), at: wat } };
+  return { sources, agent, agentFor, effort, daily: { on: bool('daily.on'), at }, weekly: { on: bool('weekly.on'), day: Number(day), at: wat } };
 }
+
+// 某个功能实际用的执行方（codex、claude、relay）：单独指定了就用它，否则跟随默认。
+export const agentOf = (settings, task) => (settings.agentFor?.[task] && settings.agentFor[task] !== FOLLOW ? settings.agentFor[task] : settings.agent);
 
 // 存整份设置（先写临时文件再改名），返回存下的内容。
 export function saveSettings(dataDir, settings, now = () => new Date()) {
