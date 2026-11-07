@@ -122,10 +122,11 @@ export function openPicks(dataDir) {
       const cards = db.prepare(`SELECT p.tag_id, p.slot, p.project_id, p.full_name, p.pinned, pool.owner_id, pool.total, pool.ai FROM picks p
         LEFT JOIN pick_pool pool ON pool.project_id = p.project_id ORDER BY p.tag_id, p.slot`).all();
       const owner = canEdit(account);
-      // 建议来源（#69 留痕）：只给所有者看，按默认填法上卡的才有；#69 之前的建议没有记录。
-      const by = (c) => {
+      // 建议来源（#69 留痕：执行方、接入方式、模型、时间）：只给所有者看，按默认填法上卡的才有；#69 之前的建议没有记录。
+      const trace = (c) => {
         try {
-          return JSON.parse(c.ai)?.by ?? null;
+          const ai = JSON.parse(c.ai);
+          return ai?.by ? ai : null;
         } catch {
           return null;
         }
@@ -135,7 +136,7 @@ export function openPicks(dataDir) {
         tags: tags().map((t) => {
           const mine = cards.filter((c) => c.tag_id === t.id).map((c) => ({
             slot: c.slot, projectId: c.project_id, fullName: c.full_name, ownerId: c.owner_id ?? null, total: c.total ?? null, pinned: !!c.pinned,
-            ...(owner && !c.pinned && c.ai ? { suggestedBy: by(c) } : {}),
+            ...(owner && !c.pinned && trace(c) ? { suggested: trace(c) } : {}),
             ...counts(t.id, c.project_id, account?.id),
           }));
           return { ...t, manual: mine.filter((c) => c.pinned).length, cards: mine };
@@ -263,7 +264,7 @@ export function openPicks(dataDir) {
       const done = db.prepare('SELECT tagset FROM pick_pool WHERE project_id = ?');
       return rows.filter((r) => done.get(r.id)?.tagset !== set).map((r) => r.id);
     },
-    // 记下智能体建议的标签（只认当前清单里的名字，最多 2 个）和这一批的留痕 ai。
+    // 记下执行方建议的标签（只认当前清单里的名字，最多 2 个）和这一批的留痕 ai。
     saveSuggestions(results, { version, ai = null }) {
       const names = tags().map((t) => t.name);
       const set = tagsetOf(tags());

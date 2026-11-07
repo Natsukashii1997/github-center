@@ -40,24 +40,23 @@
   function agentRow(by) {
     const a = A.status?.agents?.[by];
     const c = A.status?.calls?.[by];
-    const ok = a?.state === 'ok';
+    const shown = A.shown[by];
+    const ok = shown === 'ok';
     const model = by === 'codex' ? '默认模型（Codex 不报具体名）' : c?.lastOk?.model ?? 'Sonnet（--model sonnet）';
-    const state = a ? `<span class="tag ${ok ? 't-on' : 't-bad'}">${esc(A.states[a.state] ?? a.state)}</span>` : '<span class="tag t-off">没查过</span>';
-    const fail = c?.lastFail && (!c.lastOk || c.lastFail.at > c.lastOk.at)
+    const state = a ? `<span class="tag ${ok ? 't-on' : shown === 'failing' ? 't-warn' : 't-bad'}">${esc(A.states[shown] ?? shown)}</span>` : '<span class="tag t-off">没查过</span>';
+    const fail = shown === 'failing' || (c?.lastFail && !a)
       ? `<span class="err">${callLine(c.lastFail)} · ${esc(c.lastFail.error)}</span>` : c?.lastFail ? callLine(c.lastFail) : '—';
-    const head = `<span class="sdot${a ? (ok ? '' : ' bad') : ' off'}"></span>${esc(A.names[by])}${state}${a?.version ? `<span class="mono ver">${esc(a.version)}</span>` : ''}`;
+    const head = `<span class="sdot${a ? (ok ? '' : shown === 'failing' ? ' warn' : ' bad') : ' off'}"></span>${esc(A.names[by])}${state}${a?.version ? `<span class="mono ver">${esc(a.version)}</span>` : ''}`;
     const ds = a ? `${esc(a.detail ?? '')} · 模型：${esc(model)}<br>最近成功：${callLine(c?.lastOk)}　最近失败：${fail}`
       : '每次跑补资料、归类、精选标签建议前会在本机查一次；也可以在本机跑 <code>npm run ai</code>';
     return row(head, ds, '');
   }
-  // 选定的执行方用不了（没查过不算）：只用一家看那家，接力看两家是不是都用不了。和 src/ai-access.js 的 unavailable 同一规则。
-  const usable = (by) => A.status?.agents?.[by]?.state === 'ok';
-  const unusable = (mode) => Boolean(A.status?.agents) && (mode === 'relay' ? !usable('codex') && !usable('claude') : !usable(mode));
   const forOpts = (task) => [['default', '跟随默认'], ...Object.entries(D.agents)].map(([v, t]) => `<option value="${v}"${S.agentFor[task] === v ? ' selected' : ''}>${esc(t)}</option>`).join('');
   function featureRow(f) {
     const set = S.agentFor[f.task];
     const tag = set === 'default' ? '<span class="tag t-off">跟随默认</span>' : '<span class="tag t-blue">单独指定</span>';
-    const problem = unusable(set === 'default' ? S.agent : set) ? `<div class="err fx-err">选的执行方现在用不了：下次运行这一步会报错退出，不会换另一家。在本机修好（如重新登录），或在这里换执行方。</div>` : '';
+    const bad = A.problems[f.task]?.[set === 'default' ? S.agent : set];
+    const problem = bad ? `<div class="err fx-err">${esc(bad)}</div>` : '';
     return `<div class="srow fx"><div><details${open.has(f.task) ? ' open' : ''} data-fx="${f.task}"><summary><span class="car" aria-hidden="true">▶</span><span><span class="nm">${esc(f.name)}${tag}</span><span class="ds">${esc(f.makes)} · ${esc(A.vias[f.via])}</span></span></summary>
       <dl class="fx-body"><dt>接入方式</dt><dd>${esc(A.vias[f.via])}（在空的临时目录里跑，不给执行命令的工具，不加载 MCP 和插件）</dd><dt>读</dt><dd>${esc(f.reads)}</dd><dt>写到</dt><dd><code>${esc(f.writes)}</code></dd><dt>什么时候跑</dt><dd>${esc(f.when)}</dd></dl></details>${problem}</div>
       <div class="ct"><select class="sin" data-agentfor="${f.task}" aria-label="${esc(f.name)}的执行方"${lock}>${forOpts(f.task)}</select>思考强度${segs(f.task)}</div></div>`;

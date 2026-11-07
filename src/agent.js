@@ -1,4 +1,4 @@
-// 智能体（补资料、归类、精选榜共用）：用本机已登录的 Codex CLI 或 Claude 命令行按 JSON Schema 做一次结构化输出，不新增 API 费用（接入方式：本机 CLI）。
+// 执行方调用（补资料、归类、精选榜共用）：用本机已登录的 Codex CLI 或 Claude 命令行按 JSON Schema 做一次结构化输出，不新增 API 费用（接入方式：本机 CLI）。
 // 用哪个看设置页「AI 接入」（../settings/index.js 的 agent、agentFor）。项目原文是外部内容，两边都在空的临时目录里跑，不给执行命令的工具，
 // 不加载各自的用户配置（模型、MCP、插件）。
 // 三种执行方（#69，全局规则 P-13）：
@@ -17,7 +17,6 @@ const EFFORT = 'low';
 const CLAUDE_MODEL = 'sonnet';
 export const RELAY_AFTER = 3;
 export const NAMES = { codex: 'Codex', claude: 'Claude' };
-export const MODES = ['codex', 'claude', 'relay'];
 // 接入方式（P-13 的五种之一）：这里只有本机 CLI。
 export const VIA = 'cli';
 
@@ -57,7 +56,7 @@ export const codexJson = ({ bin = 'codex', schema, input, effort = EFFORT, timeo
     '--disable', 'shell_tool', '--disable', 'unified_exec', '-c', `model_reasoning_effort="${effort}"`,
     '--output-schema', schemaPath, '-o', out, '--color', 'never', '-',
   ], { cwd: dir, input, timeoutMs, name: 'Codex' });
-  // Codex 的输出里没有模型名（实测 0.166.0 的 --json 事件也没有）：model 记 null，页面写「Codex 默认模型」。
+  // Codex 的输出里没有模型名（实测 0.166.0 的 --json 事件也没有）：model 记 null，页面写「默认模型」。
   return { data: JSON.parse(readFileSync(out, 'utf8')), model: null };
 });
 
@@ -120,7 +119,7 @@ export function agentJson({ agent = 'relay', bin, claudeBin, timeoutMs, codexDow
         failures++;
         stats.relayed++;
         return call('claude', req, true).catch((c) => {
-          throw new Error(`${e.message}；Claude 接力也失败：${c.message}`);
+          throw new Error(`${e.message}；Claude 接力也失败：${c.message}（设置页「AI 接入」选的是 Codex 优先·Claude 接力，两家都失败了）`);
         });
       }
     }

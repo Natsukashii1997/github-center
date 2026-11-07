@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { unavailable, prepareAgent, saveChecks, AgentUnavailable, recordCalls, readAiStatus, aiAccess, aiProblems, describeAi, FEATURES } from '../src/ai-access.js';
+import { unavailable, prepareAgent, saveChecks, shownState, AgentUnavailable, recordCalls, readAiStatus, aiAccess, aiProblems, describeAi, FEATURES } from '../src/ai-access.js';
 import { DEFAULTS } from '../src/settings/index.js';
 import { healthProblems } from '../src/remote/health.js';
 
@@ -59,4 +59,15 @@ test('调用成败：记各执行方最近一次成功和失败；设置页、�
   assert.match(text, /Codex｜可用｜x｜已登录\n    最近成功：.*（归类）\n    最近失败：.*（补资料）额度用完/);
   assert.match(text, /MCP｜MCP 开放｜没有开放/);
   assert.match(text, /数据对象：无/);
+  // 设置页切换时直接用：每种执行方给每个功能的提示，和 unavailable 同一句。
+  assert.equal(access.problems.picks.codex, null);
+  assert.equal(access.problems.picks.claude, problems[1]);
+  assert.match(access.problems.picks.relay ?? '', /^$/);
+
+  // 登录了但最近一次调用失败、之后没成功过：显示「最近调用失败（可能额度用尽）」，不算用不了。
+  recordCalls(dir, 'profiles', { calls: { codex: { ok: 0, fail: 1, lastError: '额度用完' } } }, new Date('2026-11-07T10:00:00Z'));
+  assert.equal(shownState(readAiStatus(dir), 'codex'), 'failing');
+  assert.equal(aiAccess(dir, settings('codex')).problems.profiles.codex, null);
+  assert.match(describeAi(aiAccess(dir, s)), /Codex｜最近调用失败（可能额度用尽）｜/);
+  assert.equal(shownState(readAiStatus(dir), 'claude'), 'logged-out');
 });

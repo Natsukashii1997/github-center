@@ -58,7 +58,7 @@ function picksPart(dataDir, ctx, picks, have = known(dataDir)) {
       slots: SLOTS,
       tags: board.tags.map((t) => ({ id: t.id, name: t.name, color: t.color, note: t.note, manual: t.manual, cards: t.cards.map((c) => ({
         slot: c.slot, repo: key({ id: c.projectId, repo: c.fullName }), projectId: c.projectId, total: c.total ?? have.get(c.projectId)?.total ?? null,
-        pinned: c.pinned, up: c.up, down: c.down, mine: c.mine, ...(c.suggestedBy ? { suggestedBy: c.suggestedBy } : {}),
+        pinned: c.pinned, up: c.up, down: c.down, mine: c.mine, ...(c.suggested ? { suggested: c.suggested } : {}),
       })) })),
     },
     projects,

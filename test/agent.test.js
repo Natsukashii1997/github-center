@@ -1,4 +1,4 @@
-// 智能体（src/agent.js）：Codex 优先·Claude 接力时失败那次 Claude 重做、连续失败 3 次剩下的都交给 Claude；只用 Codex、只用 Claude 时失败就报错、不换家；
+// 执行方调用（src/agent.js）：Codex 优先·Claude 接力时失败那次 Claude 重做、连续失败 3 次剩下的都交给 Claude；只用 Codex、只用 Claude 时失败就报错、不换家；
 // 每次调用带留痕；可用状态检查。
 // codex、claude 都是假的命令，不碰本机真的 Codex 和 Claude。
 import { test } from 'node:test';
@@ -72,7 +72,7 @@ test('Codex 优先·Claude 接力：中间成功一次就重新数；Codex 和 C
   assert.equal(cx.calls().length, 6);
 
   const { json: both } = agentJson({ bin: codex(['fail']).bin, claudeBin: claude(['fail']).bin });
-  await assert.rejects(both(req), /^Error: Codex 生成失败（退出码 1）：codex 出错了；Claude 接力也失败：Claude 生成失败（退出码 1）：claude 出错了$/);
+  await assert.rejects(both(req), /^Error: Codex 生成失败（退出码 1）：codex 出错了；Claude 接力也失败：Claude 生成失败（退出码 1）：claude 出错了（设置页「AI 接入」选的是 Codex 优先·Claude 接力，两家都失败了）$/);
 });
 
 test('只用 Codex：失败就报错并指向设置页，不换 Claude', async () => {

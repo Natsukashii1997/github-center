@@ -6,10 +6,10 @@
 import { join } from 'node:path';
 import { readJson, writeAtomic } from './ranking/store.js';
 import { checkAgents, NAMES, VIA } from './agent.js';
-import { AGENTS, agentOf } from './settings/index.js';
+import { AGENTS, FOLLOW, agentOf } from './settings/index.js';
 
 export const VIAS = { [VIA]: '本机 CLI' };
-export const STATES = { ok: '可用', missing: '未安装', 'logged-out': '未登录', error: '检查出错' };
+export const STATES = { ok: '可用', failing: '最近调用失败（可能额度用尽）', missing: '未安装', 'logged-out': '未登录', error: '检查出错' };
 
 // 用到 AI 的功能。task 同设置里的 agentFor、effort 的键。
 export const FEATURES = [
@@ -87,6 +87,15 @@ export const recordCalls = (dataDir, task, stats, now = new Date()) => update(da
   }
 });
 
+// 页面和自检上显示的状态：装了、登录了，但最近一次调用失败、之后没成功过的，算「最近调用失败（可能额度用尽）」——
+// 额度用完查不出来（见 agent.js 的 checkAgent），只能这样看。这个状态不算用不了：只用这一家时照样会去调，失败再报错。
+export function shownState(status, by) {
+  const a = status?.agents?.[by];
+  if (!a) return null;
+  const c = status?.calls?.[by];
+  return a.state === 'ok' && c?.lastFail && (!c.lastOk || c.lastFail.at > c.lastOk.at) ? 'failing' : a.state;
+}
+
 const taskName = (task) => FEATURES.find((f) => f.task === task)?.name ?? task;
 const stateText = (a) => `${STATES[a?.state] ?? '没查过'}${a?.detail ? `：${a.detail}` : ''}`;
 
@@ -134,10 +143,13 @@ export function aiAccess(dataDir, settings) {
     defaultAgent: settings.agent,
     status,
     features: FEATURES.map((f) => {
-      const set = settings.agentFor?.[f.task] ?? 'default';
+      const set = settings.agentFor?.[f.task] ?? FOLLOW;
       const mode = agentOf(settings, f.task);
       return { ...f, set, mode, via: VIA, problem: status?.agents ? unavailable(f.task, mode, status.agents) : null };
     }),
+    // 设置页切换执行方时不回服务器：每种执行方给这个功能用会不会用不了，先按存下的可用状态算好（同 unavailable 的规则和措辞）。
+    problems: Object.fromEntries(FEATURES.map((f) => [f.task, Object.fromEntries(Object.keys(AGENTS).map((m) => [m, status?.agents ? unavailable(f.task, m, status.agents) : null]))])),
+    shown: Object.fromEntries(Object.keys(NAMES).map((by) => [by, shownState(status, by)])),
     openings: OPENINGS,
     dataObjects: DATA_OBJECTS,
   };
@@ -154,13 +166,13 @@ export function describeAi(access) {
   for (const by of Object.keys(NAMES)) {
     const a = status?.agents?.[by];
     const c = status?.calls?.[by];
-    lines.push(`  ${NAMES[by]}｜${STATES[a?.state] ?? '没查过'}${a?.version ? `｜${a.version}` : ''}${a?.detail ? `｜${a.detail}` : ''}`);
+    lines.push(`  ${NAMES[by]}｜${STATES[shownState(status, by)] ?? '没查过'}${a?.version ? `｜${a.version}` : ''}${a?.detail ? `｜${a.detail}` : ''}`);
     if (c?.lastOk) lines.push(`    最近成功：${when(c.lastOk.at)}（${taskName(c.lastOk.task)}）`);
     if (c?.lastFail) lines.push(`    最近失败：${when(c.lastFail.at)}（${taskName(c.lastFail.task)}）${c.lastFail.error}`);
   }
   lines.push('', '功能清单（功能｜执行方｜接入方式｜读｜写）：');
   for (const f of access.features) {
-    lines.push(`  ${f.name}｜${AGENTS[f.mode]}${f.set === 'default' ? '（跟随默认）' : '（单独指定）'}｜${VIAS[f.via]}｜${f.reads}｜${f.writes}`);
+    lines.push(`  ${f.name}｜${AGENTS[f.mode]}${f.set === FOLLOW ? '（跟随默认）' : '（单独指定）'}｜${VIAS[f.via]}｜${f.reads}｜${f.writes}`);
     if (f.problem) lines.push(`    ⚠ ${f.problem}`);
   }
   lines.push('', '对外开放：');
