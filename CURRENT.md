@@ -2,6 +2,12 @@
 
 更新日期：2026-10-24（上午，#11、#10 已关闭）。最近运行只读回读：13:58（北京时间，Claude接手核验，与13:44一致）；严格实验状态 10-24 10:22 只读回读：runner.py 随 09:29 电脑重启停止，status.json 停在 09:29（cold 仍在 collect_initial），尚无日榜结果。
 
+## 2026-11-08 · 设置页「AI 接入」（P-13，#69，PR #70 `ce2ed6c`）
+
+- 补资料、归类、精选标签建议的执行方：默认三选一（只用 Codex／只用 Claude／Codex 优先·Claude 接力，默认接力＝原行为），每个功能可单独指定；只用一家时用不了就报错退出、不换家。每条产出留痕（执行方、接入方式、模型、时间），项目页卡片末尾写出来，精选卡所有者看到「X 建议」。可用状态存 `data/ai-status.json` 随数据推上服务器；`npm run ai` 打印现状；健康检查报选定执行方用不了。界面是常浩选的 C 版（设计稿 <https://claude.ai/artifact/9cAGKzMMiZ2H8N9wmdpPYu>），AGENTS.md 有同内容的「AI 接入」一节。
+- 验证：`npm test` 209 项通过；数据副本里切「补资料」为只用 Claude 实跑，留痕 `by: claude, model: claude-sonnet-5-5`；浏览器截图自查两轮；合并前两轴 code-review 已修。合并后本机 5310 已重启。
+- **未做**：服务器代码没发（`bash scripts/deploy-code.sh`），服务器设置页仍是旧版；旧版存的设置和新代码兼容（`codex` 按接力读）。11-08 前生成的简介、归类、建议没有留痕，不回填。
+
 ## 2026-11-07 · 分享页：`npm run share` 导出只读副本（#63，PR #64 `b45f010`）
 
 - 域名批下来前对外分享用 Claude Artifact 上的分享页 <https://claude.ai/artifact/1iKdvvQhdqQn8hqoQEAqmL>（拿到链接的人都能看）。`npm run share` 本进程起临时网站导出发现、涨星、收藏、设置四页到 `data/share/`，再由 Claude 用 Artifact 工具更新这个链接；用法见 `docs/share.md`，术语见 GLOSSARY「分享页」。
