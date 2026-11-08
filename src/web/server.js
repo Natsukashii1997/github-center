@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { openAccounts, SESSION_DAYS } from './accounts.js';
 import { openFavorites, decisionOf, STATUSES, HANDOFF_TYPES, TEXT_MAX } from './favorites.js';
 import { WINDOWS } from '../ranking/index.js';
-import { readProfile, findOnBoards, installInstruction, INSTALL_AIS } from '../profiles/index.js';
+import { readProfile, findOnBoards, installInstruction, INSTALL_AIS, handoffText, compareText, searchText, HANDOFF_KINDS, COMPARE_MIN, COMPARE_MAX } from '../profiles/index.js';
 import { homeData, homePage, categoryListed } from './home.js';
 import { projectData, projectMissing, projectPage, favoritesData, favoritesPage, loginPage } from './pages.js';
 import { categoriesData, categoriesPage, picksApi, onCategoriesPage } from './categories.js';
@@ -80,6 +80,36 @@ function changeFavorite(dataDir, favorites, picks, account, form) {
   if (skillPath ? !skill : !profile && !listed) return { status: 404, error: '没有这个项目或 Skill 的资料' };
   favorites.add(account.id, { projectId, fullName: profile?.fullName ?? listed.name, skillPath, skillName: skill?.name ?? '' });
   return { ok: { saved: true } };
+}
+
+// 交接（#79）的文字：kind 是研究／试用／安装（带 project、skill、ai、need），对比（带 2–4 个 item = "项目 id:Skill 路径"、need），
+// 找（带 question，"交给 AI 去 GitHub 找"）。成功返回 { text }，否则返回拒绝的 { status, error }。
+function handoffApi(dataDir, form) {
+  const kind = form.get('kind') ?? '', need = (form.get('need') ?? '').trim();
+  if (need.length > TEXT_MAX) return { status: 400, error: `需求最多 ${TEXT_MAX} 字` };
+  // 一个交接对象：项目要有资料，Skill 要在资料里。
+  const target = (id, skillPath) => {
+    const profile = readProfile(dataDir, id);
+    return profile?.material && (!skillPath || profile.material.skills.some((s) => s.path === skillPath)) ? { profile, skillPath } : null;
+  };
+  if (kind === '找') {
+    const question = (form.get('question') ?? '').trim();
+    if (!question) return { status: 400, error: '先写要找什么' };
+    if (question.length > TEXT_MAX) return { status: 400, error: `问题最多 ${TEXT_MAX} 字` };
+    return { text: searchText({ question }) };
+  }
+  if (kind === '对比') {
+    const items = form.getAll('item').map((v) => { const i = v.indexOf(':'); return target(Number(v.slice(0, i)), i < 0 ? '' : v.slice(i + 1)); });
+    if (items.length < COMPARE_MIN || items.length > COMPARE_MAX) return { status: 400, error: `对比要选 ${COMPARE_MIN}–${COMPARE_MAX} 个` };
+    if (items.some((x) => !x)) return { status: 404, error: '有的候选没有资料，生成不了交接' };
+    return { text: compareText({ items, need }) };
+  }
+  if (!HANDOFF_KINDS.includes(kind)) return { status: 400, error: '不认识的交接类型' };
+  const ai = form.get('ai') ?? '';
+  if (!Object.hasOwn(INSTALL_AIS, ai)) return { status: 400, error: '不认识交给谁' };
+  const t = target(Number(form.get('project')), form.get('skill') ?? '');
+  if (!t) return { status: 404, error: '没有这个项目或 Skill 的资料' };
+  return { text: handoffText({ kind, ai, need, ...t }) };
 }
 
 // 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页、项目页、我的收藏和分类榜（bw，收藏页另有 favorites，分类榜另有 categories），登录页沿用 #14 的那套。
@@ -193,6 +223,15 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
         if (e instanceof SettingsError) return json(400, { error: e.message });
         throw e;
       }
+    }
+    // 交接文字（#79）：只收 POST、只接受本站提交（"我的需求"不放进链接）。
+    if (url.pathname === '/api/handoff') {
+      if (req.method !== 'POST') return json(405, { error: '只接受 POST' });
+      if (!sameOrigin(req, lan, publicOrigin)) return json(403, { error: '只接受本站提交的表单' });
+      const form = await readForm(req).catch(() => null);
+      if (!form) return json(413, { error: '表单太大' }, { connection: 'close' });
+      const done = handoffApi(dataDir, form);
+      return done.text != null ? text(200, done.text) : json(done.status, { error: done.error });
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(405, {});
     if (asset && Object.hasOwn(ASSETS, asset)) return sendAsset();

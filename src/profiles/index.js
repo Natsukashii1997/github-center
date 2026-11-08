@@ -5,3 +5,4 @@ export { codexGenerator } from './codex.js';
 export { findProfile, readProfile, findOnBoards, currentGenerated, shownGenerated } from './store.js';
 export { parseSkill, skillPlace, skillPurpose } from './skills.js';
 export { installInstruction, INSTALL_AIS } from './install.js';
+export { handoffText, compareText, searchText, HANDOFF_KINDS, COMPARE_MIN, COMPARE_MAX } from './handoff.js';
