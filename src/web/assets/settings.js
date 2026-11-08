@@ -87,15 +87,23 @@
     t.setUTCDate(t.getUTCDate() + ahead);
     return `${ahead ? '' : '今天 '}${t.getUTCMonth() + 1}/${t.getUTCDate()} ${D.days[day]} ${at}`;
   }
+  // #83 出榜推后 8 小时：以前存的时间早于新规则时，读的时候已改按新时间执行（src/settings 的 migrated），这里写明原值，所有者点一下存进设置。
+  const MIG = { 'daily.at': '每日更新', 'weekly.at': '周报推送' };
+  const migNote = (key) => {
+    const m = S.migrated?.find((x) => x.key === key);
+    if (!m) return '';
+    const why = key === 'daily.at' ? `早于新的最早时间 ${D.earliest}` : '早于每日更新时间';
+    return `<span class="mig">原来存的${MIG[key]} ${m.from} ${why}（统计日改按美国太平洋时间），现按 ${m.to} 执行${D.canEdit ? '。<button type="button" data-migrate>存进设置</button>' : '，所有者保存后写进设置'}</span>`;
+  };
   const dayOpts = () => D.days.map((t, i) => `<option value="${i}"${S.weekly.day === i ? ' selected' : ''}>每${t}</option>`).join('');
   function body() {
     const steps = '出榜 → 全站 Star 前 100 → 历史榜 → 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准，共 9 步，一步失败照样跑后面的';
     const cards = [
       ['s-src', '数据源', `${inUse()}/${D.sources.length}`, `数据源 <small>每天跟着每日更新一起抓；关掉的来源不再抓，网站上用到它的部分沿用最后一次的数据</small>`, D.sources.map(sourceRow).join('')],
       ['s-time', '定时与推送', '2', '定时与推送 <small>每日更新是本机 launchd 任务；周报推送由猛鬼兽按这里的设置发</small>', [
-        row(`<span class="sdot${S.daily.on ? '' : ' off'}"></span>每日更新`, `${steps}。<br>统计日按 UTC 划分、北京时间 08:00 才结束，事件文件还要晚约 1 小时，所以不能早于 ${D.earliest}；按 15 分钟一档。到点时电脑睡着的，醒来后补跑。<span class="err" id="at-err"></span>`,
+        row(`<span class="sdot${S.daily.on ? '' : ' off'}"></span>每日更新`, `${steps}。<br>GitHub 统计日按美国太平洋时间，北京 16:00 才结束（夏令时 15:00），事件文件还要晚约 1 小时，所以不能早于 ${D.earliest}；按 15 分钟一档。到点时电脑睡着的，醒来后补跑。<span class="err" id="at-err"></span>${migNote('daily.at')}`,
           `每天<input class="sin" id="daily-at" aria-label="每日更新时间" type="time" value="${S.daily.at}" min="${D.earliest}" step="900"${lock}>${sw('daily.on', '每日更新', S.daily.on, lock)}`),
-        row(`<span class="sdot${S.weekly.on ? '' : ' off'}"></span>周报推送 <span class="tag t-on">已接入</span>`, `到点后 15 分钟内，由猛鬼兽（Hermes）把最新一期周报卡片（本周涨星前 10）发到你的飞书私聊；关掉就不发。当期数据还没生成会先等，最多等 3 小时，还没有就只发一句说明；电脑整天关机错过的不隔天补发。<br>${S.weekly.on ? `下次：${nextWeekly()}` : '已关掉，不会发'}`,
+        row(`<span class="sdot${S.weekly.on ? '' : ' off'}"></span>周报推送 <span class="tag t-on">已接入</span>`, `到点后 15 分钟内，由猛鬼兽（Hermes）把最新一期周报卡片（本周涨星前 10）发到你的飞书私聊；关掉就不发。当期数据还没生成会先等，最多等 3 小时，还没有就只发一句说明；电脑整天关机错过的不隔天补发。不能早于每日更新时间（${S.daily.at}）。<br>${S.weekly.on ? `下次：${nextWeekly()}` : '已关掉，不会发'}<span class="err" id="wk-err"></span>${migNote('weekly.at')}`,
           `<select class="sin" id="weekly-day" aria-label="周报推送星期"${lock}>${dayOpts()}</select><input class="sin" id="weekly-at" aria-label="周报推送时间" type="time" value="${S.weekly.at}"${lock}>${sw('weekly.on', '周报推送', S.weekly.on, lock)}`),
         row('<span class="sdot"></span>网站服务', '常驻在本机，只本机能打开，出错自动重启', `<span class="mono">${esc(location.host)}</span>`),
       ].join('')],
@@ -171,6 +179,7 @@
       else next[group][key] = !next[group][key];
       return save(next, group === 'weekly' ? WEEKLY_DONE : undefined);
     }
+    if (e.target.closest('[data-migrate]') && D.canEdit) return save(clone());
     const ag = e.target.closest('[data-agent]:not(:disabled)');
     if (ag && S.agent !== ag.dataset.agent) return save({ ...clone(), agent: ag.dataset.agent });
     const seg = e.target.closest('[data-effort]:not(:disabled)');
@@ -181,7 +190,8 @@
     }
   });
   // 时间框：改完（失焦或回车）才存；每日更新不合规就标红、写明原因，不存
-  const dailyBad = (t) => (!/^\d\d:\d\d$/.test(t) ? '时间格式不对' : t < D.earliest ? `不能早于 ${D.earliest}` : Number(t.slice(3)) % 15 ? '按 15 分钟一档：分钟只能是 00、15、30、45' : '');
+  const dailyBad = (t) => (!/^\d\d:\d\d$/.test(t) ? '时间格式不对' : t < D.earliest ? `不能早于 ${D.earliest}` : Number(t.slice(3)) % 15 ? '按 15 分钟一档：分钟只能是 00、15、30、45'
+    : t > S.weekly.at ? `晚于周报推送时间 ${S.weekly.at}：周报用当天更新出的榜，先把周报推送改晚` : '');
   // 功能行展开与否重画后保留
   document.addEventListener('toggle', (e) => {
     const d = e.target;
@@ -202,7 +212,12 @@
       next.agentFor[t.dataset.agentfor] = t.value;
       save(next);
     } else if (t.id === 'weekly-at' || t.id === 'weekly-day') {
-      if (t.id === 'weekly-at' && !/^\d\d:\d\d$/.test(t.value)) return t.classList.add('bad');
+      if (t.id === 'weekly-at') {
+        const bad = !/^\d\d:\d\d$/.test(t.value) ? '时间格式不对' : t.value < S.daily.at ? `不能早于每日更新时间 ${S.daily.at}` : '';
+        t.classList.toggle('bad', Boolean(bad));
+        $('wk-err').textContent = bad ? `　${bad}` : '';
+        if (bad) return;
+      }
       const next = clone();
       if (t.id === 'weekly-at') next.weekly.at = t.value;
       else next.weekly.day = Number(t.value);

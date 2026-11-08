@@ -11,7 +11,7 @@ const DAY = '2026-11-01';
 const put = (dir, path, obj) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), JSON.stringify(obj)); };
 const entry = (rank, id, fullName, gain) => ({ rank, projectId: id, fullName, gain, total: gain * 10 });
 const snapshot = (statDay, entries, extra = {}) => ({
-  window: 'd7', statDay, from: '2026-10-26', generatedAt: '2026-11-02T02:30:00.000Z', runId: `rank_d7_${statDay}`,
+  window: 'd7', statDay, from: '2026-10-26', generatedAt: '2026-11-02T10:30:00.000Z', runId: `rank_d7_${statDay}`,
   check: { passed: true, missProbability: 1e-9, threshold: 30, recordRatio: 0.01, expectedRecords: 60 }, incomplete: false,
   candidates: { total: 300, failed: [] }, entries, ...extra,
 });
@@ -34,7 +34,7 @@ function dataDir({ day = DAY, extra = {}, status } = {}) {
   put(dir, 'profiles/3.json', profile(3, 'acme/old', { what: '旧简介', line: '旧一句话' }, 'h-new'));
   return dir;
 }
-const build = (dir, at = '2026-11-02T02:40:00Z') => buildWeekly({ dataDir: dir, now: () => new Date(at) });
+const build = (dir, at = '2026-11-02T10:40:00Z') => buildWeekly({ dataDir: dir, now: () => new Date(at) });
 
 test('取近 7 天最新一期前 10，末位并列一起列出；一句话取 line，没有就用 what，资料没对上先用上一次的（#52）', () => {
   const dir = dataDir();
@@ -55,7 +55,7 @@ test('飞书消息：标题带日期区间，每个项目写名次、近 7 天�
   assert.equal(r.feishuPath, `weekly/${DAY}.feishu.md`);
   const text = readFileSync(join(dir, r.feishuPath), 'utf8');
   assert.equal(text, weeklyMarkdown(r.weekly));
-  assert.match(text, /^## GitHub 本周涨星前 10 · 10 月 26 日–11 月 1 日\n\n涨星榜近 7 天，数据截至 11 月 1 日（UTC 统计日），11 月 2 日 10:40（北京时间）生成。\n\n\*\*1\. /);
+  assert.match(text, /^## GitHub 本周涨星前 10 · 10 月 26 日–11 月 1 日\n\n涨星榜近 7 天，数据截至 11 月 1 日（GitHub 统计日，美国太平洋时间），11 月 2 日 18:40（北京时间）生成。\n\n\*\*1\. /);
   assert.ok(text.includes('**1. [acme/rocket](http://127.0.0.1:5310/p/acme/rocket)**　近 7 天 +12,000　总 Star 120,000　[GitHub](https://github.com/acme/rocket)\n把脚本一键变成 命令行工具\n'));
   assert.ok(text.includes('[GitHub](https://github.com/acme/notes)\n一个本地优先的笔记应用。\n'));
   assert.ok(text.includes('[GitHub](https://github.com/acme/old)\n旧一句话\n'));
@@ -71,18 +71,28 @@ test('飞书消息：标题带日期区间，每个项目写名次、近 7 天�
 });
 
 test('数据不是最新：没有失败记录时写明最近一期应是哪天、下面是哪天的数据', () => {
-  const r = build(dataDir(), '2026-11-04T02:40:00Z');
+  const r = build(dataDir(), '2026-11-04T10:40:00Z');
   assert.equal(r.weekly.stale, true);
   assert.deepEqual(r.weekly.notes, [{ title: '不是最新数据', text: '最近一期应是 11 月 3 日，还没出；下面是 11 月 1 日的数据。' }]);
   assert.ok(weeklyMarkdown(r.weekly).includes('\n\n**提示**\n- 不是最新数据：最近一期应是 11 月 3 日，还没出；下面是 11 月 1 日的数据。\n'));
 });
 
+test('#83：统计日（太平洋时间）结束前生成的榜单写明最后一天未数完；结束后生成的不写', () => {
+  // 11-01 是冬令时切回那天（25 小时），UTC 11-01 07:00 起，到 11-02 08:00Z 才结束。
+  for (const [at, noted] of [['2026-11-02T02:30:00.000Z', true], ['2026-11-02T07:59:00.000Z', true], ['2026-11-02T08:00:00.000Z', false]]) {
+    const { weekly } = build(dataDir({ extra: { generatedAt: at } }));
+    const note = weekly.notes.find((n) => n.title === '最后一天未数完');
+    assert.equal(Boolean(note), noted, at);
+    if (noted) assert.match(note.text, /^这一期在 11 月 1 日的 GitHub 统计日（美国太平洋时间）结束前生成（以前每天北京 10:00 出榜），最后一天还没数完/);
+  }
+});
+
 test('更新失败写原因（不再另写不是最新）；可能不完整写明原因', () => {
   const dir = dataDir({
     extra: { incomplete: true, check: { passed: false, missProbability: 1.1e-4, threshold: 1, recordRatio: 0.011, expectedRecords: 9 } },
-    status: { boards: { d7: { day: '2026-11-02', at: '2026-11-03T02:10:00.000Z', status: 'failed', error: 'GH Archive 第 3 小时下载失败' } } },
+    status: { boards: { d7: { day: '2026-11-02', at: '2026-11-03T10:10:00.000Z', status: 'failed', error: 'GH Archive 第 3 小时下载失败' } } },
   });
-  const { weekly } = build(dir, '2026-11-03T02:40:00Z');
+  const { weekly } = build(dir, '2026-11-03T10:40:00Z');
   assert.deepEqual(weekly.notes.map((n) => n.title), ['更新失败', '可能不完整']);
   assert.match(weekly.notes[0].text, /^11 月 2 日的更新失败：GH Archive 第 3 小时下载失败。下面是上次成功的 11 月 1 日数据。$/);
   assert.match(weekly.notes[1].text, /自检未通过.*名次可能有出入。$/);
@@ -138,11 +148,11 @@ test('飞书卡片：橙色标题栏带日期区间；前 3 名灰底带奖牌�
     ['我的收藏（电脑）', 'http://127.0.0.1:5310/favorites'],
   ]);
   assert.equal(els.at(-2).tag, 'hr');
-  assert.match(els.at(-1).content, /^来自 Github·Tidings · 数据截至 11 月 1 日（UTC 统计日），11 月 2 日 10:40（北京时间）生成。/);
+  assert.match(els.at(-1).content, /^来自 Github·Tidings · 数据截至 11 月 1 日（GitHub 统计日，美国太平洋时间），11 月 2 日 18:40（北京时间）生成。/);
 });
 
 test('飞书卡片：有提示先列提示；新项目打标签；没有一句话用 GitHub 描述或只列名字；Markdown 符号转义；没有项目写明', () => {
-  const r = build(dataDir(), '2026-11-04T02:40:00Z');
+  const r = build(dataDir(), '2026-11-04T10:40:00Z');
   const base = r.weekly.entries[0];
   const w = { ...r.weekly, entries: [
     { ...base, repo: 'a_b/x*y', gain: 9000, total: 9500, line: null, desc: 'Ship <scripts>\nfast' },

@@ -206,7 +206,7 @@ test('公开接口：429 按 retry-after 等了再试，5xx 重试，4xx 直接�
   assert.equal(http.stats.requests, 4);
 });
 
-test('补录：过去没存快照的日子按那天 10:00 回推，HN 用现在的数、V2EX 只用见过的帖子（取最近一次的数），记 backfilled，不改 status.json', async () => {
+test('补录：过去没存快照的日子按那天北京 18:00 回推，HN 用现在的数、V2EX 只用见过的帖子（取最近一次的数），记 backfilled，不改 status.json', async () => {
   const dataDir = mkdtempSync(join(tmpdir(), 'gc-hot-'));
   const gh = fakeGh(TABLE);
   const hn = [hit(1, 'https://github.com/acme/tool', 80, 20, T0 - 3600), hit(2, 'https://github.com/beta/lib', 5, 5, T0 + DAY)];
@@ -219,7 +219,7 @@ test('补录：过去没存快照的日子按那天 10:00 回推，HN 用现在�
   const r = await backfillHot({ dataDir, gh, get: up.get, day: '2026-11-01', now: at(T0 + 3 * DAY + 3600) });
   assert.equal(r.status, 'published');
   const s = r.snapshot;
-  assert.deepEqual([s.statDay, s.fetchedAt, s.window.from], ['2026-11-01', '2026-11-01T02:00:00.000Z', '2026-10-25T02:00:00.000Z']);
+  assert.deepEqual([s.statDay, s.fetchedAt, s.window.from], ['2026-11-01', '2026-11-01T10:00:00.000Z', '2026-10-25T10:00:00.000Z']);
   assert.match(s.backfilled.note, /^补录：.*偏高.*偏低$/);
   assert.equal(s.backfilled.at, new Date((T0 + 3 * DAY + 3600) * 1000).toISOString());
   assert.equal(up.calls.length, 7, 'HN 7 次，V2EX 不请求');

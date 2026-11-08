@@ -93,7 +93,10 @@ test('候选来自全站事件和官方热门日榜；事件计数只用来找�
   // 事件数据里 15 个项目（含 php/php-src 用旧名出现的一次），热门日榜 9 个，按项目 id 去重后 23 个。
   assert.deepEqual(snapshot.candidates, { total: 23, verified: 23, archive: 15, trending: 9, fallbackHours: [], backfilledDays: [], unavailable: [], failed: [] });
   assert.deepEqual(snapshot.requests, { history: 23, project: 21, graphql: 1 });
-  assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://data.gharchive.org/2026-10-22-')).length, 24);
+  // 统计日 10-22 是太平洋夏令时：读 UTC 10-22 07:00 至 10-23 07:00 这 24 个小时文件。
+  const archive = upstream.calls.filter((c) => c.url.startsWith('https://data.gharchive.org/')).map((c) => c.url);
+  const want = [...Array.from({ length: 17 }, (_, i) => `2026-10-22-${i + 7}`), ...Array.from({ length: 7 }, (_, i) => `2026-10-23-${i}`)];
+  assert.deepEqual(archive.sort(), want.map((h) => `https://data.gharchive.org/${h}.json.gz`).sort());
   assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/')).length, 0);
   for (const e of snapshot.entries) assert.deepEqual(Object.keys(e), ['rank', 'projectId', 'fullName', 'gain', 'total', 'evidence']);
   assert.equal(snapshot.entries.filter((e) => e.projectId === 1903522).length, 1);
@@ -103,11 +106,12 @@ test('候选来自全站事件和官方热门日榜；事件计数只用来找�
 test('某小时 GH Archive 缺失时，用 ClickHouse 公开库补这一小时的候选', async () => {
   const upstream = recordedUpstream({ missingArchiveHours: [5] });
   const { snapshot } = await d1({ upstream });
-  assert.deepEqual(snapshot.candidates.fallbackHours, [5]);
+  // 第 5 小时只落在窗口里的 UTC 10-23 那一天（10-22 05 时属于前一个统计日）。
+  assert.deepEqual(snapshot.candidates.fallbackHours, ['2026-10-23T05:00Z']);
   assert.equal(snapshot.candidates.total, 24);
   const ch = upstream.calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/'));
   assert.equal(ch.length, 1);
-  assert.match(ch[0].body, /'2026-10-22 05:00:00'/);
+  assert.match(ch[0].body, /created_at >= toDateTime\('2026-10-23 05:00:00'\) AND created_at < toDateTime\('2026-10-23 06:00:00'\)/);
   // ClickHouse 只给项目名：按名字读官方星数历史；只有上榜才再读项目信息拿 id。
   assert.ok(upstream.calls.some((c) => c.url === 'https://api.github.com/repos/star-history/star-history/stargazers/history?per_page=6'));
 });
@@ -147,7 +151,7 @@ test('某小时 GH Archive 缺失、ClickHouse 也没有数据时不发布', asy
   const dataDir = fresh();
   const r = await d1({ dataDir, upstream: recordedUpstream({ missingArchiveHours: [7] }) });
   assert.equal(r.status, 'failed');
-  assert.match(r.error, /第 7 小时/);
+  assert.match(r.error, /UTC 2026-10-22T07:00Z/);
   assert.equal(readLatestSnapshot(dataDir), null);
 });
 
@@ -169,7 +173,7 @@ test('官方接口查不到的候选记进快照，不悄悄丢掉', async () =>
 test('小时文件下载到一半断开时，不崩溃，改用 ClickHouse 补这一小时', async () => {
   const { status, snapshot } = await d1({ upstream: recordedUpstream({ brokenArchiveHours: [5] }) });
   assert.equal(status, 'published');
-  assert.deepEqual(snapshot.candidates.fallbackHours, [5]);
+  assert.deepEqual(snapshot.candidates.fallbackHours, ['2026-10-23T05:00Z']);
   assert.equal(snapshot.candidates.total, 24);
 });
 
@@ -204,8 +208,12 @@ test('近 7、30 天按统计日累计官方新增；更早的日子从 ClickHou
   const historyCalls = upstream.calls.filter((c) => c.url.includes('/stargazers/history'));
   assert.equal(new Set(historyCalls.map((c) => c.url)).size, historyCalls.length);
   assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://data.gharchive.org/')).length, 24);
-  assert.equal(upstream.calls.filter((c) => String(c.body).includes('INTERVAL 1 DAY')).length, 29);
-  assert.ok(existsSync(join(dataDir, 'events', '2026-09-23.json')));
+  const byDay = upstream.calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/') && !String(c.body).includes('LIMIT 5000'));
+  assert.equal(byDay.length, 29);
+  // 更早的日子也按太平洋日补：09-23 是 UTC 09-23 07:00 至 09-24 07:00。
+  assert.ok(byDay.some((c) => c.body.includes("created_at >= toDateTime('2026-09-23 07:00:00') AND created_at < toDateTime('2026-09-24 07:00:00')")));
+  const saved = JSON.parse(readFileSync(join(dataDir, 'events', '2026-09-23.json')));
+  assert.deepEqual([saved.from, saved.to], ['2026-09-23T07:00:00.000Z', '2026-09-24T07:00:00.000Z']);
 });
 
 test('自检通过：事件记录够多，候选门槛下的漏失概率小于百分之一，不标注', async () => {

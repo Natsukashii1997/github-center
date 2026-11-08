@@ -3,10 +3,11 @@
 # 属于本机常驻配置，安装前须所有者同意（2026-11-03 已同意；同日设置页批 3 改成每 15 分钟叫醒，所有者再次同意）。
 #
 # 1. 每日更新 cn.github-center.update：北京时间每天 09:00–23:45 每 15 分钟叫醒一次 `node bin/update.js --scheduled`，
-#    到了设置页里的更新时间（data/settings.json，默认 10:00）、今天还没跑过才真跑（src/update-steps.js），没到点什么都不写。
+#    到了设置页里的更新时间（data/settings.json，默认 18:00；#83 前是 10:00）、今天还没跑过才真跑（src/update-steps.js），没到点什么都不写。
 #    改更新时间只改设置，不用重装这里（2026-11-03 设置页批 3 起；之前是写死每天 10:00）。
 #    出榜 → 全站 Star 前 100 → 历史榜（Skill 安装量）→ 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准报告，一步失败照样跑后面的。
-#    统计日按 UTC 划分，北京时间 08:00 才结束，事件文件还要晚 1 小时左右才齐，所以最早 09:00。
+#    GitHub 统计日按美国太平洋时间，北京 16:00 才结束（夏令时 15:00），事件文件还要晚 1 小时左右才齐，所以最早 17:00（#83）。
+#    叫醒窗口 09:00–23:45 已经覆盖 17:00 以后，#83 改时间不用重装。
 #    各步都能安全重跑；到点时电脑睡着的，醒来后补跑。日志 data/logs/update.log，第一行开始时间、最后一行 `exit N`。
 # 2. 网站 cn.github-center.web：npm run serve 常驻在 5310，只监听本机，免登录（所有人都当作所有者账号 GUEST，默认 Nat）；
 #    开机（登录）就起，出错退出自动重启。日志 data/logs/web.log。
@@ -98,7 +99,7 @@ case "${1:-}" in
       echo "== $l"
       launchctl print "$DOMAIN/$l" 2>/dev/null | grep -E 'state =|last exit code|pid =|program =' || echo "没有安装"
     done
-    echo "每日更新时间看设置页（data/settings.json，默认 10:00）；今天跑过没有看 data/update-state.json"
+    echo "每日更新时间看设置页（data/settings.json，默认 18:00）；今天跑过没有看 data/update-state.json"
     ;;
   *)
     echo "用法：[GUEST=账号名] bash scripts/schedule.sh install | uninstall | status" >&2

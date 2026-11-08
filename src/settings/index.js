@@ -19,8 +19,11 @@ export const FOLLOW = 'default';
 // 思考强度：页面上的低／中／高，对应 codex 的 model_reasoning_effort、claude 的 --effort。
 export const EFFORTS = { low: '低', medium: '中', high: '高' };
 export const EFFORT_TASKS = ['profiles', 'classify', 'picks'];
-// 统计日按 UTC 划分、北京时间 08:00 才结束，GH Archive 的事件文件还要再晚约 1 小时，所以每日更新不能早于 09:00；按 15 分钟一档。
-export const EARLIEST = '09:00';
+// 统计日是 GitHub 统计日（美国太平洋时间），冬令时北京 16:00 才结束（夏令时 15:00），GH Archive 最后一个小时文件还要再晚约 1 小时，
+// 所以每日更新不能早于 17:00；按 15 分钟一档（#83，ADR 0001 的 2026-11-08 补充）。
+export const EARLIEST = '17:00';
+// 周报用的是当天每日更新出的近 7 天榜，所以周报推送不能早于每日更新时间；迁移时放在每日更新后 1.5 小时（默认 18:00 → 19:30），最晚 23:45。
+const WEEKLY_AFTER = 90;
 export const DAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 export const DEFAULTS = {
@@ -28,8 +31,8 @@ export const DEFAULTS = {
   agent: 'relay',   // #69 前的默认（Codex，失败 Claude 接力），行为不变
   agentFor: Object.fromEntries(AGENT_TASKS.map((t) => [t, FOLLOW])),
   effort: Object.fromEntries(EFFORT_TASKS.map((t) => [t, 'low'])),
-  daily: { on: true, at: '10:00' },
-  weekly: { on: true, day: 1, at: '11:30' },   // 所有者 2026-11-06 定：默认开，周一 11:30
+  daily: { on: true, at: '18:00' },   // #83 起 18:00（之前 10:00），统计日结束后 2 小时
+  weekly: { on: true, day: 1, at: '19:30' },   // 所有者 2026-11-06 定默认开、周一；#83 起 19:30（之前 11:30）
 };
 
 export class SettingsError extends Error {}
@@ -37,8 +40,15 @@ export class SettingsError extends Error {}
 const path = (dataDir) => join(dataDir, 'settings.json');
 const isAgentFor = (v) => v === FOLLOW || Object.hasOwn(AGENTS, v);
 const isTime = (t) => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+const minutes = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+const clock = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+// 周报推送时间早于每日更新时，迁到每日更新后 1.5 小时（最晚 23:45）；否则照旧。
+export const weeklyAfter = (daily, weekly) => (weekly < daily ? clock(Math.min(minutes(daily) + WEEKLY_AFTER, minutes('23:45'))) : weekly);
 
 // 读设置：文件里缺的项用默认值补上，认不出的项丢掉（文件被手改坏了也不影响页面和更新）。
+// #83 出榜推后 8 小时后的迁移：存的每日更新是按 15 分钟一档的时间、但早于 17:00（如以前的默认 10:00），改按 18:00；周报推送早于每日更新的，改按每日更新后 1.5 小时。
+// 只在读的时候改，不悄悄写文件；改了哪几项记在 migrated（原值 → 新值），设置页提示一句，所有者下次保存时写回。
+// 猛鬼兽直接读文件，tidings_weekly.py 按同一条规则算周报时间。
 export function readSettings(dataDir) {
   let saved = null;
   try {
@@ -48,29 +58,34 @@ export function readSettings(dataDir) {
   }
   const s = saved && typeof saved === 'object' ? saved : {};
   const pick = (v, ok, d) => (ok(v) ? v : d);
+  const migrated = [];
+  const early = isTime(s.daily?.at) && s.daily.at < EARLIEST && Number(s.daily.at.slice(3)) % 15 === 0;
+  const dailyAt = early ? DEFAULTS.daily.at : pick(s.daily?.at, (v) => checkDaily(v) === null, DEFAULTS.daily.at);
+  if (early) migrated.push({ key: 'daily.at', from: s.daily.at, to: dailyAt });
+  const savedWeekly = pick(s.weekly?.at, isTime, DEFAULTS.weekly.at);
+  const weeklyAt = weeklyAfter(dailyAt, savedWeekly);
+  if (weeklyAt !== savedWeekly && isTime(s.weekly?.at)) migrated.push({ key: 'weekly.at', from: savedWeekly, to: weeklyAt });
   return {
     sources: Object.fromEntries(SOURCES.map((k) => [k, REQUIRED.has(k) ? true : UNAVAILABLE.has(k) ? false : pick(s.sources?.[k], (v) => typeof v === 'boolean', DEFAULTS.sources[k])])),
     // #69 前存的 codex 实际是「Codex 失败 Claude 接力」，按 relay 读（那时还没有 agentFor），行为不变；#69 后存的照原样。
     agent: s.agent === 'codex' && !s.agentFor ? 'relay' : pick(s.agent, (v) => Object.hasOwn(AGENTS, v), DEFAULTS.agent),
     agentFor: Object.fromEntries(AGENT_TASKS.map((k) => [k, pick(s.agentFor?.[k], isAgentFor, FOLLOW)])),
     effort: Object.fromEntries(EFFORT_TASKS.map((k) => [k, pick(s.effort?.[k], (v) => Object.hasOwn(EFFORTS, v), DEFAULTS.effort[k])])),
-    daily: {
-      on: pick(s.daily?.on, (v) => typeof v === 'boolean', DEFAULTS.daily.on),
-      at: pick(s.daily?.at, (v) => checkDaily(v) === null, DEFAULTS.daily.at),
-    },
+    daily: { on: pick(s.daily?.on, (v) => typeof v === 'boolean', DEFAULTS.daily.on), at: dailyAt },
     weekly: {
       on: pick(s.weekly?.on, (v) => typeof v === 'boolean', DEFAULTS.weekly.on),
       day: pick(s.weekly?.day, (v) => Number.isInteger(v) && v >= 0 && v < 7, DEFAULTS.weekly.day),
-      at: pick(s.weekly?.at, isTime, DEFAULTS.weekly.at),
+      at: weeklyAt,
     },
+    ...(migrated.length ? { migrated } : {}),
     ...(typeof s.savedAt === 'string' ? { savedAt: s.savedAt } : {}),
   };
 }
 
 // 每日更新时间不合规时返回原因，合规返回 null。
 export function checkDaily(at) {
-  if (!isTime(at)) return '时间格式不对，要写成 10:00 这样';
-  if (at < EARLIEST) return `不能早于 ${EARLIEST}：统计日北京时间 08:00 才结束，原始数据还要再晚约 1 小时`;
+  if (!isTime(at)) return '时间格式不对，要写成 18:00 这样';
+  if (at < EARLIEST) return `不能早于 ${EARLIEST}：GitHub 统计日按美国太平洋时间，北京 16:00 才结束（夏令时 15:00），原始数据还要再晚约 1 小时`;
   if (Number(at.slice(3)) % 15) return '按 15 分钟一档：分钟只能是 00、15、30、45';
   return null;
 }
@@ -111,7 +126,8 @@ export function parseSettings(form) {
   const day = get('weekly.day');
   if (!/^[0-6]$/.test(day)) throw new SettingsError('周报推送的星期不对');
   const wat = get('weekly.at');
-  if (!isTime(wat)) throw new SettingsError('周报推送时间格式不对，要写成 11:30 这样');
+  if (!isTime(wat)) throw new SettingsError('周报推送时间格式不对，要写成 19:30 这样');
+  if (wat < at) throw new SettingsError(`周报推送时间 ${wat} 不能早于每日更新时间 ${at}：周报用的是当天每日更新出的榜`);
   return { sources, agent, agentFor, effort, daily: { on: bool('daily.on'), at }, weekly: { on: bool('weekly.on'), day: Number(day), at: wat } };
 }
 
