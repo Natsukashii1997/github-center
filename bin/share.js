@@ -1,7 +1,6 @@
-// 导出分享页（#63）：npm run share -- [--data data] [--out data/share] [--as <账号名>]
-// 本进程起临时网站取发现、涨星、收藏、设置四页，下载项目头像，写到 --out。不碰常驻的 5310，不发布。
-// 发布：Claude 用 Artifact 工具更新 https://claude.ai/artifact/1iKdvvQhdqQn8hqoQEAqmL，
-// 主页面 index.html，其余 5 个文件作附带文件（见 docs/share.md）。
+// 导出分享页（#63、#71）：npm run share -- [--data data] [--out data/share] [--as <账号名>]
+// 本进程起临时网站取发现、涨星、收藏、设置四页，下载项目头像，写成一个文件 <out>/tidings.html。不碰常驻的 5310，不发布。
+// 这个文件能直接用 Chrome 打开或发给别人；也由 Claude 用 Artifact 工具发布到 https://claude.ai/artifact/1iKdvvQhdqQn8hqoQEAqmL（见 docs/share.md）。
 import { parseArgs } from 'node:util';
 import { join, resolve } from 'node:path';
 import { takeShare } from '../src/share/index.js';

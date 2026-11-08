@@ -1,12 +1,10 @@
-// 分享页（#63）：把本机网站的发现、涨星、收藏、设置四页导出成不靠本机服务、别人能直接打开的文件，
-// 用来更新 Claude Artifact 上的分享页。本进程起一个临时网站（端口 0，不碰常驻的 5310）取页面和安装指令，再下载项目头像。
-// 产物（outDir）：
-//   index.html             发现页，去掉外层 html/head/body（Artifact 发布时给主页面套壳），发布时作主页面
-//   stars.html / favorites.html / settings.html   完整文档，作附带文件
-//   tidings-avatars.js     四页共用的头像（data: 图），浏览器只下一次
-//   tidings-install.gz.txt 安装指令，gzip 后 base64（Artifact 不托管 .gz），按「项目 id|AI|Skill 路径」查
+// 分享页（#63、#71）：把本机网站的发现、涨星、收藏、设置四页导出成一个自包含文件 tidings.html，
+// 不靠本机服务：既作 Claude Artifact 分享页的主页面发布，也能直接发给人用 Chrome 打开。
+// 本进程起一个临时网站（端口 0，不碰常驻的 5310）取页面和安装指令，再下载项目头像。
+// 文件结构：外层就是发现页，涨星、收藏、设置各放进同源的 srcdoc iframe，用到才建、页内切换，不跳转页面（#71：Artifact 里跳到附带页面打不开）；
+// 头像（data: 图）和安装指令（gzip 后 base64，按「项目 id|AI|Skill 路径」查）放在外层，四页共用。
 // 访客视角：不带账号名、收藏、投票，收藏页为空，设置页只读；页头写「只读快照 · M 月 D 日」。
-// Artifact 只放行同源文件和 data:，所以样式脚本全内联、头像内嵌；页面里的垫片见 shim.js。
+// Artifact 只放行同源和 data:，所以样式脚本全内联、头像内嵌；每页里的垫片见 shim.js。
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { request } from 'node:http';
@@ -17,7 +15,6 @@ import { embed } from '../web/home.js';
 import { mapLimit } from '../ranking/rank-day.js';
 
 export const PAGES = [['index', '/'], ['stars', '/stars'], ['favorites', '/favorites'], ['settings', '/settings']];
-const FILES = { '': 'index.html', stars: 'stars.html', favorites: 'favorites.html', settings: 'settings.html' };
 const ASSETS = new URL('../web/assets/', import.meta.url);
 const SHIM = new URL('./shim.js', import.meta.url);
 const DATA = /(<script type="application\/json" id="gc-data">)([^<]*)(<\/script>)/;
@@ -63,29 +60,65 @@ export function installJobs(datas) {
   return jobs;
 }
 
-// 一页：换数据、内联样式脚本、加垫片和只读标签、站内链接改成分享页的文件名
+// 一页：换数据、内联样式脚本、加垫片和只读标签（站内链接留着，由垫片交给外层切换）
 export function sharePage(html, kind, data, label) {
   const m = DATA.exec(html);
   html = html.slice(0, m.index) + m[1] + embed(data) + m[3] + html.slice(m.index + m[0].length);
   html = html.replace(/<link rel="stylesheet" href="\/assets\/([\w.-]+\.css)">/g, (_, f) => `<style>\n${readFileSync(new URL(f, ASSETS), 'utf8')}\n</style>`);
   html = html.replace(/<script src="\/assets\/([\w.-]+\.js)"><\/script>/g, (_, f) => `<script>\n${readFileSync(new URL(f, ASSETS), 'utf8').replace(/<\/script/gi, '<\\/script')}\n</script>`);
   if (/(?:href|src)="\/assets\//.test(html)) throw new Error(`${kind} 页里还有没内联的 /assets/ 文件`);
-  const head = `<style>\n${CSS}\n</style>\n<script src="tidings-avatars.js"></script>\n<script>window.__HOME = "index.html";</script>\n<script>\n${readFileSync(SHIM, 'utf8')}\n</script>\n`;
+  const head = `<style>\n${CSS}\n</style>\n<script>window.__AV = window.parent.__AV || {};</script>\n<script>\n${readFileSync(SHIM, 'utf8')}\n</script>\n`;
   if (!html.includes('</title>')) throw new Error(`${kind} 页没有 <title>`);
   html = html.replace('</title>', `</title>\n${head}`);
   html = html.replace(/<span class="me"[^>]*>.*?<\/span>/g, '');
   const r = html.indexOf('<div class="r">');
   if (r < 0 || r > html.indexOf('</header>')) throw new Error(`${kind} 页的页头里没有放标签的位置`);
-  html = html.replace('<div class="r">', `<div class="r"><span class="share-tag" title="这是分享用的只读快照，不会自动更新">只读快照 · ${label}</span>`);
-  return html.replace(/href="\/(stars|favorites|settings)?"/g, (_, p = '') => `href="${FILES[p]}"`);
+  return html.replace('<div class="r">', `<div class="r"><span class="share-tag" title="这是分享用的只读快照，不会自动更新">只读快照 · ${label}</span>`);
 }
 
-// 主页面：Artifact 发布时会套上 doctype/html/head/body，只留 head 里除 charset、viewport 以外的部分和 body 内容；标题用站名
-export function artifactMain(html) {
-  const head = /<head[^>]*>([\s\S]*)<\/head>/.exec(html)?.[1];
-  const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)?.[1];
-  if (head == null || body == null) throw new Error('发现页结构不对，找不到 head 或 body');
-  return `${head.replace(/<meta charset[^>]*>\s*|<meta name="viewport"[^>]*>\s*/g, '').replace(/<title>[^<]*<\/title>/, '<title>Github·Tidings</title>').trim()}\n${body.trim()}\n`;
+// 外层就是发现页本身，另外三页各放进同源的 srcdoc iframe 盖在上面，用到才建、页内切换。头像、安装指令放在外层，四页共用。
+// 发现页不套 iframe：Artifact 里内容再多套一层 iframe 时，进页后的第一下点击会被吞掉（2026-11-08 线上实测）。
+// 打开时认 #stars、#favorites、#prefs 直达某页（claude.ai 保留 #settings）；切页不改地址：Artifact 查看器看到地址变了会重载整页。
+// Artifact 发布时外面还会套一层 doctype/html/head/body，浏览器会把重复的外层标签并掉，同一个文件两处都能用。
+export const HASHES = { stars: 'stars', favorites: 'favorites', settings: 'prefs' };
+const TITLES = { index: '发现', stars: '涨星', favorites: '收藏', settings: '设置' };
+export function shell(pages, avatars, install) {
+  const { index, ...rest } = pages;
+  const data = `<script>\nwindow.__AV = ${embed(avatars)};\nwindow.__INSTALL_GZ = ${embed(install)};\n</script>\n`;
+  const views = `<style>
+.tidings-view { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 2147483000; background: #f6f8fa; }
+.tidings-view[hidden] { display: none; }
+</style>
+<script>
+(() => {
+  const PAGES = ${embed(rest)};
+  const HASHES = ${embed(HASHES)};
+  const TITLES = ${embed(TITLES)};
+  const views = {};
+  // 每页的垫片调它切页：发现页就是外层，收起所有 iframe；其余用到才建，建过的留着（切回来保留原来的滚动和展开状态）
+  window.__tidingsGo = (kind) => {
+    if (kind !== 'index' && !PAGES[kind]) kind = 'index';
+    if (kind !== 'index' && !views[kind]) {
+      const f = document.createElement('iframe');
+      f.className = 'tidings-view';
+      f.title = TITLES[kind];
+      f.srcdoc = PAGES[kind];
+      document.body.append(f);
+      views[kind] = f;
+    }
+    for (const [k, f] of Object.entries(views)) f.hidden = k !== kind;
+    document.title = (kind === 'index' ? '' : TITLES[kind] + ' · ') + 'Github·Tidings';
+  };
+  const start = Object.keys(HASHES).find((k) => location.hash === '#' + HASHES[k]);
+  if (start) window.__tidingsGo(start);
+})();
+</script>
+`;
+  let html = index.replace(/<title>[^<]*<\/title>/, '<title>Github·Tidings</title>');
+  html = html.replace('</title>', `</title>\n${data}`);      // 在垫片之前，垫片读外层的头像
+  const end = html.lastIndexOf('</body>');
+  if (end < 0) throw new Error('发现页没有 </body>');
+  return html.slice(0, end) + views + html.slice(end);
 }
 
 // 北京时间的「11 月 7 日」
@@ -159,12 +192,8 @@ export async function takeShare({ dataDir, outDir, account, fetch = globalThis.f
       writeFileSync(join(outDir, file), text);
       written[file] = Buffer.byteLength(text);
     };
-    for (const [kind] of PAGES) {
-      const html = sharePage(raw[kind], kind, datas[kind], label);
-      write(`${kind}.html`, kind === 'index' ? artifactMain(html) : html);
-    }
-    write('tidings-avatars.js', `window.__AV = ${JSON.stringify(avatars)};\n`);
-    write('tidings-install.gz.txt', gzipSync(JSON.stringify(install), { level: 9 }).toString('base64'));
+    const pages = Object.fromEntries(PAGES.map(([kind]) => [kind, sharePage(raw[kind], kind, datas[kind], label)]));
+    write('tidings.html', shell(pages, avatars, gzipSync(JSON.stringify(install), { level: 9 }).toString('base64')));
     return { files: written, avatars: [Object.keys(avatars).length, urls.length], install: [Object.keys(install).length, jobs.length], label };
   } finally {
     server.close();

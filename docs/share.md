@@ -1,4 +1,4 @@
-# 分享页：对外分享（#63）
+# 分享页：对外分享（#63、#71）
 
 域名还没批下来前，对外分享用 Claude Artifact 上的分享页：<https://claude.ai/artifact/1iKdvvQhdqQn8hqoQEAqmL>（分享设置为「拿到链接的人都能看」）。
 
@@ -8,20 +8,20 @@
 npm run share
 ```
 
-- 本进程起一个临时网站（端口 0，不碰常驻的 5310），取发现、涨星、收藏、设置四页和全部安装指令，再下载项目头像，写到 `data/share/`（`data/` 不进仓库）。约 20 秒。
+- 本进程起一个临时网站（端口 0，不碰常驻的 5310），取发现、涨星、收藏、设置四页和全部安装指令，再下载项目头像，写成一个文件 `data/share/tidings.html`（`data/` 不进仓库），约 2.5MB。约 20 秒。
 - 参数：`--data`（默认 `data`）、`--out`（默认 `<data>/share`）、`--as <账号名>`（用哪个账号打开页面，默认所有者；账号名和收藏都不进分享页）。
 - 头像要联网（`--use-env-proxy` 走本机代理）；下不到的那几个页面上留灰底，输出里会说。
 
-## 发布
+## 怎么给人看
 
-只导出、不发布。让 Claude 用 Artifact 工具更新上面那个链接（保留原地址）：
-
-- 主页面：`data/share/index.html`（已去掉外层 html/head/body，Artifact 发布时会套壳）。
-- 附带文件，按同名路径：`stars.html`、`favorites.html`、`settings.html`、`tidings-avatars.js`、`tidings-install.gz.txt`。
+- 直接发文件：`tidings.html` 用 Chrome 打开就能看，四页都在里面，不要联网（GitHub 链接除外）。
+- 发链接：让 Claude 用 Artifact 工具把 `tidings.html` 作主页面发布到上面那个链接（保留原地址），不带附带文件。
+- 2026-11-08 起是单个文件（#71）。之前四页是 Artifact 里的四个附带页面，靠跳转切换，所有者反馈只有发现页能打开；现在四页在同一个页面里切换。
 
 ## 分享页里是什么
 
 - 访客视角：不带账号名、收藏、投票和换卡；收藏页为空，设置页只读。页头写「只读快照 · M 月 D 日」（北京时间）。
 - 能用：切换近 1 / 7 / 30 天、点项目看详情、搜索、复制安装指令（整个项目和单个 Skill）。
-- Artifact 只放行同源文件和 `data:`：样式脚本全内联，头像存成四页共用的 `tidings-avatars.js`，安装指令 gzip 后 base64 存成 `.txt`（Artifact 不托管 `.gz`）。页面里的垫片 `src/share/shim.js` 负责换头像、改站内链接、从分享页的文件取安装指令。
+- 文件结构：外层就是发现页，涨星、收藏、设置各放进同源的 srcdoc iframe 盖在上面，用到才建、页内切换（发现页不套 iframe：Artifact 里再多套一层时进页第一下点击会被吞掉）；切页不改地址（Artifact 查看器看到地址变了会重载整页）；链接后面加 `#stars`、`#favorites`、`#prefs` 能直达那一页（claude.ai 保留 `#settings`）。
+- Artifact 只放行同源和 `data:`：样式脚本全内联，头像（`data:` 图）和安装指令（gzip 后 base64）放在外层，四页共用。每页里的垫片 `src/share/shim.js` 负责换头像、把站内链接交给外层切页、从外层取安装指令。
 - 改了页面结构（页头 `<div class="r">`、`.me`、嵌入数据 `gc-data`、`/assets/` 引用方式）时，跑 `node --test test/share.test.js` 确认导出还对。
