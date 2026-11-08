@@ -37,7 +37,7 @@
 
 **数据对象**：无。本应用不展示、不采集 AI 自己的数据。
 
-不是 AI 功能：安装指令（`src/profiles/install.js`，按模板拼给你复制的文字）、与严格方案校准和每日自检（`src/ranking/calibrate.js`、`check.js`，统计计算）。
+不是 AI 功能：安装指令和交接（`src/profiles/install.js`、`handoff.js`，研究／试用／安装／定向对比／交给 AI 去 GitHub 找，按模板拼给你复制的文字，#79）、与严格方案校准和每日自检（`src/ranking/calibrate.js`、`check.js`，统计计算）。
 
 ## Agent skills
 

@@ -209,7 +209,7 @@ export async function picksApi(dataDir, ctx, picks, op, form) {
 }
 
 // 页面：报头、精选榜（筛选行 + 景深轮播 + 提示行）、历史榜和热点榜两栏；点项目在本页右侧打开详情栏（bw.js）。整页滚动，底部留白给鲨鱼。
-export const categoriesPage = (data, ctx) => frame({ title: '发现', active: '发现', ctx, css: ['bw.css', 'categories.css'], js: ['bw.js', 'categories.js'], data,
+export const categoriesPage = (data, ctx) => frame({ title: '发现', active: '发现', ctx, css: ['bw.css', 'categories.css'], js: ['bw.js', 'ho.js', 'categories.js'], data,
   bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="在分类榜里找"><span class="kbd">/</span></label>',
   body: `  <div class="cwrap">
     <section class="hero-box" id="mast"></section>

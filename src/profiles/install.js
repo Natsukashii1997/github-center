@@ -21,17 +21,17 @@ const RULES = [
 
 const oneLine = (s) => s.replace(/\s+/g, ' ').trim();
 
-// 中心整理到的使用条件，以及哪些地方可能没整理全（条件核对不到被丢掉、文档只读了开头）。
-function conditionNotes(m, g) {
+// 中心整理到的使用条件（附原文摘录），以及哪些地方可能没整理全（条件核对不到被丢掉、文档只读了开头）。研究、试用交接也用（#79）。
+export function usageNotes(m, g) {
   if (!g) return ['中心还没整理出这个项目的使用条件；装之前先看文档里有没有账号、密钥或付费要求。'];
   const notes = g.conditions.length
     ? ['中心从项目文档里整理到的使用条件（供参考，以文档为准）：', ...g.conditions.map((c) => `- ${c.kind}：${c.text}（原文：${oneLine(c.quote)}）`)]
     : ['中心在读到的项目文档里没有整理出账号、密钥或付费要求。'];
   if (g.droppedConditions) notes.push(`另有 ${g.droppedConditions} 条整理出的条件在原文里核对不到，没有列出。`);
   if (m.readme?.truncated || m.docs.some((d) => d.truncated)) notes.push('有的文档较长，中心只读了开头部分，后面可能还写了别的条件。');
-  notes.push('装的过程中遇到账号、密钥或付费要求，照规则 2 停下来告诉我。');
   return notes;
 }
+const conditionNotes = (m, g) => [...usageNotes(m, g), ...(g ? ['装的过程中遇到账号、密钥或付费要求，照规则 2 停下来告诉我。'] : [])];
 
 // profile 是存下的项目资料；skillPath 为空表示整个项目。
 export function installInstruction({ profile, ai, skillPath }) {
