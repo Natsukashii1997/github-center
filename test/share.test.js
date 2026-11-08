@@ -1,13 +1,14 @@
-// #63：只读快照导出。临时数据目录里放一期近 1 天榜单、一个有资料的项目和所有者账号，头像用假的下载，
-// 检查四页都导出、样式脚本全内联、站内链接改成文件名、个人信息不带出去、安装指令能查到。
+// #63、#71：分享页导出。临时数据目录里放一期近 1 天榜单、一个有资料的项目和所有者账号，头像用假的下载，
+// 检查导出成一个文件、四页样式脚本全内联、站内链接留给外层切页、个人信息不带出去、安装指令能查到。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import vm from 'node:vm';
 import { openAccounts } from '../src/web/accounts.js';
-import { takeShare, scrub, artifactMain, dayLabel } from '../src/share/index.js';
+import { takeShare, scrub, shell, dayLabel } from '../src/share/index.js';
 import { dataOf } from './helpers/web.js';
 
 const fixture = new URL('./fixtures/snapshot-d1-2026-10-22.json', import.meta.url);
@@ -29,49 +30,52 @@ function dataDir() {
   return dir;
 }
 
-test('导出四页和两份共用文件：样式脚本内联、站内链接改成文件名、页头写只读快照和北京时间日期', async () => {
+// 外层壳里每行一份数据：window.__AV = {...}; window.__INSTALL_GZ = "..."; const PAGES = {...};
+const shellData = (html, name) => JSON.parse(new RegExp(`^\\s*(?:window\\.|const )${name} = (.*);$`, 'm').exec(html)[1]);
+
+test('导出成一个文件：外层是发现页、另三页页内切，样式脚本内联、页头写只读快照和北京时间日期、个人信息不带出去', async () => {
   const dir = dataDir();
   const out = join(dir, 'share');
   const asked = [];
   // 夹具里的项目没有 ownerId，头像都按作者名取；php 那张假装下不到
   const fakeFetch = async (u) => (asked.push(u), u.includes('/php.png') ? new Response('', { status: 404 }) : new Response(PNG));
   const r = await takeShare({ dataDir: dir, outDir: out, fetch: fakeFetch, now: new Date('2026-10-23T17:30:00Z') });
-  assert.deepEqual(Object.keys(r.files).sort(), ['favorites.html', 'index.html', 'settings.html', 'stars.html', 'tidings-avatars.js', 'tidings-install.gz.txt']);
+  assert.deepEqual(Object.keys(r.files), ['tidings.html']);
   assert.equal(r.label, '10 月 24 日');                                   // UTC 17:30 已是北京时间次日
   assert.ok(asked.every((u) => /^https:\/\/github\.com\/[\w.-]+\.png\?size=88$/.test(u)));
   assert.deepEqual(r.avatars, [asked.length - 1, asked.length]);         // 下不到的那张不算进去
 
-  const read = (f) => readFileSync(join(out, f), 'utf8');
-  for (const f of ['index.html', 'stars.html', 'favorites.html', 'settings.html']) {
-    const html = read(f);
-    assert.doesNotMatch(html, /(?:href|src)="\/assets\//, f);
-    assert.doesNotMatch(html, /href="\/[^/]/, f);                         // 站内链接都改成了文件名
-    assert.match(html, /<script src="tidings-avatars\.js"><\/script>/, f);
-    assert.match(html, /只读快照 · 10 月 24 日/, f);
-    assert.doesNotMatch(html, /Zhanghao/, f);                             // 账号名不带出去
-    assert.match(html, /<a href="stars\.html"[^>]*>涨星<\/a>/, f);
+  const html = readFileSync(join(out, 'tidings.html'), 'utf8');
+  assert.match(html, /^<!doctype html>/i);
+  assert.match(html.slice(0, 8192), /<title>Github·Tidings<\/title>/);   // Artifact 只在前 8KB 找标题
+  assert.doesNotMatch(html, /Zhanghao/);                                 // 账号名不带出去
+  assert.match(html, /window\.__tidingsGo = /);
+  const pages = { index: html, ...shellData(html, 'PAGES') };
+  assert.deepEqual(Object.keys(pages), ['index', 'stars', 'favorites', 'settings']);
+  assert.ok(html.indexOf('window.__AV = {') < html.indexOf("const outer = '__INSTALL_GZ' in window"));   // 头像先于垫片
+  for (const [kind, page] of Object.entries(pages)) {
+    assert.doesNotMatch(page, /(?:href|src)="\/assets\//, kind);
+    assert.doesNotMatch(page, /<script src=/, kind);                     // 全内联，不靠附带文件
+    assert.match(page, /const outer = '__INSTALL_GZ' in window/, kind);     // 每页都有垫片
+    assert.match(page, /只读快照 · 10 月 24 日/, kind);
+    assert.match(page, /<a href="\/stars"[^>]*>涨星<\/a>/, kind);        // 站内链接留着，由垫片交给外层切页
   }
-  // 主页面给 Artifact 套壳：没有外层标签，标题是站名
-  const index = read('index.html');
-  assert.doesNotMatch(index, /<!doctype|<html|<body|<meta charset/i);
-  assert.match(index, /^<title>Github·Tidings<\/title>/);
-  assert.match(read('stars.html'), /^<!doctype html>/i);
 
   // 个人的东西清掉
-  const stars = dataOf(read('stars.html'));
+  const stars = dataOf(pages.stars);
   assert.ok(Object.values(stars.projects).length > 0);
   assert.ok(Object.values(stars.projects).every((p) => p.saved === false && p.savedSkills.length === 0));
   assert.deepEqual(stars.account, { name: '访客' });
-  assert.deepEqual(dataOf(read('favorites.html')).items, []);
-  const settings = dataOf(read('settings.html'));
+  assert.deepEqual(dataOf(pages.favorites).items, []);
+  const settings = dataOf(pages.settings);
   assert.deepEqual([settings.me, settings.canEdit], ['访客', false]);
 
   // 安装指令：项目 id|AI|Skill 路径
-  const install = JSON.parse(gunzipSync(Buffer.from(read('tidings-install.gz.txt'), 'base64')));
+  const install = JSON.parse(gunzipSync(Buffer.from(shellData(html, '__INSTALL_GZ'), 'base64')));
   assert.match(install['1903522|claude-code|'], /php\/php-src/);
   assert.match(install['1903522|codex|skills/pdf'], /Skill「pdf」装进 Codex/);
   // 头像：data: 图，按 n/<作者名小写> 查；下不到的没有
-  const av = JSON.parse(read('tidings-avatars.js').replace(/^window\.__AV = |;\n$/g, ''));
+  const av = shellData(html, '__AV');
   assert.ok(Object.entries(av).every(([k, v]) => /^n\/[a-z0-9.-]+$/.test(k) && v.startsWith('data:image/png;base64,')));
   assert.ok(av['n/anthropics'] && !av['n/php']);
 });
@@ -85,9 +89,62 @@ test('scrub：收藏、投票、能不能改、账号名去掉；收藏页整页
   assert.equal(d.account.name, 'Nat');                                   // 不改原对象
 });
 
-test('artifactMain 只留 head 里的内容和 body；dayLabel 按北京时间', () => {
-  const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="x"><title>发现 · Github·Tidings</title><style>a{}</style></head><body class="x"><main>hi</main></body></html>';
-  assert.equal(artifactMain(html), '<title>Github·Tidings</title><style>a{}</style>\n<main>hi</main>\n');
+// 在 vm 里跑垫片：只给它用到的那点 DOM，点一下站内链接，看切页交给了谁
+function runShim(win) {
+  const on = {};
+  const Element = function () {};
+  Object.defineProperty(Element.prototype, 'innerHTML', { configurable: true, get() { return ''; }, set() {} });
+  Element.prototype.insertAdjacentHTML = () => {};
+  Object.assign(win, {
+    Element, URL, Response, atob,
+    MutationObserver: class { observe() {} },
+    document: { documentElement: {}, addEventListener: (t, f) => (on[t] = f), getElementById: () => ({ classList: { add() {}, remove() {} } }) },
+    history: { pushState() {}, replaceState() {} },
+    fetch: async () => new Response(''),
+    addEventListener() {},
+  });
+  win.window = win;
+  vm.runInNewContext(readFileSync(new URL('../src/share/shim.js', import.meta.url), 'utf8'), win);
+  on.click({ target: { closest: () => ({ getAttribute: () => '/stars' }) }, preventDefault() {} });
+}
+
+test('垫片：外层自己就是发现页，被套在跨域 iframe 里（Artifact 查看器）也切得动；iframe 里的页交给外层', () => {
+  // Artifact 里外层页的 parent 是 claude.ai，读它任何属性都抛 SecurityError
+  const crossOrigin = new Proxy({}, { get() { throw new Error('SecurityError: Blocked a frame with origin'); }, has() { throw new Error('SecurityError'); } });
+  const went = [];
+  runShim({ parent: crossOrigin, __INSTALL_GZ: 'QUJD', __tidingsGo: (k) => went.push(['外层', k]) });
+  const shellWin = { __INSTALL_GZ: 'QUJD', __tidingsGo: (k) => went.push(['iframe→外层', k]) };
+  runShim({ parent: shellWin });
+  assert.deepEqual(went, [['外层', 'stars'], ['iframe→外层', 'stars']]);
+});
+
+test('切页：用到才建 iframe，建过的留着只切显隐；打开时认 #stars 直达；不认识的回发现页', () => {
+  const html = shell({ index: '<html><head><title>发现</title></head><body></body></html>', stars: 'S', favorites: 'F', settings: 'T' }, {}, 'QUJD');
+  const code = [...html.matchAll(/<script>\n([\s\S]*?)<\/script>/g)].at(-1)[1];
+  const made = [];
+  const win = { location: { hash: '#stars' }, document: { title: '', createElement: () => ({}), body: { append: (f) => made.push(f) } } };
+  win.window = win;
+  vm.runInNewContext(code, win);
+  const shown = () => made.map((f) => `${f.srcdoc}:${f.hidden ? '藏' : '显'}`).join(' ');
+  assert.equal(shown(), 'S:显');
+  assert.equal(win.document.title, '涨星 · Github·Tidings');
+  win.__tidingsGo('settings');
+  assert.equal(shown(), 'S:藏 T:显');
+  win.__tidingsGo('index');
+  assert.equal(shown(), 'S:藏 T:藏');
+  assert.equal(win.document.title, 'Github·Tidings');
+  win.__tidingsGo('stars');
+  assert.equal(shown(), 'S:显 T:藏');                                     // 不重建，原来的滚动和展开都在
+  win.__tidingsGo('nope');
+  assert.equal(shown(), 'S:藏 T:藏');
+});
+
+test('dayLabel 按北京时间；外层壳的数据里 </script> 和行分隔符都转义', () => {
+  const html = shell({ index: '<html><head><title>发现 · Github·Tidings</title></head><body><p>发现</p></body></html>', stars: '<script>x</script>\u2028' }, {}, 'QUJD');
+  assert.equal(shellData(html, 'PAGES').stars, '<script>x</script>\u2028');
+  assert.equal((html.match(/<\/script>/g) ?? []).length, 2);            // 只有外层自己的数据和切页两段
+  assert.match(html, /^<html><head><title>Github·Tidings<\/title>\n<script>\nwindow\.__AV = \{\};/);
+  assert.match(html, /<p>发现<\/p><style>[\s\S]*<\/script>\n<\/body><\/html>$/);
   assert.equal(dayLabel(new Date('2026-11-06T16:00:00Z')), '11 月 7 日');
   assert.equal(dayLabel(new Date('2026-11-06T15:59:00Z')), '11 月 6 日');
 });
