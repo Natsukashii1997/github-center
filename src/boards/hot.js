@@ -237,7 +237,7 @@ export async function updateHot({ dataDir, gh, get, now = () => new Date(), enab
   return { ...r, snapshot };
 }
 
-// 补录（所有者 2026-11-04 定）：给过去没存快照的某天补一份，当作那天北京时间 10:00（每日更新的默认时间）量的。
+// 补录（所有者 2026-11-04 定）：给过去没存快照的某天补一份，当作那天北京时间 18:00（每日更新的默认时间，#83 前是 10:00）量的。
 // 过去某一刻的点数、评论数查不到，只能用补录这一刻接口给的数回推：窗口里离那天最近一两天发的帖子，当时还没涨到现在这么多，补出来偏高；
 // V2EX 接口翻不到旧帖，只用已存快照里见过的帖子（取最近一次量到的回复数），偏低。快照记 backfilled，页面写明哪几天是补录的。
 // 只补今天（UTC）以前、还没有快照的日子；不改 status.json。返回 { status: 'published' | 'exists', path, snapshot? }，HN 失败直接抛错。
@@ -246,7 +246,7 @@ export async function backfillHot({ dataDir, gh, get, day, now = () => new Date(
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || day >= now().toISOString().slice(0, 10)) throw new Error(`只能补今天以前的日子：${day}`);
   const done = findSnapshot(dataDir, BOARD, day);
   if (done) return { status: 'exists', ...done };
-  const at = new Date(`${day}T02:00:00Z`);
+  const at = new Date(`${day}T10:00:00Z`);
   const to = at.getTime() / 1000;
   const from = to - WINDOW_DAYS * 86400;
   const saved = new Map();

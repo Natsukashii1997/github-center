@@ -25,6 +25,8 @@
 .srow .ds { margin-top: 3px; font-size: 12px; color: var(--ink-3); line-height: 1.55; }
 .srow .ds code { font: 11.5px var(--mono); color: var(--ink-2); }
 .srow .ds .err { color: #cf222e; }
+.srow .ds .mig { display: block; margin-top: 4px; color: #9a6700; }
+.srow .ds .mig button { margin-left: 4px; padding: 0; border: 0; background: none; color: #0969da; font: inherit; cursor: pointer; text-decoration: underline; }
 .srow .ct { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--ink-3); white-space: nowrap; }
 .srow .ct .fail { color: #cf222e; }
 

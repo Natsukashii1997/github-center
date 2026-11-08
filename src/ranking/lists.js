@@ -1,6 +1,6 @@
 // 涨星榜之外的三个榜单（#9），随每天出榜一起存快照：新项目榜、官方热门榜、累计高星榜。
 // 新项目榜和累计高星榜用 GitHub 官方搜索。已知现象：搜索会把少数仓库计进总数、列表里却不返回（如 bclswl0827/v2ray-heroku），页面上写明。
-import { windowDays } from './stat-day.js';
+import { windowDays, dayRange } from './stat-day.js';
 import { topWithTies } from './rank.js';
 
 export const LISTS = { new: '新项目榜', trending: '官方热门榜', top: '累计高星榜' };
@@ -23,10 +23,12 @@ async function byTotalStars({ gh, store, kind, q }) {
   };
 }
 
-// 新项目榜：截至统计日（含）近 30 天内创建的项目，含 fork（全站）。日期写明按 UTC，和涨星榜的统计日一致。
+// 新项目榜：截至统计日（含）近 30 天内创建的项目，含 fork（全站）。和涨星榜一样按 GitHub 统计日（美国太平洋时间）划日子：
+// 起点是第一天的太平洋零点，终点是统计日结束前 1 秒，搜索条件写成 UTC 时刻。
+const utc = (ms) => `${new Date(ms).toISOString().slice(0, 19)}+00:00`;
 export async function newProjects({ day, gh, store }) {
   const from = windowDays(day, 30)[0];
-  return { from, ...(await byTotalStars({ gh, store, kind: 'new', q: `created:${from}T00:00:00+00:00..${day}T23:59:59+00:00 fork:true` })) };
+  return { from, ...(await byTotalStars({ gh, store, kind: 'new', q: `created:${utc(dayRange(from).from)}..${utc(dayRange(day).to - 1000)} fork:true` })) };
 }
 
 // 累计高星榜：全站按总 Star。门槛只是为了让搜索条件成立，前 20 名远高于它。

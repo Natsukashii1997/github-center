@@ -63,7 +63,7 @@ test('首页嵌入近 1 天榜单：名次、并列、新增、总 Star、统计
   assert.match(body, /<script src="\/assets\/sharks\.js"><\/script>\n<script src="\/assets\/shell\.js"><\/script>\n<script src="\/assets\/bw\.js"><\/script>\n<script src="\/assets\/ho\.js"><\/script>\n<script src="\/assets\/home\.js"><\/script>/);
   const d1 = data.windows.d1;
   assert.deepEqual(d1.top, { tone: 'ok', text: '10 月 22 日数据 · 16:40 更新' });
-  assert.deepEqual(d1.lede, { span: '统计日 10 月 22 日（UTC）', candidates: 23, checks: 23 + 21 });
+  assert.deepEqual(d1.lede, { span: 'GitHub 统计日 10 月 22 日（美国太平洋时间）', candidates: 23, checks: 23 + 21 });
   assert.deepEqual(d1.entries.slice(0, 7).map(({ repo, rank, tie, gain }) => [repo, rank, tie, gain]), [
     ['php/php-src', 1, false, 5200],
     ['anthropics/knowledge-work-plugins', 2, false, 3100],
@@ -112,8 +112,8 @@ test('近 7、30 天的榜单一起嵌进页面，写明统计的起止日期；
   const { data } = await home(dir);
   assert.deepEqual(Object.keys(data.windows), ['d1', 'd7', 'd30']);
   assert.equal(data.windows.d7.label, '近 7 天');
-  assert.equal(data.windows.d7.lede.span, '统计 10 月 16 日至 10 月 22 日（UTC）');
-  assert.equal(data.windows.d30.lede.span, '统计 9 月 23 日至 10 月 22 日（UTC）');
+  assert.equal(data.windows.d7.lede.span, 'GitHub 统计日 10 月 16 日至 10 月 22 日（美国太平洋时间）');
+  assert.equal(data.windows.d30.lede.span, 'GitHub 统计日 9 月 23 日至 10 月 22 日（美国太平洋时间）');
   assert.deepEqual(data.windows.d7.notes.map((n) => n.title), ['没有上一期']);
   assert.equal((await visit(dir, 'stars?w=d7')).status, 200);
   assert.equal((await visit(dir, 'stars?w=d3')).status, 404);

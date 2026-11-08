@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { readLatestSnapshot, readStatus, newerFailure, WINDOWS } from '../ranking/index.js';
 import { readJson, readCandidates } from '../ranking/store.js';
 import { CATEGORIES, readCategories, gainersInCategory } from '../categories/index.js';
-import { bucketOf, windowDays } from '../ranking/stat-day.js';
+import { bucketOf, windowDays, dayRange } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';
 import { rankHistory, markRows } from '../ranking/moves.js';
 import { readProfile, shownGenerated, skillPurpose, INSTALL_AIS, PROJECT_TYPES } from '../profiles/index.js';
@@ -60,6 +60,10 @@ export function windowStatus(snapshot, failed) {
     notes.push({ tone: 'warn', icon: 'warn', title: '可能不完整', text: `${why.join('；')}，名次可能有出入。` });
   }
   if (snapshot && !snapshot.check) notes.push({ icon: 'warn', title: '未做自检', text: '这份榜单生成于每日自检上线之前，没有做完整性自检。' });
+  // #83：官方日桶按美国太平洋时间分日、日终才定稿。统计日结束前出的榜（#83 之前每天北京 10:00 出）最后一天没数完；按每期的出榜时刻判断，不写死日期。
+  if (snapshot?.generatedAt && Date.parse(snapshot.generatedAt) < dayRange(snapshot.statDay).to) {
+    notes.push({ icon: 'warn', title: '最后一天未数完', text: `这一期在 ${md(snapshot.statDay)}的 GitHub 统计日（美国太平洋时间）结束前生成（以前每天北京 10:00 出榜），最后一天还没数完，名次可能有偏差，近 1 天影响最大。` });
+  }
   let top;
   if (!snapshot) top = { tone: failed ? 'bad' : 'warn', text: failed ? '更新失败 · 还没有数据' : '还没有数据' };
   else if (failed) top = { tone: 'bad', text: `更新失败 · 显示 ${md(snapshot.statDay)}数据` };
@@ -106,7 +110,7 @@ function board(w, snapshot, status, history) {
     notes,
     day: snapshot.statDay,
     lede: {
-      span: w === 'd1' ? `统计日 ${md(snapshot.statDay)}（UTC）` : `统计 ${md(snapshot.from)}至 ${md(snapshot.statDay)}（UTC）`,
+      span: w === 'd1' ? `GitHub 统计日 ${md(snapshot.statDay)}（美国太平洋时间）` : `GitHub 统计日 ${md(snapshot.from)}至 ${md(snapshot.statDay)}（美国太平洋时间）`,
       candidates: snapshot.candidates.total,
       checks: snapshot.requests.history + snapshot.requests.project,
     },

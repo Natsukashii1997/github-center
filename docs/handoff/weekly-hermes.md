@@ -5,16 +5,17 @@
 ## 什么时候发、发给谁
 
 - 发到所有者本人的飞书私聊。只发这一处，不发群聊。
-- **发不发、星期几、几点，按设置页「周报推送」**（#61）：存在 `data/settings.json` 的 `weekly`，`{"on": true, "day": 1, "at": "11:30"}`。`day` 是星期（0 = 周日，1 = 周一……6 = 周六），`at` 是北京时间 `HH:MM`。文件不存在、读不出来或这几项缺失、不合规时，按默认值：开、周一、11:30（和 `src/settings/index.js` 的 `DEFAULTS.weekly` 一致，改一边要同步另一边）。
+- **发不发、星期几、几点，按设置页「周报推送」**（#61）：存在 `data/settings.json` 的 `weekly`，`{"on": true, "day": 1, "at": "19:30"}`。`day` 是星期（0 = 周日，1 = 周一……6 = 周六），`at` 是北京时间 `HH:MM`。文件不存在、读不出来或这几项缺失、不合规时，按默认值：开、周一、19:30（和 `src/settings/index.js` 的 `DEFAULTS.weekly` 一致，改一边要同步另一边）。
+- **周报时间不能早于每日更新时间**（#83）：设置文件是从服务器原样拉回来的，可能还是旧的 11:30。发送方和 `readSettings` 用同一条规则算：`daily.at` 早于 17:00 或不合规按 18:00；`weekly.at` 早于每日更新时间的，按每日更新后 1.5 小时（最晚 23:45）。
 - 发送方每 15 分钟看一次：`on` 为假就不发、不出声；到了 `day` 那天且已过 `at`，当天还没发过就发。整天错过（电脑关机）不隔天补发。
 - 设置页存了就生效，不用改猛鬼兽的定时任务。
-- 本仓库的每日定时任务（`scripts/schedule.sh` 装的 launchd 任务 `cn.github-center.update`）在设置页设的时间（默认北京时间 10:00；2026-11-03 起可在设置页改，最早 09:00）起跑 `npm run update`：出榜、全站 Star 前 100、历史榜（Skill 安装量）、热点榜、精选榜、补资料、归类，然后 `npm run weekly` 写出当天的周报文件。平时 15 分钟左右跑完，默认时间下 11:30 前已就绪；推送时间早于周报就绪时，发送方会等（见「先检查再发」）；日志 `data/logs/update.log`，最后一行是 `exit N`。
+- 本仓库的每日定时任务（`scripts/schedule.sh` 装的 launchd 任务 `cn.github-center.update`）在设置页设的时间（默认北京时间 18:00，最早 17:00；#83 前是 10:00、最早 09:00）起跑 `npm run update`：出榜、全站 Star 前 100、历史榜（Skill 安装量）、热点榜、精选榜、补资料、归类，然后 `npm run weekly` 写出当天的周报文件。平时 15 分钟左右跑完，默认时间下 19:30 前已就绪；推送时间早于周报就绪时，发送方会等（见「先检查再发」）；日志 `data/logs/update.log`，最后一行是 `exit N`。
 
 ## 文件在哪
 
 仓库路径：`/Users/nat/Documents/ChatGPT/个人/work/github-center`
 
-每个统计日一份，文件名就是统计日（UTC，`YYYY-MM-DD`）：
+每个统计日一份，文件名就是统计日（GitHub 统计日，美国太平洋时间，`YYYY-MM-DD`）：
 
 - `data/weekly/<统计日>.feishu.md`：要发的消息正文（Markdown）。
 - `data/weekly/<统计日>.card.json`：同一份内容的飞书卡片（卡片 JSON 2.0，#59，B 版排行榜样式）。**按卡片发时用它**，见下面「卡片」。

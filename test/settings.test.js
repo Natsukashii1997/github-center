@@ -35,10 +35,11 @@ test('读设置：没存过用默认值；文件坏了、缺项、乱填都回�
   assert.deepEqual(DEFAULTS.effort, { profiles: 'low', classify: 'low', picks: 'low' });
   assert.equal(DEFAULTS.agent, 'relay', '#69 前的默认行为：Codex 优先·Claude 接力');
   assert.deepEqual(DEFAULTS.agentFor, { profiles: 'default', classify: 'default', picks: 'default' });
-  assert.deepEqual(DEFAULTS.weekly, { on: true, day: 1, at: '11:30' }); // 猛鬼兽 tidings_weekly.py 用同一组默认值
+  assert.deepEqual(DEFAULTS.daily, { on: true, at: '18:00' });
+  assert.deepEqual(DEFAULTS.weekly, { on: true, day: 1, at: '19:30' }); // 猛鬼兽 tidings_weekly.py 用同一组默认值
   put(dir, 'settings.json', '{坏的');
   assert.deepEqual(readSettings(dir), DEFAULTS);
-  put(dir, 'settings.json', { sources: { gharchive: false, reddit: true, hn: false, v2ex: 'x' }, agent: 'gemini', effort: { classify: 'high', picks: 'max' }, daily: { at: '08:00' }, weekly: { day: 9, on: true } });
+  put(dir, 'settings.json', { sources: { gharchive: false, reddit: true, hn: false, v2ex: 'x' }, agent: 'gemini', effort: { classify: 'high', picks: 'max' }, daily: { at: '08:07' }, weekly: { day: 9, on: true } });
   const s = readSettings(dir);
   assert.equal(s.sources.gharchive, true);
   assert.equal(s.sources.reddit, false);
@@ -46,7 +47,8 @@ test('读设置：没存过用默认值；文件坏了、缺项、乱填都回�
   assert.equal(s.sources.v2ex, true);
   assert.deepEqual(s.effort, { profiles: 'low', classify: 'high', picks: 'low' });
   assert.equal(s.agent, 'relay');
-  assert.equal(s.daily.at, '10:00');
+  assert.equal(s.daily.at, '18:00');
+  assert.equal(s.migrated, undefined);
   // #69 前存的 codex 就是「Codex 失败 Claude 接力」，按 relay 读；#69 后存的（带 agentFor）照原样，单独指定的功能各用各的。
   put(dir, 'settings.json', { agent: 'codex' });
   assert.equal(readSettings(dir).agent, 'relay');
@@ -54,11 +56,33 @@ test('读设置：没存过用默认值；文件坏了、缺项、乱填都回�
   const n = readSettings(dir);
   assert.deepEqual([n.agent, n.agentFor], ['codex', { profiles: 'claude', classify: 'default', picks: 'default' }]);
   assert.deepEqual(['profiles', 'classify', 'picks'].map((t) => agentOf(n, t)), ['claude', 'codex', 'codex']);
-  assert.deepEqual(s.weekly, { on: true, day: 1, at: '11:30' });
+  assert.deepEqual(s.weekly, { on: true, day: 1, at: '19:30' });
 });
 
-test('校验：GH Archive 不能关，Reddit 不能开，执行方只认只用 Codex、只用 Claude、Codex 优先·Claude 接力（功能另可跟随默认），强度只认低中高，每日更新不早于 09:00、按 15 分钟一档，缺项不收', () => {
-  const ok = parse({ 'sources.hn': 'off', 'effort.classify': 'high', 'daily.at': '09:00', 'weekly.on': 'on', 'weekly.day': '0', 'weekly.at': '20:05' });
+test('#83 迁移：存的每日更新早于 17:00 改按 18:00、周报早于每日更新改按每日更新后 1.5 小时，写明原值，不悄悄写文件', () => {
+  const dir = fresh();
+  const old = { daily: { on: true, at: '10:00' }, weekly: { on: true, day: 1, at: '11:30' }, savedAt: '2026-11-06T03:00:00.000Z' };
+  put(dir, 'settings.json', old);
+  const s = readSettings(dir);
+  assert.deepEqual([s.daily, s.weekly], [{ on: true, at: '18:00' }, { on: true, day: 1, at: '19:30' }]);
+  assert.deepEqual(s.migrated, [{ key: 'daily.at', from: '10:00', to: '18:00' }, { key: 'weekly.at', from: '11:30', to: '19:30' }]);
+  assert.deepEqual(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')), old);
+  // 每日更新本来就合规的不动；周报早于它的跟着每日更新走，最晚 23:45；周报本来就晚的不动。
+  put(dir, 'settings.json', { daily: { at: '20:00' }, weekly: { at: '11:30' } });
+  assert.deepEqual(readSettings(dir).migrated, [{ key: 'weekly.at', from: '11:30', to: '21:30' }]);
+  put(dir, 'settings.json', { daily: { at: '23:00' }, weekly: { at: '22:00' } });
+  assert.equal(readSettings(dir).weekly.at, '23:45');
+  put(dir, 'settings.json', { daily: { at: '10:00' }, weekly: { at: '21:00' } });
+  assert.deepEqual([readSettings(dir).weekly.at, readSettings(dir).migrated], ['21:00', [{ key: 'daily.at', from: '10:00', to: '18:00' }]]);
+  // 保存后写回新时间，再读就没有迁移记录。
+  const saved = saveSettings(dir, parseSettings(new URLSearchParams(fieldsOf(readSettings(dir)))));
+  assert.equal(saved.migrated, undefined);
+  assert.equal(readSettings(dir).migrated, undefined);
+  assert.equal(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')).daily.at, '18:00');
+});
+
+test('校验：GH Archive 不能关，Reddit 不能开，执行方只认只用 Codex、只用 Claude、Codex 优先·Claude 接力（功能另可跟随默认），强度只认低中高，每日更新不早于 17:00、按 15 分钟一档，周报推送不早于每日更新，缺项不收', () => {
+  const ok = parse({ 'sources.hn': 'off', 'effort.classify': 'high', 'daily.at': '17:00', 'weekly.on': 'on', 'weekly.day': '0', 'weekly.at': '20:05' });
   assert.equal(ok.sources.hn, false);
   assert.equal(ok.effort.classify, 'high');
   assert.equal(ok.agent, 'relay');
@@ -67,13 +91,17 @@ test('校验：GH Archive 不能关，Reddit 不能开，执行方只认只用 C
   assert.throws(() => parse({ agent: 'gemini' }), /默认执行方只能是 codex、claude、relay/);
   assert.deepEqual(parse({ 'agentFor.picks': 'claude' }).agentFor, { profiles: 'default', classify: 'default', picks: 'claude' });
   assert.throws(() => parse({ 'agentFor.picks': 'gemini' }), /功能的执行方只能是 default、codex、claude、relay/);
-  assert.deepEqual(ok.daily, { on: true, at: '09:00' });
+  assert.deepEqual(ok.daily, { on: true, at: '17:00' });
   assert.deepEqual(ok.weekly, { on: true, day: 0, at: '20:05' });
   assert.throws(() => parse({ 'sources.gharchive': 'off' }), /GH Archive.*不能关/);
   assert.throws(() => parse({ 'sources.reddit': 'on' }), /Reddit 还没接/);
   assert.throws(() => parse({ 'effort.picks': 'max' }), /思考强度只能是/);
-  assert.throws(() => parse({ 'daily.at': '08:45' }), /不能早于 09:00/);
-  assert.throws(() => parse({ 'daily.at': '10:10' }), /15 分钟一档/);
+  assert.throws(() => parse({ 'daily.at': '16:45' }), /不能早于 17:00/);
+  assert.throws(() => parse({ 'daily.at': '10:00' }), /不能早于 17:00/);
+  assert.throws(() => parse({ 'daily.at': '17:10' }), /15 分钟一档/);
+  assert.throws(() => parse({ 'weekly.at': '11:30' }), /周报推送时间 11:30 不能早于每日更新时间 18:00/);
+  assert.throws(() => parse({ 'daily.at': '20:00' }), /周报推送时间 19:30 不能早于每日更新时间 20:00/);
+  assert.deepEqual(parse({ 'weekly.at': '18:00' }).weekly.at, '18:00');
   assert.throws(() => parse({ 'daily.at': '24:00' }), /格式不对/);
   assert.throws(() => parse({ 'weekly.day': '7' }), /星期不对/);
   assert.throws(() => parse({ 'weekly.day': '' }), /星期不对/);
@@ -153,7 +181,7 @@ test('设置页：导航第四项；数据里有各来源的日期和成败、�
     assert.deepEqual(data.sources.find((s) => s.key === 'gharchive').required, true);
     assert.deepEqual(data.sources.find((s) => s.key === 'reddit').unavailable, true);
     assert.deepEqual(data.run, { startedAt: '2026-11-03T02:00:01.000Z', endedAt: '2026-11-03T02:20:00.000Z', failed: ['历史榜（Skill 安装量）'], running: false });
-    assert.equal(data.next.at, '10:00');
+    assert.equal(data.next.at, '18:00');
     // AI 接入（#69）：功能清单、对外开放、数据对象，两家还没查过可用状态（页面写「没查过」，不在这里查）。
     assert.deepEqual(data.ai.features.map((f) => [f.name, f.mode, f.via]), [['补资料', 'relay', 'cli'], ['归类', 'relay', 'cli'], ['精选标签建议', 'relay', 'cli']]);
     assert.deepEqual(data.ai.openings.map((o) => [o.who, o.on]), [['猛鬼兽（Hermes）', true], ['MCP', false]]);
@@ -174,19 +202,19 @@ test('所有者改设置：存进 settings.json，页面读回；不合规整份
   const site = await asOwner(await serve(dir), dir);
   try {
     assert.equal(dataOf((await http(site.url + 'settings', { headers: { cookie: site.cookie } })).body).canEdit, true);
-    const ok = await post(site, fieldsOf(DEFAULTS, { 'sources.v2ex': 'off', 'effort.picks': 'high', 'daily.at': '11:15' }));
+    const ok = await post(site, fieldsOf(DEFAULTS, { 'sources.v2ex': 'off', 'effort.picks': 'high', 'daily.at': '18:15' }));
     assert.equal(ok.status, 200);
     assert.equal(ok.json.settings.sources.v2ex, false);
     const file = JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8'));
     assert.equal(file.effort.picks, 'high');
-    assert.equal(file.daily.at, '11:15');
+    assert.equal(file.daily.at, '18:15');
     const page = dataOf((await http(site.url + 'settings', { headers: { cookie: site.cookie } })).body);
     assert.equal(page.settings.sources.v2ex, false);
 
     const before = readFileSync(join(dir, 'settings.json'), 'utf8');
     const bad = await post(site, fieldsOf(DEFAULTS, { 'sources.v2ex': 'on', 'daily.at': '08:30' }));
     assert.equal(bad.status, 400);
-    assert.match(bad.json.error, /不能早于 09:00/);
+    assert.match(bad.json.error, /不能早于 17:00/);
     assert.equal(readFileSync(join(dir, 'settings.json'), 'utf8'), before);
 
     const cross = await post(site, fieldsOf(DEFAULTS), { origin: 'http://evil.example' });

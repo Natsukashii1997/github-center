@@ -24,7 +24,8 @@ test('新项目榜：截至统计日近 30 天内创建的项目，按总 Star �
   const r = await run({ dataDir, upstream });
   const s = r.lists.new.snapshot;
   assert.equal(r.lists.new.status, 'published');
-  assert.equal(s.query, 'created:2026-09-23T00:00:00+00:00..2026-10-22T23:59:59+00:00 fork:true');
+  // 按太平洋统计日：09-23 零点（夏令时）= 07:00Z，10-22 结束前 1 秒 = 10-23 06:59:59Z。
+  assert.equal(s.query, 'created:2026-09-23T07:00:00+00:00..2026-10-23T06:59:59+00:00 fork:true');
   assert.ok(upstream.calls.some((c) => c.url.startsWith('https://api.github.com/search/repositories?') && c.url.includes('sort=stars') && c.url.includes('order=desc')));
   assert.equal(s.entries.length, 20);
   assert.deepEqual([s.entries[0].rank, s.entries[0].fullName, s.entries[0].total], [1, 'storytold/photocraft', 71656]);

@@ -11,7 +11,7 @@ const DAY = '2026-11-01';
 const put = (dir, path, obj) => { mkdirSync(join(dir, path, '..'), { recursive: true }); writeFileSync(join(dir, path), JSON.stringify(obj)); };
 const entry = (rank, id, fullName, gain) => ({ rank, projectId: id, fullName, gain, total: gain * 10 });
 const snapshot = (statDay, entries, extra = {}) => ({
-  window: 'd7', statDay, from: '2026-10-26', generatedAt: '2026-11-02T02:30:00.000Z', runId: `rank_d7_${statDay}`,
+  window: 'd7', statDay, from: '2026-10-26', generatedAt: '2026-11-02T10:30:00.000Z', runId: `rank_d7_${statDay}`,
   check: { passed: true, missProbability: 1e-9, threshold: 30, recordRatio: 0.01, expectedRecords: 60 }, incomplete: false,
   candidates: { total: 300, failed: [] }, entries, ...extra,
 });
@@ -75,6 +75,16 @@ test('数据不是最新：没有失败记录时写明最近一期应是哪天�
   assert.equal(r.weekly.stale, true);
   assert.deepEqual(r.weekly.notes, [{ title: '不是最新数据', text: '最近一期应是 11 月 3 日，还没出；下面是 11 月 1 日的数据。' }]);
   assert.ok(weeklyMarkdown(r.weekly).includes('\n\n**提示**\n- 不是最新数据：最近一期应是 11 月 3 日，还没出；下面是 11 月 1 日的数据。\n'));
+});
+
+test('#83：统计日（太平洋时间）结束前生成的榜单写明最后一天未数完；结束后生成的不写', () => {
+  // 11-01 是冬令时切回那天（25 小时），UTC 11-01 07:00 起，到 11-02 08:00Z 才结束。
+  for (const [at, noted] of [['2026-11-02T02:30:00.000Z', true], ['2026-11-02T07:59:00.000Z', true], ['2026-11-02T08:00:00.000Z', false]]) {
+    const { weekly } = build(dataDir({ extra: { generatedAt: at } }));
+    const note = weekly.notes.find((n) => n.title === '最后一天未数完');
+    assert.equal(Boolean(note), noted, at);
+    if (noted) assert.match(note.text, /^这一期在 11 月 1 日的 GitHub 统计日（美国太平洋时间）结束前生成（以前每天北京 10:00 出榜），最后一天还没数完/);
+  }
 });
 
 test('更新失败写原因（不再另写不是最新）；可能不完整写明原因', () => {
