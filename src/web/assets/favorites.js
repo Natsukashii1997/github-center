@@ -33,7 +33,7 @@
   const chip = (x) => `<button class="f-st" data-s="${x.status}" data-stmenu="${esc(x.key)}" aria-haspopup="dialog" aria-label="状态：${ST[x.status]}，点开改状态、理由和下一步">${ST[x.status]}</button>`;
   const handoffText = (x) => (x.handoff ? `<span class="f-ho">${esc(x.handoff.type)}交接 ${md(x.handoff.at)}</span>` : '');
   function lines(x) {
-    const why = x.reason ? esc(x.reason) : `<span class="empty">${x.status === 'no' ? '没写为什么不适合' : '没写'}，点状态补一句</span>`;
+    const why = x.reason ? esc(x.reason) : '<span class="empty">没写，点状态补一句</span>';
     return `<dl class="f-lines"><div><dt>${x.status === 'no' ? '不适合' : '为什么'}</dt><dd>${why}</dd></div>${x.next ? `<div><dt>下一步</dt><dd class="nx">${esc(x.next)}</dd></div>` : ''}</dl>`;
   }
   function card(x) {
@@ -52,7 +52,7 @@
   function pile(name, done) {
     if (!done.length) return '';
     if (unfold.has(name)) return done.map(card).join('') + `<button class="f-pile sm" data-fold="${esc(name)}">收起已决定 ▴</button>`;
-    return `<button class="f-pile" data-fold="${esc(name)}"><span class="faces">${done.map((x) => `<img src="${esc(avatar(x.p))}" alt="">`).join('')}</span><b>已决定 ${done.length} 个</b><span>${[...new Set(done.map((x) => ST[x.status]))].join('、')} · 展开 ▾</span></button>`;
+    return `<button class="f-pile" data-fold="${esc(name)}"><span class="faces">${done.slice(0, 4).map((x) => `<img src="${esc(avatar(x.p))}" alt="">`).join('')}</span><b>已决定 ${done.length} 个</b><span>${[...new Set(done.map((x) => ST[x.status]))].join('、')} · 展开 ▾</span></button>`;
   }
 
   // 搜索：项目名、作者、Skill 名、一句话或 Skill 说明、分类、说明标签、定义标签、主要用途、使用场景、收藏理由、下一步
@@ -128,16 +128,20 @@
     render();
     if (selKey === x.key) decorate();
   }
+  // 输入框里还没存的字：停笔 0.6 秒存，离开输入框立即存；改状态时连同没存的字一起存，免得重画弹层时丢字。
   const timers = new Map();
-  function edited(input) {
-    const x = byKey(pop()?.dataset.key);
+  const pending = (x, el) => Object.fromEntries([...el.querySelectorAll('[data-edit]')].map((i) => [i.dataset.edit, i.value.trim()]).filter(([f, v]) => v !== (f === 'reason' ? x.reason : x.next)));
+  function flushTimers() { timers.forEach(clearTimeout); timers.clear(); }
+  function edited(input, wait = 600) {
+    const el = pop(), x = byKey(el?.dataset.key);
     if (!x) return;
     clearTimeout(timers.get(input.dataset.edit));
     timers.set(input.dataset.edit, setTimeout(async () => {
-      const field = input.dataset.edit, value = input.value.trim(), now = field === 'reason' ? x.reason : x.next;
-      if (value === now) return;
-      if (await save(x, { [field]: value })) refresh(x);
-    }, 600));
+      timers.delete(input.dataset.edit);
+      const change = pending(x, el);
+      if (!(input.dataset.edit in change)) return;
+      if (await save(x, { [input.dataset.edit]: change[input.dataset.edit] })) refresh(x);
+    }, wait));
   }
 
   // 详情栏：卡片数字取服务端给的那次运行；不在涨星榜上时总 Star 另给。顶行换成这条收藏的状态胶囊，标题下加一行只读的理由和下一步。
@@ -179,7 +183,8 @@
       const b = ev.target.closest('[data-setst]');
       const x = byKey(inPop.dataset.key);
       if (!b || !x || b.dataset.setst === x.status) return;
-      if (await save(x, { status: b.dataset.setst })) {
+      flushTimers();
+      if (await save(x, { ...pending(x, inPop), status: b.dataset.setst })) {
         toast(`已改为「${ST[x.status]}」`);
         inPop.innerHTML = popBody(x);
         inPop.querySelector('[aria-pressed="true"]')?.focus();
@@ -188,7 +193,7 @@
       return;
     }
     const m = ev.target.closest('[data-stmenu]');
-    if (m) { ev.stopPropagation(); const x = byKey(m.dataset.stmenu); if (pop()?.dataset.key === x.key) return closePop(); return openPop(m, x); }
+    if (m) { const x = byKey(m.dataset.stmenu); if (pop()?.dataset.key === x.key) return closePop(); return openPop(m, x); }
     closePop();
     if (act(ev)) return;
     const t = ev.target.closest('[data-jump],[data-close],[data-open],[data-filter],[data-fold]');
@@ -204,7 +209,14 @@
     if (ev.target.matches('[data-q]')) { q = ev.target.value.trim().toLowerCase(); render(); return; }
     if (ev.target.closest('.f-pop [data-edit]')) edited(ev.target);
   });
-  document.addEventListener('focusout', (ev) => { if (ev.target.closest?.('.f-pop [data-edit]')) { clearTimeout(timers.get(ev.target.dataset.edit)); timers.delete(ev.target.dataset.edit); edited(ev.target); } });
+  document.addEventListener('focusout', (ev) => { if (ev.target.closest?.('.f-pop [data-edit]')) edited(ev.target, 0); });
+  // 点丝带取消后再恢复：服务器上是一条新收藏，决策字段回到默认，卡片跟着回到默认。
+  document.addEventListener('bw:star', (ev) => {
+    const x = byKey(`${ev.detail.repo}#${ev.detail.skill}`);
+    if (!x || !ev.detail.on) return;
+    Object.assign(x, { status: 'int', reason: '', next: '', statusAt: null, handoff: null, at: new Date().toISOString() });
+    refresh(x);
+  });
   // 复制安装指令后 bw.js 记了最近交接：更新这一条。
   document.addEventListener('bw:handoff', (ev) => {
     const x = byKey(`${ev.detail.repo}#${ev.detail.skill}`);

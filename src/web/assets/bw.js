@@ -141,6 +141,7 @@ window.BW = (() => {
     if (!ok) return toast(on ? '没能收藏，请稍后再试' : '没能取消收藏，请稍后再试');
     on ? saved.add(key) : saved.delete(key);
     syncStars();
+    document.dispatchEvent(new CustomEvent('bw:star', { detail: { repo: p.repo, skill, on } }));
     const name = skill ? `${p.repo} 的 Skill ${p.skills.find((s) => s.path === skill)?.name ?? skill}` : p.repo;
     toast(on ? `已收藏 ${name}` : `已取消收藏 ${name}`);
   }
