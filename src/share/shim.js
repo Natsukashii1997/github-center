@@ -3,7 +3,9 @@
 // Artifact 只放行同源和 data:，GitHub 头像地址一律不能真去请求。
 (() => {
   const AV = window.__AV || {};
-  const top = window.parent;            // 外层（发现页自己时就是本页，见 index.js 的 shell）
+  // 外层：带着安装指令数据的那页（发现页自己，见 index.js 的 shell）；iframe 里的页才找 parent。
+  // 不能一律用 parent：Artifact 里外层页本身也套在 claude.ai 的 iframe 里，parent 跨域，读属性就抛错（2026-11-08 线上实测点不动）
+  const top = '__INSTALL_GZ' in window ? window : window.parent;
   const avKey = (src) => {
     let m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(src);
     if (m) return `u/${m[1]}`;

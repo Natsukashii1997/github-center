@@ -6,6 +6,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } fro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import vm from 'node:vm';
 import { openAccounts } from '../src/web/accounts.js';
 import { takeShare, scrub, shell, dayLabel } from '../src/share/index.js';
 import { dataOf } from './helpers/web.js';
@@ -51,11 +52,11 @@ test('导出成一个文件：外层是发现页、另三页页内切，样式�
   assert.match(html, /window\.__tidingsGo = /);
   const pages = { index: html, ...shellData(html, 'PAGES') };
   assert.deepEqual(Object.keys(pages), ['index', 'stars', 'favorites', 'settings']);
-  assert.ok(html.indexOf('window.__AV = {') < html.indexOf('window.__AV = window.parent.__AV'));   // 头像先于垫片
+  assert.ok(html.indexOf('window.__AV = {') < html.indexOf('window.__AV ??= window.parent.__AV'));   // 头像先于垫片
   for (const [kind, page] of Object.entries(pages)) {
     assert.doesNotMatch(page, /(?:href|src)="\/assets\//, kind);
     assert.doesNotMatch(page, /<script src=/, kind);                     // 全内联，不靠附带文件
-    assert.match(page, /window\.__AV = window\.parent\.__AV/, kind);
+    assert.match(page, /window\.__AV \?\?= window\.parent\.__AV/, kind);
     assert.match(page, /只读快照 · 10 月 24 日/, kind);
     assert.match(page, /<a href="\/stars"[^>]*>涨星<\/a>/, kind);        // 站内链接留着，由垫片交给外层切页
   }
@@ -86,6 +87,35 @@ test('scrub：收藏、投票、能不能改、账号名去掉；收藏页整页
   assert.deepEqual(scrub('favorites', d).projects, {});
   assert.deepEqual(scrub('settings', { me: 'Nat', canEdit: true }), { me: '访客', canEdit: false });
   assert.equal(d.account.name, 'Nat');                                   // 不改原对象
+});
+
+// 在 vm 里跑垫片：只给它用到的那点 DOM，点一下站内链接，看切页交给了谁
+function runShim(win) {
+  const on = {};
+  const Element = function () {};
+  Object.defineProperty(Element.prototype, 'innerHTML', { configurable: true, get() { return ''; }, set() {} });
+  Element.prototype.insertAdjacentHTML = () => {};
+  Object.assign(win, {
+    Element, URL, Response, atob,
+    MutationObserver: class { observe() {} },
+    document: { documentElement: {}, addEventListener: (t, f) => (on[t] = f), getElementById: () => ({ classList: { add() {}, remove() {} } }) },
+    history: { pushState() {}, replaceState() {} },
+    fetch: async () => new Response(''),
+    addEventListener() {},
+  });
+  win.window = win;
+  vm.runInNewContext(readFileSync(new URL('../src/share/shim.js', import.meta.url), 'utf8'), win);
+  on.click({ target: { closest: () => ({ getAttribute: () => '/stars' }) }, preventDefault() {} });
+}
+
+test('垫片：外层自己就是发现页，被套在跨域 iframe 里（Artifact 查看器）也切得动；iframe 里的页交给外层', () => {
+  // Artifact 里外层页的 parent 是 claude.ai，读它任何属性都抛 SecurityError
+  const crossOrigin = new Proxy({}, { get() { throw new Error('SecurityError: Blocked a frame with origin'); }, has() { throw new Error('SecurityError'); } });
+  const went = [];
+  runShim({ parent: crossOrigin, __INSTALL_GZ: 'QUJD', __tidingsGo: (k) => went.push(['外层', k]) });
+  const shellWin = { __INSTALL_GZ: 'QUJD', __tidingsGo: (k) => went.push(['iframe→外层', k]) };
+  runShim({ parent: shellWin });
+  assert.deepEqual(went, [['外层', 'stars'], ['iframe→外层', 'stars']]);
 });
 
 test('dayLabel 按北京时间；外层壳的数据里 </script> 和行分隔符都转义', () => {

@@ -67,7 +67,7 @@ export function sharePage(html, kind, data, label) {
   html = html.replace(/<link rel="stylesheet" href="\/assets\/([\w.-]+\.css)">/g, (_, f) => `<style>\n${readFileSync(new URL(f, ASSETS), 'utf8')}\n</style>`);
   html = html.replace(/<script src="\/assets\/([\w.-]+\.js)"><\/script>/g, (_, f) => `<script>\n${readFileSync(new URL(f, ASSETS), 'utf8').replace(/<\/script/gi, '<\\/script')}\n</script>`);
   if (/(?:href|src)="\/assets\//.test(html)) throw new Error(`${kind} 页里还有没内联的 /assets/ 文件`);
-  const head = `<style>\n${CSS}\n</style>\n<script>window.__AV = window.parent.__AV || {};</script>\n<script>\n${readFileSync(SHIM, 'utf8')}\n</script>\n`;
+  const head = `<style>\n${CSS}\n</style>\n<script>window.__AV ??= window.parent.__AV || {};</script>\n<script>\n${readFileSync(SHIM, 'utf8')}\n</script>\n`;
   if (!html.includes('</title>')) throw new Error(`${kind} 页没有 <title>`);
   html = html.replace('</title>', `</title>\n${head}`);
   html = html.replace(/<span class="me"[^>]*>.*?<\/span>/g, '');
