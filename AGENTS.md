@@ -1,6 +1,6 @@
 # GitHub 快速中心协作约定
 
-先读 README.md、CURRENT.md、docs/product/confirmed-scope.md，再读与任务相关的研究说明。
+先读 README.md、CURRENT.md、docs/product/PRD-v2.md（现行需求事实源，2026-11-08 冻结）、docs/product/产品说明.md（现状基线），再读与任务相关的研究说明。requirements-regrill.md、confirmed-scope.md 只作历史记录。
 
 当前处于数据可行性验证阶段。仓库不是已部署应用；research/ 中的程序是实验源码。原实验运行目录的数据库、断点和自动检查保留在本机，不随建仓搬迁，也不从此仓库自动重启。
 
