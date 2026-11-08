@@ -7,6 +7,7 @@ import { readProfile, findProfile, currentGenerated, shownGenerated, skillPurpos
 import { boardProjects } from '../profiles/store.js';
 import { project as projectCard, aiBy, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, shortOf, maintOf, frame, MARK, WORDMARK, FAVICON } from './home.js';
 import { rankHistory } from '../ranking/moves.js';
+import { decisionOf } from './favorites.js';
 
 const labels = () => Object.fromEntries(Object.entries(WINDOWS).map(([id, { days }]) => [id, { label: `近 ${days} 天` }]));
 // 每页都带的：账号、安装目标、窗口名。
@@ -128,6 +129,7 @@ export function favoritesData(dataDir, ctx) {
       repo, id: f.projectId, savedName: f.fullName, renamed: Boolean(profile && profile.fullName !== f.fullName), skill, at: f.createdAt,
       hasProfile: Boolean(profile), catOnly: Boolean(catList), openable: Boolean(profile || catList || onList), total,
       shelf: skill ? SKILL_SHELF : p.cats[0] ?? UNSORTED_SHELF, cat: p.cats[0] ?? null, line: skill ? skill.desc : p.line,
+      ...decisionOf(f),
     };
   });
   const shelves = [...new Set(items.map((x) => x.shelf))].map((name) => ({ name, n: items.filter((x) => x.shelf === name).length })).sort((x, y) => y.n - x.n);
