@@ -1,0 +1,691 @@
+{
+  "$comment": "B0-04 检索测试集（issue #77）。格式与判定规则见同目录 search-cases.md。改动要经所有者确认。",
+  "version": 1,
+  "frozenAt": "2026-11-08",
+  "confirmedBy": "所有者 2026-11-08 逐条确认（确认页判定 R1–R3、S01，会话回复“其余也都确认”）",
+  "dataAsOf": "2026-11-08",
+  "corpusAtFreeze": {
+    "categorizedProjects": 5616,
+    "profileProjects": 292,
+    "skills": 5542
+  },
+  "rules": {
+    "topN": 10,
+    "foundPass": "anyCandidateInTopN",
+    "foundPassRate": 0.8,
+    "minFoundPassPerLang": 3,
+    "failIfMustNotAppearInTopN": true
+  },
+  "cases": [
+    {
+      "id": "S01",
+      "query": "我想让 Claude Code 和 Codex 分工接力做同一件事，有没有现成的协同方案",
+      "lang": "zh",
+      "style": "describe",
+      "target": "project",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "project",
+          "ref": "dagoSte/squadra",
+          "projectId": 1391814933,
+          "level": "描述级",
+          "why": "协调 Claude、Codex、Cursor 窗口，共享任务"
+        },
+        {
+          "kind": "project",
+          "ref": "mvschwarz/openrig",
+          "projectId": 1198124295,
+          "level": "描述级",
+          "why": "用 Claude Code、Codex 组成常驻智能体团队"
+        },
+        {
+          "kind": "project",
+          "ref": "spacering-net/codeg",
+          "projectId": 1153416852,
+          "level": "描述级",
+          "why": "多智能体编程工作区，汇总 Claude Code、Codex 会话"
+        },
+        {
+          "kind": "project",
+          "ref": "stablyai/orca",
+          "projectId": 1183888342,
+          "level": "资料级",
+          "why": "资料级：用一个工作台管好多个编程智能体"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "multi-agent/CURRENT.md（MA-02 协同模式）；Vault 收件箱一篇受限笔记里的需求例子（只写指针，不写原文）"
+    },
+    {
+      "id": "S02",
+      "query": "claude code codex usage quota monitor",
+      "lang": "en",
+      "style": "keyword",
+      "target": "project",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "project",
+          "ref": "lwh0630/TokenBar",
+          "projectId": 1431932080,
+          "level": "描述级",
+          "why": "跨平台 AI 额度监控，含 Codex、Claude"
+        },
+        {
+          "kind": "project",
+          "ref": "getagentseal/codeburn",
+          "projectId": 1209889782,
+          "level": "描述级",
+          "why": "本地统计 Claude Code 等工具的 token 用量和花费"
+        },
+        {
+          "kind": "project",
+          "ref": "xiufengsun/TokenTracker",
+          "projectId": 1201960789,
+          "level": "描述级",
+          "why": "本地 token 用量与花费追踪"
+        },
+        {
+          "kind": "project",
+          "ref": "Relay-harness/miso",
+          "projectId": 1441336045,
+          "level": "描述级",
+          "why": "macOS 菜单栏订阅额度监控"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "postpane/README.md（汇总各 AI 助手额度）"
+    },
+    {
+      "id": "S03",
+      "query": "Mac 刘海里显示 AI coding agent 的状态，等我审批时提醒",
+      "lang": "mixed",
+      "style": "describe",
+      "target": "project",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "project",
+          "ref": "Louis-CFM/coucou",
+          "projectId": 1391438314,
+          "level": "描述级",
+          "why": "Mac 刘海里盯着 AI 编程助手的小伙伴"
+        },
+        {
+          "kind": "project",
+          "ref": "herdrdev/herdr-app",
+          "projectId": 1422648476,
+          "level": "资料级",
+          "why": "资料级：看哪些智能体在等你"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "postpane/CURRENT.md（侧栏、审批横条）"
+    },
+    {
+      "id": "S04",
+      "query": "Mac 磁盘清理",
+      "lang": "zh",
+      "style": "keyword",
+      "target": "project",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "project",
+          "ref": "tw93/Mole",
+          "projectId": 1062356571,
+          "level": "描述级",
+          "why": "开源 Mac 清理工具"
+        },
+        {
+          "kind": "project",
+          "ref": "harry0703/MangoDisk",
+          "projectId": 1318916159,
+          "level": "描述级",
+          "why": "磁盘清理与空间分析"
+        },
+        {
+          "kind": "project",
+          "ref": "caezium/burrow",
+          "projectId": 1254978612,
+          "level": "描述级",
+          "why": "清理、磁盘分析一体"
+        },
+        {
+          "kind": "project",
+          "ref": "Jarvis322/macos-sysdata",
+          "projectId": 1358633852,
+          "level": "描述级",
+          "why": "逐项查看并删除 macOS 系统数据"
+        }
+      ],
+      "mustNotAppear": [
+        {
+          "kind": "project",
+          "ref": "SoapmakerDepot/hwid-spoofer",
+          "projectId": 1444165838,
+          "level": "描述级",
+          "why": "破解安装包类垃圾仓库，不能因“清理/桌面”词面排进来"
+        },
+        {
+          "kind": "project",
+          "ref": "beigegullminaret/wise-care",
+          "projectId": 1445377943,
+          "level": "描述级",
+          "why": "同上"
+        }
+      ],
+      "source": "disk-slim/CURRENT.md"
+    },
+    {
+      "id": "S05",
+      "query": "AI second brain for Obsidian that gives coding agents persistent memory",
+      "lang": "en",
+      "style": "describe",
+      "target": "project",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "project",
+          "ref": "AgriciDaniel/claude-obsidian",
+          "projectId": 1203670949,
+          "level": "描述级",
+          "why": "Obsidian + Claude Code 自组织第二大脑"
+        },
+        {
+          "kind": "project",
+          "ref": "breferrari/obsidian-mind",
+          "projectId": 1169560166,
+          "level": "描述级",
+          "why": "给编程智能体持久记忆的 Obsidian 库"
+        },
+        {
+          "kind": "project",
+          "ref": "avenoxai/avenoxbeyin",
+          "projectId": 1284449744,
+          "level": "描述级",
+          "why": "Obsidian + Claude Code 第二大脑"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "obsidian-kb/CURRENT.md（第二大脑改造）；Vault 里一张受限项目卡（只写指针，不写标题）"
+    },
+    {
+      "id": "S06",
+      "query": "飞书 CLI skill",
+      "lang": "mixed",
+      "style": "keyword",
+      "target": "skill",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "project",
+          "ref": "larksuite/cli",
+          "projectId": 1191372811,
+          "level": "资料级",
+          "why": "资料级项目：用命令行和 AI 操作飞书"
+        },
+        {
+          "kind": "skill",
+          "ref": "larksuite/cli#isolated-skills/lark-suite",
+          "level": "资料级",
+          "why": "资料级 Skill：飞书能力聚合入口"
+        },
+        {
+          "kind": "skills.sh",
+          "ref": "skills.sh:larksuite/cli/lark-slides",
+          "level": "名称级",
+          "why": "名称级 Skill，同一来源"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "digital-twin/CURRENT.md（Hermes 飞书）；niuma-home（飞书表格）"
+    },
+    {
+      "id": "S07",
+      "query": "想用 AI 拆开一个现成的 Mac 应用，看懂它某个功能是怎么实现的",
+      "lang": "zh",
+      "style": "describe",
+      "target": "project",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "project",
+          "ref": "morluto/rea",
+          "projectId": 1209966933,
+          "level": "资料级",
+          "why": "资料级：让 AI 拆开应用，看懂功能怎么实现"
+        },
+        {
+          "kind": "project",
+          "ref": "aicodeking/leanrea",
+          "projectId": 1422883896,
+          "level": "描述级",
+          "why": "REA 的轻量 Skill 版"
+        },
+        {
+          "kind": "project",
+          "ref": "NationalSecurityAgency/ghidra",
+          "projectId": 173228436,
+          "level": "资料级",
+          "why": "资料级：逆向分析框架"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "digiworld/CURRENT.md（逆向 v5，#55）"
+    },
+    {
+      "id": "S08",
+      "query": "a skill that helps my agent find and install other skills",
+      "lang": "en",
+      "style": "describe",
+      "target": "skill",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "skill",
+          "ref": "vercel-labs/skills#skills/find-skills",
+          "level": "资料级",
+          "why": "资料级 Skill：查找并安装能完成任务的 Skill"
+        },
+        {
+          "kind": "skills.sh",
+          "ref": "skills.sh:vercel-labs/skills/find-skills",
+          "level": "名称级",
+          "why": "名称级，同一个 Skill（安装量第 1）"
+        },
+        {
+          "kind": "skill",
+          "ref": "f/prompts.chat#plugins/claude/prompts.chat/skills/skill-lookup",
+          "level": "资料级",
+          "why": "搜索并安装注册库里的 Skill"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "digiworld/README.md（能力找得到）；my-skills"
+    },
+    {
+      "id": "S09",
+      "query": "代码审查 skill",
+      "lang": "zh",
+      "style": "keyword",
+      "target": "skill",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "skills.sh",
+          "ref": "skills.sh:mattpocock/skills/code-review",
+          "level": "名称级",
+          "why": "名称级：所有者在用的 code-review"
+        },
+        {
+          "kind": "skill",
+          "ref": "obra/superpowers#skills/requesting-code-review",
+          "level": "资料级",
+          "why": "资料级：合并前请求审查"
+        },
+        {
+          "kind": "skill",
+          "ref": "nightly-labs/openbot#marketplace/production-catalog/skills/change-review",
+          "level": "资料级",
+          "why": "资料级：审查改动的缺陷和回归"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "multi-agent/CURRENT.md（engineering-review，my-skills#77）；agent-kit 工程流程（code-review 两轴）"
+    },
+    {
+      "id": "S10",
+      "query": "用 Playwright 在真实浏览器里截图，验证 AI 生成的前端页面",
+      "lang": "mixed",
+      "style": "describe",
+      "target": "skill",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "skills.sh",
+          "ref": "skills.sh:microsoft/playwright-cli/playwright-cli",
+          "level": "名称级",
+          "why": "名称级：Playwright CLI"
+        },
+        {
+          "kind": "skills.sh",
+          "ref": "skills.sh:vercel-labs/agent-browser/agent-browser",
+          "level": "名称级",
+          "why": "名称级：给智能体用的浏览器"
+        },
+        {
+          "kind": "skill",
+          "ref": "nightly-labs/openbot#marketplace/production-catalog/skills/prototype-build",
+          "level": "资料级",
+          "why": "资料级：在浏览器验证原型并给截图"
+        },
+        {
+          "kind": "project",
+          "ref": "ngocanhnckh/renderlint",
+          "projectId": 1433367790,
+          "level": "描述级",
+          "why": "检查渲染后的界面问题"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "agent-kit LESSONS G-11（截图验证）；ui-system/CURRENT.md；Vault 收件箱一篇受限笔记里的需求例子（只写指针，不写原文）"
+    },
+    {
+      "id": "S11",
+      "query": "obsidian markdown skill",
+      "lang": "en",
+      "style": "keyword",
+      "target": "skill",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "skills.sh",
+          "ref": "skills.sh:kepano/obsidian-skills/obsidian-markdown",
+          "level": "名称级",
+          "why": "名称级"
+        },
+        {
+          "kind": "project",
+          "ref": "kepano/obsidian-skills",
+          "projectId": 1126947080,
+          "level": "描述级",
+          "why": "描述级项目：Obsidian 的 Agent Skills"
+        },
+        {
+          "kind": "skills.sh",
+          "ref": "skills.sh:mattpocock/skills/obsidian-vault",
+          "level": "名称级",
+          "why": "名称级"
+        },
+        {
+          "kind": "skill",
+          "ref": "openclaw/openclaw#skills/obsidian",
+          "level": "资料级",
+          "why": "资料级 Skill：用官方命令行管理笔记"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "obsidian-kb/CURRENT.md"
+    },
+    {
+      "id": "S12",
+      "query": "把飞书里的汇报和表格汇总成周报，只发给我本人",
+      "lang": "zh",
+      "style": "describe",
+      "target": "skill",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "skill",
+          "ref": "KKKKhazix/agent-autoloop#examples/recipes/feishu-brief",
+          "level": "资料级",
+          "why": "资料级 Skill：读飞书汇报和表格，生成周报并发本人摘要"
+        },
+        {
+          "kind": "skill",
+          "ref": "larksuite/cli#skills/lark-workflow-standup-report",
+          "level": "资料级",
+          "why": "资料级 Skill：汇总日程与未完成任务（次优）"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "digital-twin/CURRENT.md（Tidings 周报推送 #104）"
+    },
+    {
+      "id": "S13",
+      "query": "在手机上遥控本机跑着的 Claude Code / Codex",
+      "lang": "mixed",
+      "style": "describe",
+      "target": "project",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "project",
+          "ref": "pingdotgg/t3code",
+          "projectId": 1153130349,
+          "level": "资料级",
+          "why": "资料级：用手机和电脑控制本机编程智能体"
+        },
+        {
+          "kind": "project",
+          "ref": "getpaseo/paseo",
+          "projectId": 1075381375,
+          "level": "描述级",
+          "why": "从桌面和手机编排多个编程智能体"
+        }
+      ],
+      "mustNotAppear": [],
+      "source": "~/.claude/CLAUDE.md（远程控制用法）；postpane"
+    },
+    {
+      "id": "S14",
+      "query": "帮我按业务场景生成一线员工访谈提纲的 Skill",
+      "lang": "zh",
+      "style": "describe",
+      "target": "skill",
+      "expect": "found",
+      "candidates": [
+        {
+          "kind": "skill",
+          "ref": "anthropics/knowledge-work-plugins#design/skills/user-research",
+          "level": "资料级",
+          "why": "资料级 Skill：规划、开展和汇总访谈与问卷"
+        },
+        {
+          "kind": "skill",
+          "ref": "TencentCloud/Octop#src/octop/infra/agents/experts/library/design/skills/user-research",
+          "level": "资料级",
+          "why": "资料级 Skill：规划和综合用户研究（含访谈）"
+        }
+      ],
+      "mustNotAppear": [
+        {
+          "kind": "project",
+          "ref": "jwasham/coding-interview-university",
+          "projectId": 60493101,
+          "level": "资料级",
+          "why": "“访谈/interview”撞到技术面试"
+        },
+        {
+          "kind": "project",
+          "ref": "yangshun/tech-interview-handbook",
+          "projectId": 62607227,
+          "level": "描述级",
+          "why": "同上"
+        },
+        {
+          "kind": "skill",
+          "ref": "nightly-labs/openbot#marketplace/production-catalog/skills/hiring-scorecard",
+          "level": "资料级",
+          "why": "招聘结构化面试，不是业务访谈"
+        }
+      ],
+      "source": "my-skills（所有者自建 ai-landing-method 的第一步“访谈提纲”）；库里有同类通用 Skill"
+    },
+    {
+      "id": "N01",
+      "query": "Chrome 插件：把 ChatGPT 网页上的回答一键收藏进 Obsidian 指定文件夹",
+      "lang": "zh",
+      "style": "describe",
+      "target": "project",
+      "expect": "none",
+      "candidates": [],
+      "mustNotAppear": [
+        {
+          "kind": "project",
+          "ref": "zhishile/codex-auth-helper",
+          "projectId": 1256690992,
+          "level": "描述级",
+          "why": "导出 ChatGPT 登录会话给 Codex 用，只是“ChatGPT/导出”词面撞车"
+        },
+        {
+          "kind": "project",
+          "ref": "f/prompts.chat",
+          "projectId": 574523116,
+          "level": "资料级",
+          "why": "提示词库，与收藏回答无关"
+        }
+      ],
+      "weakOk": [
+        "AhmadHassan-BTed/JinaClip（通用网页剪藏扩展）",
+        "Obsidian 通用工具"
+      ],
+      "source": "chatgpt-clipper/README.md"
+    },
+    {
+      "id": "N02",
+      "query": "baby feeding and sleep tracker app",
+      "lang": "en",
+      "style": "describe",
+      "target": "project",
+      "expect": "none",
+      "candidates": [],
+      "mustNotAppear": [
+        {
+          "kind": "project",
+          "ref": "yoheinakajima/babyagi",
+          "projectId": 622737738,
+          "level": "描述级",
+          "why": "“baby”子串撞车"
+        },
+        {
+          "kind": "skill",
+          "ref": "nightly-labs/openbot#.agents/skills/babysit",
+          "level": "资料级",
+          "why": "Skill：跟进 PR，“baby”子串撞车"
+        },
+        {
+          "kind": "skill",
+          "ref": "thedotmack/claude-mem#plugin/skills/babysit",
+          "level": "资料级",
+          "why": "同上"
+        }
+      ],
+      "weakOk": [
+        "eternity4719/HowToLiveBetter（生活指南，含育儿）"
+      ],
+      "source": "little-steps/CURRENT.md（育儿记录）"
+    },
+    {
+      "id": "N03",
+      "query": "管培生 带教 成长路径",
+      "lang": "zh",
+      "style": "keyword",
+      "target": "project",
+      "expect": "none",
+      "candidates": [],
+      "mustNotAppear": [
+        {
+          "kind": "project",
+          "ref": "btrainee/bioinfotools",
+          "projectId": 1330555216,
+          "level": "描述级",
+          "why": "作者名含“trainee”，生信工具清单"
+        },
+        {
+          "kind": "project",
+          "ref": "microsoft/generative-ai-for-beginners",
+          "projectId": 655806940,
+          "level": "描述级",
+          "why": "AI 入门课程，“学习/成长”泛化词误命中"
+        }
+      ],
+      "weakOk": [
+        "zubair-trabzada/ai-recruiter-claude（招聘，弱相关）"
+      ],
+      "source": "trainee-hub/CURRENT.md"
+    },
+    {
+      "id": "N04",
+      "query": "ATV UTV 汽配 B2B 外贸独立站",
+      "lang": "mixed",
+      "style": "keyword",
+      "target": "project",
+      "expect": "none",
+      "candidates": [],
+      "mustNotAppear": [
+        {
+          "kind": "project",
+          "ref": "fgsdg7590-sys/-CoreGold---Enterprise-Virtual-Visa-Mastercard-Infrastructure-for-Ad-Scaling-Cross-Border-Ops",
+          "projectId": 1436867667,
+          "level": "描述级",
+          "why": "虚拟卡灰产，“跨境/独立站”词面撞车"
+        },
+        {
+          "kind": "project",
+          "ref": "erickluna015kmparaviaje374-crypto/CoreGold---Anti-Link-Virtual-Card-Engine-for-Bulk-Account-Scaling",
+          "projectId": 1436906912,
+          "level": "描述级",
+          "why": "同上"
+        }
+      ],
+      "weakOk": [
+        "nexscope-ai/eCommerce-Skills（通用电商 Skill）",
+        "warmbly/warmbly（B2B 冷邮件）"
+      ],
+      "source": "carvomoto/README.md"
+    },
+    {
+      "id": "N05",
+      "query": "帮我体检 Mac 上的 launchd 定时任务，找出该跑没跑或已经挂掉的服务的 Skill",
+      "lang": "zh",
+      "style": "describe",
+      "target": "skill",
+      "expect": "none",
+      "candidates": [],
+      "mustNotAppear": [
+        {
+          "kind": "project",
+          "ref": "88lin/workbuddy-auto-signin",
+          "projectId": 1338741785,
+          "level": "描述级",
+          "why": "每日自动签到，“定时/自动”词面撞车"
+        },
+        {
+          "kind": "project",
+          "ref": "BorisSun0424-boop/zaoba",
+          "projectId": 1438503837,
+          "level": "描述级",
+          "why": "同上"
+        }
+      ],
+      "weakOk": [
+        "*/ai-automation-workflows（搭建定时 AI 工作流的 Skill，方向相反）",
+        "NousResearch/hermes-agent（能定时干活的智能体）"
+      ],
+      "source": "my-skills（所有者自建 automation-checkup，库外）；agent-kit LESSONS G-12"
+    },
+    {
+      "id": "N06",
+      "query": "chatgpt answer clipper chrome extension",
+      "lang": "en",
+      "style": "keyword",
+      "target": "project",
+      "expect": "none",
+      "candidates": [],
+      "mustNotAppear": [
+        {
+          "kind": "project",
+          "ref": "zhishile/codex-auth-helper",
+          "projectId": 1256690992,
+          "level": "描述级",
+          "why": "“ChatGPT/导出”词面撞车"
+        },
+        {
+          "kind": "project",
+          "ref": "openclaw-easy/ViralMint",
+          "projectId": 1232235554,
+          "level": "描述级",
+          "why": "视频切片“clipper”词面撞车"
+        }
+      ],
+      "weakOk": [
+        "AhmadHassan-BTed/JinaClip（通用网页剪藏扩展）",
+        "其他浏览器扩展"
+      ],
+      "source": "chatgpt-clipper/README.md（与 N01 同一需求的英文关键词版，测中英文一致性）"
+    }
+  ]
+}
