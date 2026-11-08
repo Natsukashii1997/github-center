@@ -190,7 +190,8 @@
     }
   });
   // 时间框：改完（失焦或回车）才存；每日更新不合规就标红、写明原因，不存
-  const dailyBad = (t) => (!/^\d\d:\d\d$/.test(t) ? '时间格式不对' : t < D.earliest ? `不能早于 ${D.earliest}` : Number(t.slice(3)) % 15 ? '按 15 分钟一档：分钟只能是 00、15、30、45' : '');
+  const dailyBad = (t) => (!/^\d\d:\d\d$/.test(t) ? '时间格式不对' : t < D.earliest ? `不能早于 ${D.earliest}` : Number(t.slice(3)) % 15 ? '按 15 分钟一档：分钟只能是 00、15、30、45'
+    : t > S.weekly.at ? `晚于周报推送时间 ${S.weekly.at}：周报用当天更新出的榜，先把周报推送改晚` : '');
   // 功能行展开与否重画后保留
   document.addEventListener('toggle', (e) => {
     const d = e.target;

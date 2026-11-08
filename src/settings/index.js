@@ -46,7 +46,7 @@ const clock = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m 
 export const weeklyAfter = (daily, weekly) => (weekly < daily ? clock(Math.min(minutes(daily) + WEEKLY_AFTER, minutes('23:45'))) : weekly);
 
 // 读设置：文件里缺的项用默认值补上，认不出的项丢掉（文件被手改坏了也不影响页面和更新）。
-// #83 出榜推后 8 小时后的迁移：存的每日更新早于 17:00（按 15 分钟一档，旧规则下合规）改按 18:00；周报推送早于每日更新的，改按每日更新后 1.5 小时。
+// #83 出榜推后 8 小时后的迁移：存的每日更新是按 15 分钟一档的时间、但早于 17:00（如以前的默认 10:00），改按 18:00；周报推送早于每日更新的，改按每日更新后 1.5 小时。
 // 只在读的时候改，不悄悄写文件；改了哪几项记在 migrated（原值 → 新值），设置页提示一句，所有者下次保存时写回。
 // 猛鬼兽直接读文件，tidings_weekly.py 按同一条规则算周报时间。
 export function readSettings(dataDir) {
@@ -59,7 +59,7 @@ export function readSettings(dataDir) {
   const s = saved && typeof saved === 'object' ? saved : {};
   const pick = (v, ok, d) => (ok(v) ? v : d);
   const migrated = [];
-  const early = isTime(s.daily?.at) && s.daily.at < EARLIEST && checkDaily(s.daily.at, '00:00') === null;
+  const early = isTime(s.daily?.at) && s.daily.at < EARLIEST && Number(s.daily.at.slice(3)) % 15 === 0;
   const dailyAt = early ? DEFAULTS.daily.at : pick(s.daily?.at, (v) => checkDaily(v) === null, DEFAULTS.daily.at);
   if (early) migrated.push({ key: 'daily.at', from: s.daily.at, to: dailyAt });
   const savedWeekly = pick(s.weekly?.at, isTime, DEFAULTS.weekly.at);
@@ -83,9 +83,9 @@ export function readSettings(dataDir) {
 }
 
 // 每日更新时间不合规时返回原因，合规返回 null。
-export function checkDaily(at, earliest = EARLIEST) {
+export function checkDaily(at) {
   if (!isTime(at)) return '时间格式不对，要写成 18:00 这样';
-  if (at < earliest) return `不能早于 ${earliest}：GitHub 统计日按美国太平洋时间，北京 16:00 才结束（夏令时 15:00），原始数据还要再晚约 1 小时`;
+  if (at < EARLIEST) return `不能早于 ${EARLIEST}：GitHub 统计日按美国太平洋时间，北京 16:00 才结束（夏令时 15:00），原始数据还要再晚约 1 小时`;
   if (Number(at.slice(3)) % 15) return '按 15 分钟一档：分钟只能是 00、15、30、45';
   return null;
 }
