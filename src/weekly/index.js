@@ -58,7 +58,7 @@ function cardRow(e) {
   const chips = [e.tag && chip(e.tag, 'blue'), e.type && chip(e.type, TYPE_COLOR[e.type] ?? 'neutral'), isNew(e) && chip('新项目', 'red')].filter(Boolean);
   const title = [`**${esc(name)}**${e.tie ? '（并列）' : ''}`, owner && `<font color='grey'>${esc(owner)}</font>`, ...chips].filter(Boolean).join(' ');
   // 2026-11-05 实发核对：column_set 不认 padding 和 behaviors，内边距放在列上，整行跳转用 action.multi_url。
-  const pad = (l, r) => ({ padding: `10px ${r}px 10px ${l}px` });
+  const pad = (l, r) => ({ padding: `5px ${r}px 5px ${l}px` });
   const url = `https://github.com/${e.repo}`;
   return {
     tag: 'column_set', flex_mode: 'none', horizontal_spacing: '8px', margin: '0px',
@@ -66,8 +66,8 @@ function cardRow(e) {
     action: { multi_url: { url, pc_url: '', android_url: '', ios_url: '' } },
     columns: [
       col('36px', [md2(top ? MEDAL[e.rank] : `<font color='grey'>**${e.rank}**</font>`, { text_align: 'center', text_size: top ? 'heading' : 'heading-4' })], pad(8, 0)),
-      col('weighted', [md2(title, { text_size: 'heading-4' }), ...(text ? [md2(`<font color='grey'>${esc(text)}</font>`)] : [])], { weight: 1, vertical_spacing: '4px', ...pad(4, 4) }),
-      col('auto', [md2(`<font color='orange'>**+${num(e.gain)}**</font>`, { text_align: 'right', text_size: 'heading-4' }), md2(`<font color='grey'>总 ${wan(e.total)}</font>`, { text_align: 'right' })], { vertical_spacing: '4px', ...pad(0, 12) }),
+      col('weighted', [md2(title, { text_size: 'heading-4' }), ...(text ? [md2(`<font color='grey'>${esc(text)}</font>`)] : [])], { weight: 1, vertical_spacing: '0px', ...pad(4, 4) }),
+      col('auto', [md2(`<font color='orange'>**+${num(e.gain)}**</font>`, { text_align: 'right', text_size: 'heading-4' }), md2(`<font color='grey'>总 ${wan(e.total)}</font>`, { text_align: 'right' })], { vertical_spacing: '0px', ...pad(0, 12) }),
     ],
   };
 }
@@ -77,23 +77,22 @@ const button = (text, url, type) => col('weighted', [{ tag: 'button', text: { ta
 
 export function weeklyCard(w) {
   const range = `${md(w.from)}–${md(w.statDay)}`;
-  const elements = [md2(`<font color='grey'>${range} · 近 7 天新增 Star 前 ${TOP}</font>`, { text_align: 'center' })];
+  const elements = [];
   if (w.notes.length) elements.push(md2(`<font color='orange'>**⚠️ 提示**</font>\n${w.notes.map((n) => `- ${esc(n.title)}：${esc(oneLine(n.text))}`).join('\n')}`));
   if (!w.entries.length) elements.push(md2('这一期没有核出项目。'));
   elements.push(...w.entries.map(cardRow));
   elements.push(
-    { tag: 'column_set', flex_mode: 'stretch', horizontal_spacing: '12px', horizontal_align: 'center', margin: '8px 0px 0px 0px', columns: [
+    { tag: 'column_set', flex_mode: 'stretch', horizontal_spacing: '12px', horizontal_align: 'center', margin: '4px 0px 0px 0px', columns: [
       button('GitHub 周趋势', 'https://github.com/trending?since=weekly', 'primary_filled'),
       button('完整涨星榜（电脑）', `${SITE}/stars?w=d7`, 'laser'),
       button('我的收藏（电脑）', `${SITE}/favorites`, 'default'),
     ] },
-    { tag: 'hr' },
-    md2(`来自 Github·Tidings · 数据截至 ${md(w.statDay)}（GitHub 统计日，美国太平洋时间），${bj(w.generatedAt)}（北京时间）生成。数字来自 GitHub 官方数据，一句话和标签由 AI 根据项目文档写成；标着「电脑」的按钮只在运行本中心的电脑上能打开。`, { text_size: 'notation', text_align: 'center' }),
+    md2(`<font color='grey'>来自 Github·Tidings · 数据截至 ${md(w.statDay)}</font>`, { text_size: 'notation', text_align: 'center' }),
   );
   return {
     schema: '2.0',
     config: { summary: { content: `GitHub 本周涨星前 ${TOP} · ${range}` } },
-    body: { vertical_spacing: '8px', elements },
+    body: { vertical_spacing: '4px', elements },
   };
 }
 

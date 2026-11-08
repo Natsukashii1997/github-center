@@ -119,7 +119,7 @@ test('按统计日只写一次：再跑不重写；消息文件中途没写成�
 // #59：飞书卡片（B 版排行榜，卡片 JSON 2.0；#86 改版）。横幅图由猛鬼兽插在最前面，这里不含图片。
 const texts = (els) => els.flatMap((el) => (el.tag === 'column_set' ? el.columns.flatMap((c) => texts(c.elements)) : [el.content ?? el.text?.content ?? '']));
 
-test('飞书卡片（#86）：没有标题栏（横幅就是标题），先写日期区间；每行名次、项目名（大一号）和主人、说明和类型标签、涨星和总 Star；前 3 名灰底带奖牌；整行点开 GitHub；按钮等宽居中、三种颜色', () => {
+test('飞书卡片（#86）：没有标题栏（横幅就是标题）；每行名次、项目名（大一号）和主人、说明和类型标签、涨星和总 Star；前 3 名灰底带奖牌；整行点开 GitHub；按钮等宽居中、三种颜色；底部一行小字', () => {
   const dir = dataDir();
   put(dir, 'profiles/1.json', profile(1, 'acme/rocket', { line: '把脚本一键变成\n命令行工具', tag: '命令行', type: 'Agent' }));
   const r = build(dir);
@@ -132,7 +132,6 @@ test('飞书卡片（#86）：没有标题栏（横幅就是标题），先写�
   assert.deepEqual([r.weekly.entries[0].tag, r.weekly.entries[0].type, r.weekly.entries[1].tag], ['命令行', 'Agent', null]);
 
   const els = card.body.elements;
-  assert.equal(els[0].content, "<font color='grey'>10 月 26 日–11 月 1 日 · 近 7 天新增 Star 前 10</font>");
   const rows = els.filter((e) => e.tag === 'column_set' && e.action);
   assert.equal(rows.length, 11);
   assert.deepEqual(rows.map((e) => e.action.multi_url.url).slice(0, 2), ['https://github.com/acme/rocket', 'https://github.com/acme/notes']);
@@ -153,8 +152,8 @@ test('飞书卡片（#86）：没有标题栏（横幅就是标题），先写�
     ['完整涨星榜（电脑）', 'laser', 'fill', 'http://127.0.0.1:5310/stars?w=d7'],
     ['我的收藏（电脑）', 'default', 'fill', 'http://127.0.0.1:5310/favorites'],
   ]);
-  assert.equal(els.at(-2).tag, 'hr');
-  assert.match(els.at(-1).content, /^来自 Github·Tidings · 数据截至 11 月 1 日（GitHub 统计日，美国太平洋时间），11 月 2 日 18:40（北京时间）生成。/);
+  assert.equal(els.at(-2), bar);
+  assert.deepEqual([els.at(-1).content, els.at(-1).text_size], ["<font color='grey'>来自 Github·Tidings · 数据截至 11 月 1 日</font>", 'notation']);
 });
 
 test('飞书卡片：有提示先列提示；新项目打标签；没有一句话用 GitHub 描述或只列名字；Markdown 符号转义；没有项目写明', () => {
@@ -164,19 +163,19 @@ test('飞书卡片：有提示先列提示；新项目打标签；没有一句�
     { ...base, repo: 'a_b/x*y', gain: 9000, total: 9500, line: null, desc: 'Ship <scripts>\nfast' },
     { ...base, rank: 2, repo: 'acme/bare', line: null, desc: null },
   ] };
-  const els = weeklyCard(w).body.elements.slice(1);
+  const els = weeklyCard(w).body.elements;
   assert.equal(els[0].content, "<font color='orange'>**⚠️ 提示**</font>\n- 不是最新数据：最近一期应是 11 月 3 日，还没出；下面是 11 月 1 日的数据。");
   assert.deepEqual(texts([els[1]]).slice(1, 3), ["**x&#42;y** <font color='grey'>a&#95;b</font> <text_tag color='red'>新项目</text_tag>", "<font color='grey'>GitHub 上的描述：Ship &#60;scripts&#62; fast</font>"]);
   assert.equal(texts([els[2]])[1], "**bare** <font color='grey'>acme</font>");
   // 标签也转义；不认识的类型用中性灰。
   const odd = weeklyCard({ ...w, notes: [], entries: [{ ...base, tag: 'a_b', type: '别的' }] }).body.elements;
-  assert.match(texts([odd[1]])[1], /<text_tag color='blue'>a&#95;b<\/text_tag> <text_tag color='neutral'>别的<\/text_tag>$/);
-  assert.equal(weeklyCard({ ...w, notes: [], entries: [] }).body.elements[1].content, '这一期没有核出项目。');
+  assert.match(texts([odd[0]])[1], /<text_tag color='blue'>a&#95;b<\/text_tag> <text_tag color='neutral'>别的<\/text_tag>$/);
+  assert.equal(weeklyCard({ ...w, notes: [], entries: [] }).body.elements[0].content, '这一期没有核出项目。');
   // 提示的标题和正文也转义；失败原因里的换行并成一行，免得断开提示列表。
-  const note = weeklyCard({ ...w, notes: [{ title: '更新_失败', text: 'GH Archive [3]\n`下载` 失败 & 重试' }] }).body.elements[1].content;
+  const note = weeklyCard({ ...w, notes: [{ title: '更新_失败', text: 'GH Archive [3]\n`下载` 失败 & 重试' }] }).body.elements[0].content;
   assert.equal(note.split('\n')[1], '- 更新&#95;失败：GH Archive &#91;3&#93; &#96;下载&#96; 失败 &#38; 重试');
   // 前 3 名并列：都是灰底，奖牌按名次给。
-  const tied = weeklyCard({ ...w, notes: [], entries: [{ ...base, rank: 3, tie: true }, { ...base, rank: 3, tie: true, repo: 'acme/twin' }] }).body.elements.slice(1);
+  const tied = weeklyCard({ ...w, notes: [], entries: [{ ...base, rank: 3, tie: true }, { ...base, rank: 3, tie: true, repo: 'acme/twin' }] }).body.elements;
   assert.deepEqual(tied.slice(0, 2).map((e) => [e.background_style, e.columns[0].elements[0].content]), [['grey-100', '🥉'], ['grey-100', '🥉']]);
   assert.match(texts([tied[1]])[1], /^\*\*twin\*\*（并列） <font color='grey'>acme<\/font>/);
 });
