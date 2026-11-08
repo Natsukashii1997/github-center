@@ -136,6 +136,8 @@
     if ('clearpicks' in t.dataset) { picks.clear(); return render(); }
     if ('cmp' in t.dataset) return HO.compare([...picks].map(byKey).map((x) => ({ p: x.p, skill: x.skill?.path ?? '' })), need, t);
     if (t.matches('.f-pk, .f-cmp')) return;
+    // 勾选模式里点整张卡就是勾选或取消，不打开详情栏。
+    if (picking && t.dataset.key) { picks.has(t.dataset.key) ? picks.delete(t.dataset.key) : picks.add(t.dataset.key); return render(); }
     if ('filter' in t.dataset) { filter = t.dataset.filter; return render(); }
     if ('fold' in t.dataset) { unfold.has(t.dataset.fold) ? unfold.delete(t.dataset.fold) : unfold.add(t.dataset.fold); return render(); }
     if ('jump' in t.dataset) { ev.preventDefault(); return jump(t.dataset.jump); }

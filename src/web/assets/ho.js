@@ -194,6 +194,8 @@ window.HO = (() => {
   function openPanel(repo, skill = '') {
     const host = document.getElementById('ho-panel');
     if (!host) return;
+    // 项目页整页是一张毛玻璃卡（backdrop-filter 会困住 fixed 定位），面板挂到 body 上浮在右侧。
+    if (host.closest('.ppage')) { host.classList.add('ho-float'); document.body.append(host); }
     if (panel.repo !== repo) Object.assign(panel, { need: '', kind: '研究' });
     Object.assign(panel, { repo, skill });
     host.innerHTML = panelHtml();

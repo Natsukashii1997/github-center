@@ -258,7 +258,7 @@ button.f-st:focus-visible { outline: 2px solid var(--accent); outline-offset: 1p
 .ho-quick .ho-ai { padding: 2px 4px 4px; }
 .ho-panel { position: absolute; left: 0; right: 0; bottom: 0; top: 64px; z-index: 3; display: flex; flex-direction: column; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -12px 30px rgba(31,35,40,.12); transform: translateY(100%); visibility: hidden; transition: transform .24s cubic-bezier(.2,.8,.2,1), visibility 0s .24s; }
 .ho-panel.open { transform: none; visibility: visible; transition: transform .24s cubic-bezier(.2,.8,.2,1); }
-.ppage .ho-panel { position: fixed; left: auto; top: 76px; right: 24px; bottom: 24px; width: 480px; border: 1px solid var(--line); border-radius: 12px; }
+.ho-panel.ho-float { position: fixed; left: auto; top: 76px; right: 24px; bottom: 24px; z-index: 40; width: min(480px, calc(100vw - 48px)); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .ho-panel .hd { display: flex; align-items: center; gap: 8px; padding: 12px 18px 10px; border-bottom: 1px solid var(--line); font-weight: 600; }
 .ho-panel .hd .x { margin-left: auto; width: 28px; height: 28px; border: 0; border-radius: 6px; background: none; color: var(--ink-3); font-size: 15px; }
 .ho-panel .hd .x:hover { background: var(--hover); }
