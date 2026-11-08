@@ -9,7 +9,8 @@
 - [Claude接手交接](HANDOFF.md)（本地需求补全与运行边界）
 - [可复制的接手提示词](CLAUDE_HANDOFF_PROMPT.md)
 - [当前状态与唯一下一步](CURRENT.md)
-- [已确认产品范围](docs/product/confirmed-scope.md)
+- [产品需求文档 PRD v2.1](docs/product/PRD-v2.md)（现行需求事实源，2026-11-08 冻结）
+- [产品说明](docs/product/产品说明.md)（现状基线：定位、功能、数据方法、架构）
 - [研究与实验入口](research/README.md)
 - [49 个开源参考项目](research/GitHub动态开源参考清单-2026-10-22.md)
 - [最新分路补齐结论](research/github-center-safe-recovery/分路补齐结论.md)
