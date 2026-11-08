@@ -74,6 +74,7 @@ function install(profile, t, ai) {
     ...BOUNDARY.安装, '',
     '开始前：先检查权限、依赖和要做的环境变更，列给我确认；我同意后再执行。', '',
     installInstruction({ profile, ai, skillPath: t.skill?.path ?? '' }), '',
+    '验收：步骤经我确认后才执行；装好后实际调用成功一次；说清装在哪里、怎么调用、改了哪些全局环境。', '',
     UNTRUSTED, version(profile),
   ].join('\n');
 }
@@ -99,7 +100,7 @@ export function compareText({ items, need = '' }) {
     '每条附出处；资料里没写的写「未知」，不要推测。', '',
     '验收：给出推荐和理由，以及还缺什么信息才能定。', '',
     UNTRUSTED,
-    ...ts.map((t) => `${t.name}：${version(t.profile).replace(/^版本：/, '版本')}`),
+    ...ts.flatMap((t) => ['', `${t.name}：${version(t.profile).replace(/^版本：/, '版本')}`, ...conditions(t.profile)]),
   ].join('\n');
 }
 

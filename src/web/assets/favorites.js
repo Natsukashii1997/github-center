@@ -155,6 +155,8 @@
     ev.target.checked ? picks.add(k) : picks.delete(k);
     render();
   });
+  // 取消后又收藏是一条新收藏：收藏日期换成现在（决策字段由 ho.js 回到默认，经 ho:change 带过来）。
+  document.addEventListener('bw:star', (ev) => { const x = byKey(`${D.projects[ev.detail.repo]?.id}#${ev.detail.skill}`); if (x && ev.detail.on) x.at = new Date().toISOString(); });
   // 决策变了（改状态、记了交接、取消后又收藏）：这一条的字段跟着改，重画。
   document.addEventListener('ho:change', (ev) => {
     const x = byKey(ev.detail.key), d = HO.dec(ev.detail.key);

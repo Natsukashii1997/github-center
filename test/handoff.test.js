@@ -63,6 +63,7 @@ test('安装交接：就是现在的安装指令，规则不变，开头加权�
   const text = handoffText({ kind: '安装', profile: p, ai: 'claude-code', skillPath: 'skills/pdf' });
   assert.deepEqual(text.split('\n').slice(0, 4), ['【安装交接｜授权后执行】', '允许：按官方资料制定步骤，经我授权后执行。', '禁止：擅自修改全局环境、申请付费服务、扩大权限。', '必须停下：缺账号、密钥或要付费；要改全局环境；文档里查不到步骤。']);
   assert.match(text, /开始前：先检查权限、依赖和要做的环境变更，列给我确认；我同意后再执行。/);
+  assert.match(text, /验收：步骤经我确认后才执行；装好后实际调用成功一次/);
   assert.ok(text.includes(installInstruction({ profile: p, ai: 'claude-code', skillPath: 'skills/pdf' })), '原安装指令原样保留');
   common(text);
 });
@@ -76,6 +77,8 @@ test('定向对比：2–4 个，研究交接的权限边界，围绕需求，�
   assert.match(text, /我的需求：多 Agent 跨会话交接要可恢复/);
   assert.match(text, /不要列通用参数表/);
   assert.match(text, /beta\/flow：版本未核实，资料读取于 11 月 3 日/);
+  // 每个候选都带中心整理的使用条件原文摘录。
+  assert.equal((text.match(/- 密钥：需要 OpenAI 的 API Key（原文：Requires an OpenAI API key\.）/g) || []).length, 2);
   common(text);
   assert.throws(() => compareText({ items: items.slice(0, 1) }), /2–4/);
   assert.throws(() => compareText({ items: [...items, ...items, items[0]] }), /2–4/);
@@ -123,6 +126,9 @@ test('交接接口：三种交接、对比、找都回纯文字；拒绝回 JSON
     assert.deepEqual(await err({ kind: '研究', project: '101', skill: 'skills/nope', ai: 'codex' }), [404, '没有这个项目或 Skill 的资料']);
     assert.deepEqual(await err({ kind: '研究', project: '101', ai: 'codex', need: '长'.repeat(501) }), [400, '需求最多 500 字']);
     assert.deepEqual(await err({ kind: '对比', item: '101:' }), [400, '对比要选 2–4 个']);
+    // 不带冒号的项目 id 也认（整个项目）。
+    const bare = new URLSearchParams([['kind', '对比'], ['item', '101'], ['item', '202']]).toString();
+    assert.match((await http(site.url + 'api/handoff', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: site.cookie }, body: bare })).body, /1\. GitHub 项目 acme\/agent-kit（/);
     assert.deepEqual(await err({ kind: '找', question: '' }), [400, '先写要找什么']);
     assert.deepEqual(await err({ kind: '研究', project: '101', ai: 'codex' }, { origin: 'http://127.0.0.1:5999' }), [403, '只接受本站提交的表单']);
     assert.equal((await http(site.url + 'api/handoff?kind=研究&project=101&ai=codex', { headers: { cookie: site.cookie } })).status, 405);

@@ -7,9 +7,9 @@ import { openCenterDb } from './center-db.js';
 export const STATUSES = ['int', 'res', 'yes', 'no'];
 export const HANDOFF_TYPES = ['研究', '试用', '安装'];
 export const TEXT_MAX = 500;
-// 页面和接口用的决策字段。
 // 每页都带的这个人全部收藏的决策字段，键是"项目 id#Skill 路径"（整个项目路径为空）：详情栏的状态胶囊和交接要用（#79）。
 export const decisionsOf = (favorites, accountId) => Object.fromEntries(favorites.list(accountId).map((f) => [`${f.projectId}#${f.skillPath}`, decisionOf(f)]));
+// 页面和接口用的决策字段。
 export const decisionOf = (f) => ({ status: f.status, reason: f.reason, next: f.next, statusAt: f.statusAt ?? null, handoff: f.handoffType ? { type: f.handoffType, at: f.handoffAt } : null });
 
 // 旧库（#78 之前建的表）启动时补上新列；已有的收藏按默认值。

@@ -100,6 +100,7 @@ window.HO = (() => {
   const cache = new Map();
   function fetchText(fields) {
     const body = new URLSearchParams(fields), k = body.toString();
+    if (cache.size > 40) cache.clear();
     if (!cache.has(k)) cache.set(k, post('/api/handoff', body).then(async (r) => (r.ok ? r.text() : Promise.reject(new Error((await r.json().catch(() => null))?.error ?? String(r.status))))));
     const p = cache.get(k);
     p.catch(() => cache.delete(k));
@@ -113,6 +114,11 @@ window.HO = (() => {
       return true;
     } catch { return false; }
   }
+  // 没复制成功：服务端拒绝了就说原因（如有的候选没有资料），否则是剪贴板不让写。
+  async function failed(text) {
+    const why = await text.then(() => null, (e) => e.message);
+    toast(why ? `生成不了交接：${why}` : '没能自动复制，请稍后再试');
+  }
   async function record(key, kind) {
     if (!dec(key)) return;
     try {
@@ -123,8 +129,9 @@ window.HO = (() => {
   const aiName = () => D.ais.find(([id]) => id === ai)[1];
   async function handoff(p, skill, kind, need, btn) {
     const key = keyOf(p, skill);
-    const ok = await copyText(fetchText({ kind, project: p.id, skill, ai, need: need ?? dec(key)?.reason ?? '' }));
-    if (!ok) return toast('没能自动复制，请稍后再试');
+    // 不填需求时研究、安装交接带收藏理由；试用要的是测试场景，不拿理由顶（服务端会写"用项目文档里给的示例"）。
+    const ok = await copyText(fetchText({ kind, project: p.id, skill, ai, need: need ?? (kind === '试用' ? '' : dec(key)?.reason ?? '') }));
+    if (!ok) return failed(fetchText({ kind, project: p.id, skill, ai, need: need ?? (kind === '试用' ? '' : dec(key)?.reason ?? '') }));
     if (btn) { const t = btn.textContent; btn.classList.add('ok'); btn.textContent = '已复制 ✓'; setTimeout(() => { btn.classList.remove('ok'); btn.textContent = t; }, 1400); }
     toast(`已复制${kind}交接，粘贴给 ${aiName()}`);
     record(key, kind);
@@ -133,7 +140,7 @@ window.HO = (() => {
   async function compare(items, need, btn) {
     const body = new URLSearchParams([['kind', '对比'], ...items.map(({ p, skill }) => ['item', `${p.id}:${skill ?? ''}`]), ['need', need ?? '']]);
     const ok = await copyText(fetchText(body));
-    if (!ok) return toast('没能自动复制，请稍后再试');
+    if (!ok) return failed(fetchText(body));
     if (btn) { const t = btn.textContent; btn.textContent = '已复制 ✓'; setTimeout(() => { btn.textContent = t; }, 1400); }
     toast(`已复制对比研究交接（${items.length} 个），粘贴给你的 AI`);
   }
@@ -141,8 +148,10 @@ window.HO = (() => {
   // ── 快捷「交给 AI ▾」──
   const aiSegs = (attr) => `<div class="segs">${D.ais.map(([id, n]) => `<button ${attr}="${esc(id)}" aria-selected="${id === ai}">${esc(n)}</button>`).join('')}</div>`;
   const quick = (p, { skill = '', disabled = '', cls = 'lnk' } = {}) => `<button class="${cls}" data-ho="${esc(p.repo)}"${skill ? ` data-skill="${esc(skill)}"` : ''} aria-haspopup="menu"${disabled}>交给 AI ▾</button>`;
+  let opener = null;   // 打开快捷菜单或编辑面板的按钮，Esc 关掉后焦点回到它
   function openQuick(btn) {
     closePop();
+    opener = btn;
     const el = Object.assign(document.createElement('div'), { className: 'f-pop ho-quick' });
     el.setAttribute('role', 'menu');
     el.dataset.repo = btn.dataset.ho;
@@ -168,13 +177,13 @@ window.HO = (() => {
         <div><span class="ho-l">交接类型</span><div class="ho-types">${Object.keys(KIND).map((k) => `<label class="ho-type"><input type="radio" name="ho-kind" value="${k}" ${panel.kind === k ? 'checked' : ''}><b>${k}</b><span>${KIND[k]}</span></label>`).join('')}</div></div>
         <div class="ho-row"><div><span class="ho-l">交给</span>${aiSegs('data-hoai')}</div>
           ${p.skills.length ? `<div class="ho-grow"><label class="ho-l" for="ho-scope">范围</label><select id="ho-scope" class="ho-in"><option value="">整个项目</option>${p.skills.map((s) => `<option value="${esc(s.path)}" ${panel.skill === s.path ? 'selected' : ''}>Skill · ${esc(s.name)}</option>`).join('')}</select></div>` : ''}</div>
-        <div><label class="ho-l" for="ho-need">${panel.kind === '试用' ? '测试场景（可选）' : '我的需求（可选，不填就用收藏理由）'}</label><textarea id="ho-need" class="ho-in" rows="2" maxlength="500" placeholder="${esc(d?.reason || (panel.kind === '试用' ? '例：断网时能不能在本机运行' : '例：想确认它能不能满足多 Agent 跨会话交接'))}">${esc(panel.need)}</textarea></div>
+        <div><label class="ho-l" for="ho-need">${panel.kind === '试用' ? '测试场景（可选）' : '我的需求（可选，不填就用收藏理由）'}</label><textarea id="ho-need" class="ho-in" rows="2" maxlength="500" placeholder="${esc(panel.kind === '试用' ? '例：断网时能不能在本机运行（不填就用项目文档里的示例）' : d?.reason || '例：想确认它能不能满足多 Agent 跨会话交接')}">${esc(panel.need)}</textarea></div>
         <div class="ho-risk">${risk(p)}</div>
         <div><span class="ho-l">将复制的文字 · 黄色是权限边界和不可信输入说明</span><pre class="ho-pre" id="ho-pre">正在生成…</pre></div>
       </div>
       <div class="ft"><button class="btn pri" data-hocopy>复制${panel.kind}交接</button></div>`;
   }
-  const panelFields = () => { const p = D.projects[panel.repo]; return { kind: panel.kind, project: p.id, skill: panel.skill, ai, need: panel.need.trim() || (dec(keyOf(p, panel.skill)) ?? dec(keyOf(p, '')))?.reason || '' }; };
+  const panelFields = () => { const p = D.projects[panel.repo], why = (dec(keyOf(p, panel.skill)) ?? dec(keyOf(p, '')))?.reason || ''; return { kind: panel.kind, project: p.id, skill: panel.skill, ai, need: panel.need.trim() || (panel.kind === '试用' ? '' : why) }; };
   let previewTimer;
   function preview() {
     clearTimeout(previewTimer);
@@ -231,7 +240,7 @@ window.HO = (() => {
     if (q) { if (!q.disabled) { if (pop()?.dataset.repo === q.dataset.ho && pop().dataset.skill === (q.dataset.skill ?? '')) closePop(); else openQuick(q); } return true; }
     closePop();
     const op = t.closest('[data-hopanel]');
-    if (op) { if (!op.disabled) openPanel(op.dataset.hopanel, op.dataset.skill ?? ''); return true; }
+    if (op) { if (!op.disabled) { opener = op; openPanel(op.dataset.hopanel, op.dataset.skill ?? ''); } return true; }
     if (t.closest('#ho-panel')) {
       const a = t.closest('[data-hoai]');
       if (a) { ai = a.dataset.hoai; rerenderPanel(); }
@@ -254,8 +263,9 @@ window.HO = (() => {
   // Esc 依次关：弹层、编辑面板，然后才轮到页面关详情栏。
   document.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Escape') return;
-    if (pop()) { const k = pop().dataset.key; closePop(); if (k) document.querySelector(`[data-dec="${CSS.escape(k)}"]`)?.focus(); ev.stopImmediatePropagation(); return; }
-    if (panelOpen()) { closePanel(); document.querySelector('[data-hopanel]')?.focus(); ev.stopImmediatePropagation(); }
+    const back = () => (opener?.isConnected ? opener : null);
+    if (pop()) { const k = pop().dataset.key; closePop(); (k ? document.querySelector(`[data-dec="${CSS.escape(k)}"]`) : back())?.focus(); ev.stopImmediatePropagation(); return; }
+    if (panelOpen()) { closePanel(); back()?.focus(); ev.stopImmediatePropagation(); }
   }, true);
   // 收藏星：收藏后这一条有了默认决策，取消后没有了。
   document.addEventListener('bw:star', (ev) => {

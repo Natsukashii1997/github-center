@@ -99,7 +99,7 @@ function handoffApi(dataDir, form) {
     return { text: searchText({ question }) };
   }
   if (kind === '对比') {
-    const items = form.getAll('item').map((v) => { const i = v.indexOf(':'); return target(Number(v.slice(0, i)), i < 0 ? '' : v.slice(i + 1)); });
+    const items = form.getAll('item').map((v) => { const i = v.indexOf(':'); return i < 0 ? target(Number(v), '') : target(Number(v.slice(0, i)), v.slice(i + 1)); });
     if (items.length < COMPARE_MIN || items.length > COMPARE_MAX) return { status: 400, error: `对比要选 ${COMPARE_MIN}–${COMPARE_MAX} 个` };
     if (items.some((x) => !x)) return { status: 404, error: '有的候选没有资料，生成不了交接' };
     return { text: compareText({ items, need }) };
