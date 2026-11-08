@@ -25,7 +25,7 @@ export const readWeekly = (dataDir, day) => readJson(join(dataDir, weeklyPath(da
 
 export function weeklyMarkdown(w) {
   const lines = [`## GitHub 本周涨星前 ${TOP} · ${md(w.from)}–${md(w.statDay)}`, '',
-    `涨星榜近 7 天，数据截至 ${md(w.statDay)}（UTC 统计日），${bj(w.generatedAt)}（北京时间）生成。`];
+    `涨星榜近 7 天，数据截至 ${md(w.statDay)}（GitHub 统计日，美国太平洋时间），${bj(w.generatedAt)}（北京时间）生成。`];
   if (w.notes.length) lines.push('', '**提示**', ...w.notes.map((n) => `- ${n.title}：${n.text}`));
   if (!w.entries.length) lines.push('', '这一期没有核出项目。');
   for (const e of w.entries) {
@@ -81,7 +81,7 @@ export function weeklyCard(w) {
       button('我的收藏（电脑）', `${SITE}/favorites`, 'default'),
     ] },
     { tag: 'hr' },
-    md2(`来自 Github·Tidings · 数据截至 ${md(w.statDay)}（UTC 统计日），${bj(w.generatedAt)}（北京时间）生成。数字来自 GitHub 官方数据，一句话由 AI 根据项目文档写成；标着「电脑」的按钮只在运行本中心的电脑上能打开。`, { text_size: 'notation' }),
+    md2(`来自 Github·Tidings · 数据截至 ${md(w.statDay)}（GitHub 统计日，美国太平洋时间），${bj(w.generatedAt)}（北京时间）生成。数字来自 GitHub 官方数据，一句话由 AI 根据项目文档写成；标着「电脑」的按钮只在运行本中心的电脑上能打开。`, { text_size: 'notation' }),
   );
   return {
     schema: '2.0',

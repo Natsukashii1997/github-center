@@ -65,7 +65,7 @@ test('出榜：关掉 ClickHouse，GH Archive 缺的小时补不上，按更新�
   const upstream = recordedUpstream({ missingArchiveHours: [5] });
   const r = await rank(upstream, { windows: ['d1'], lists: [], sources: { trending: true, clickhouse: false } });
   assert.equal(r.windows.d1.status, 'failed');
-  assert.match(r.windows.d1.error, /第 5 小时 GH Archive 缺失，ClickHouse 已在设置页关掉/);
+  assert.match(r.windows.d1.error, /GH Archive 缺 UTC 2026-10-23T05:00Z 这一小时，ClickHouse 已在设置页关掉/);
   assert.equal(upstream.calls.filter((c) => c.url.startsWith('https://play.clickhouse.com/')).length, 0);
 });
 

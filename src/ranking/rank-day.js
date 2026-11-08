@@ -1,4 +1,4 @@
-import { bucketOf, lastEndedDay, windowDays, WINDOWS } from './stat-day.js';
+import { bucketOf, lastEndedDay, windowDays, dayHours, dayRange, WINDOWS } from './stat-day.js';
 import { archiveHour, clickhouseHour, clickhouseDay, trending } from './sources.js';
 import { githubClient, PER_PAGE } from './github.js';
 import { openStore, findSnapshot, readEvents, saveEvents, recordStatus } from './store.js';
@@ -57,30 +57,34 @@ function oncePerProject(fn) {
   };
 }
 
-// 1. 某个统计日的全站 Star 事件按项目合计。存过就直接用；统计日当天读 GH Archive 的 24 个小时文件（缺的小时用 ClickHouse 补），
-// 更早的日子（近 7/30 天才用到）从 ClickHouse 按天补。设置页关掉 ClickHouse（clickhouse 为 false）时不补，缺数据就按更新失败处理。
+// 1. 某个统计日的全站 Star 事件按项目合计。存过就直接用；统计日当天读这个太平洋日覆盖的 GH Archive 小时文件
+// （UTC D 08:00 至 D+1 08:00，夏令时 07:00 至 07:00，dayHours；缺的小时用 ClickHouse 补），
+// 更早的日子（近 7/30 天才用到）从 ClickHouse 按同样的起止补。设置页关掉 ClickHouse（clickhouse 为 false）时不补，缺数据就按更新失败处理。
+// 新存的事件数据记下起止（from、to）；#83 之前存的按 UTC 日切、没有起止，照旧使用：事件只用来找候选，上榜数字都来自官方核数。
 const OFF = 'ClickHouse 已在设置页关掉，补不上';
+const range = (day) => Object.fromEntries(Object.entries(dayRange(day)).map(([k, ms]) => [k, new Date(ms).toISOString()]));
 async function dayEvents({ fetch, sleep, dataDir, day, latest, clickhouse }) {
   const saved = readEvents(dataDir, day);
   if (saved) return saved;
   let events;
   if (latest) {
     const fallbackHours = [];
-    const hours = await mapLimit([...Array(24).keys()], 4, async (hour) => {
+    const hours = await mapLimit(dayHours(day), 4, async ({ date, hour }) => {
+      const label = `${date}T${String(hour).padStart(2, '0')}:00Z`;
       try {
-        return await archiveHour({ fetch, day, hour });
+        return await archiveHour({ fetch, date, hour });
       } catch {
-        if (!clickhouse) throw new Error(`第 ${hour} 小时 GH Archive 缺失，${OFF}，按更新失败处理`);
-        fallbackHours.push(hour);
-        const rows = await clickhouseHour({ fetch, sleep, day, hour });
-        if (!rows.length) throw new Error(`第 ${hour} 小时 GH Archive 缺失，ClickHouse 也没有这一小时的数据，按更新失败处理`);
+        if (!clickhouse) throw new Error(`GH Archive 缺 UTC ${label} 这一小时，${OFF}，按更新失败处理`);
+        fallbackHours.push(label);
+        const rows = await clickhouseHour({ fetch, sleep, date, hour });
+        if (!rows.length) throw new Error(`GH Archive 缺 UTC ${label} 这一小时，ClickHouse 也没有这一小时的数据，按更新失败处理`);
         return rows;
       }
     });
-    events = { day, source: 'gharchive', fallbackHours: fallbackHours.sort((a, b) => a - b), rows: mergeById(hours.flat()) };
+    events = { day, ...range(day), source: 'gharchive', fallbackHours: fallbackHours.sort(), rows: mergeById(hours.flat()) };
   } else {
     if (!clickhouse) throw new Error(`缺 ${day} 的事件数据，${OFF}，按更新失败处理`);
-    events = { day, source: 'clickhouse', fallbackHours: [], rows: await clickhouseDay({ fetch, sleep, day }) };
+    events = { day, ...range(day), source: 'clickhouse', fallbackHours: [], rows: await clickhouseDay({ fetch, sleep, day }) };
     if (!events.rows.length) throw new Error(`ClickHouse 没有 ${day} 的事件数据，按更新失败处理`);
   }
   saveEvents(dataDir, day, events);
@@ -216,7 +220,7 @@ function candidatesFile({ window, day, runId, generatedAt, r, meta }) {
 // 另外三个榜单只能取到运行当时的数据，所以只在出最近一个已结束的统计日时生成；补跑更早的日子不生成，免得把现在的数字记成旧日子的。
 // sources：设置页的数据源开关（../settings）。关掉官方热门：候选只来自事件数据，也不出官方热门榜；关掉 ClickHouse：不补缺的小时和更早的日子。
 export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, now = () => new Date(), limit = 300, maxCandidates = MAX_CANDIDATES, windows = Object.keys(WINDOWS), lists = Object.keys(LISTS), sleep, sources = { trending: true, clickhouse: true } }) {
-  if (day > lastEndedDay(now())) throw new Error(`统计日 ${day} 还没结束（按 UTC），最近一个已结束的是 ${lastEndedDay(now())}`);
+  if (day > lastEndedDay(now())) throw new Error(`统计日 ${day} 还没结束（GitHub 统计日按美国太平洋时间），最近一个已结束的是 ${lastEndedDay(now())}`);
   const results = { windows: {}, lists: {} };
   // 已发布的记为 exists，返回还没发布的。
   const unpublished = (kind, boards) => boards.filter((b) => {

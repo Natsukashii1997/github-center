@@ -3,13 +3,15 @@
 import { Readable, pipeline } from 'node:stream';
 import { createGunzip } from 'node:zlib';
 import { TRENDING_PAGES } from './lists.js';
+import { dayRange } from './stat-day.js';
 
 const ARCHIVE_TIMEOUT_MS = 180_000;
 
 // 下载出错或超时时抛出（由调用方改用 ClickHouse），不能让流错误变成进程崩溃。
-export async function archiveHour({ fetch, day, hour }) {
-  const res = await fetch(`https://data.gharchive.org/${day}-${hour}.json.gz`, { signal: AbortSignal.timeout(ARCHIVE_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`GH Archive ${day}-${hour} 返回 ${res.status}`);
+// date、hour 是 UTC 的日期和小时（文件名就是这么写的）。
+export async function archiveHour({ fetch, date, hour }) {
+  const res = await fetch(`https://data.gharchive.org/${date}-${hour}.json.gz`, { signal: AbortSignal.timeout(ARCHIVE_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`GH Archive ${date}-${hour} 返回 ${res.status}`);
   const text = createGunzip().setEncoding('utf8');
   pipeline(Readable.fromWeb(res.body), text, () => {});
   const rows = new Map();
@@ -50,8 +52,9 @@ async function fetchRetry({ fetch, sleep = realSleep, url, init, label }) {
   }
 }
 
-async function clickhouseStars({ fetch, sleep, start, span, tail, label }) {
-  const sql = `SELECT repo_name, count() AS stars FROM github_events WHERE event_type = 'WatchEvent' AND created_at >= toDateTime('${start}') AND created_at < toDateTime('${start}') + INTERVAL 1 ${span} GROUP BY repo_name ${tail}FORMAT JSONEachRow`;
+// start、end 是 UTC 时刻（含起不含止），写成 ClickHouse 的 'YYYY-MM-DD HH:MM:SS'。
+async function clickhouseStars({ fetch, sleep, start, end, tail, label }) {
+  const sql = `SELECT repo_name, count() AS stars FROM github_events WHERE event_type = 'WatchEvent' AND created_at >= toDateTime('${start}') AND created_at < toDateTime('${end}') GROUP BY repo_name ${tail}FORMAT JSONEachRow`;
   const res = await fetchRetry({ fetch, sleep, url: 'https://play.clickhouse.com/?user=play', init: { method: 'POST', body: sql }, label });
   return (await res.text()).split('\n').filter(Boolean).map((l) => {
     const r = JSON.parse(l);
@@ -59,12 +62,18 @@ async function clickhouseStars({ fetch, sleep, start, span, tail, label }) {
   });
 }
 
-export function clickhouseHour({ fetch, sleep, day, hour }) {
-  return clickhouseStars({ fetch, sleep, start: `${day} ${String(hour).padStart(2, '0')}:00:00`, span: 'HOUR', tail: 'ORDER BY stars DESC LIMIT 5000 ', label: `ClickHouse ${day} ${hour} 时` });
+const chTime = (ms) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
+
+// UTC 某日某小时（GH Archive 缺这个小时文件时补）。
+export function clickhouseHour({ fetch, sleep, date, hour }) {
+  const from = Date.parse(`${date}T${String(hour).padStart(2, '0')}:00:00Z`);
+  return clickhouseStars({ fetch, sleep, start: chTime(from), end: chTime(from + 3600e3), tail: 'ORDER BY stars DESC LIMIT 5000 ', label: `ClickHouse UTC ${date} ${hour} 时` });
 }
 
+// 整个统计日（太平洋时间，dayRange），近 7/30 天补更早的日子用。
 export function clickhouseDay({ fetch, sleep, day }) {
-  return clickhouseStars({ fetch, sleep, start: `${day} 00:00:00`, span: 'DAY', tail: '', label: `ClickHouse ${day} ` });
+  const { from, to } = dayRange(day);
+  return clickhouseStars({ fetch, sleep, start: chTime(from), end: chTime(to), tail: '', label: `ClickHouse 统计日 ${day} ` });
 }
 
 

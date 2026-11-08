@@ -59,7 +59,8 @@ export function recordedUpstream({ missingArchiveHours = [], brokenArchiveHours 
       }
       return new Response(JSON.stringify({ data, ...(errors.length ? { errors } : {}) }), { headers: { 'content-type': 'application/json', date: 'Fri, 23 Oct 2026 15:52:10 GMT', 'x-ratelimit-resource': 'graphql' } });
     }
-    if (url.startsWith('https://play.clickhouse.com/') && String(init.body).includes('INTERVAL 1 DAY')) {
+    // 按小时查的带 LIMIT 5000（sources.js clickhouseHour），按统计日查的不带。
+    if (url.startsWith('https://play.clickhouse.com/') && !String(init.body).includes('LIMIT 5000')) {
       return new Response(clickhouseDayRows.map((r) => JSON.stringify(r)).join('\n'));
     }
     if (url.startsWith('https://play.clickhouse.com/')) {

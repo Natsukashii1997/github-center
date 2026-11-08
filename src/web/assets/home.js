@@ -21,14 +21,16 @@
   const skills = (it, n = 3) => (it.skills.length ? `<span class="sk">${it.skills.slice(0, n).map((x) => `<code>${esc(x.name)}</code>`).join('')}${it.skills.length > n ? `<em>等 ${it.skills.length} 个 Skill</em>` : ''}</span>` : '');
 
   // 报头：数据新鲜度、第一名、新面孔、飙升最多；口径放在标题的悬停说明里。
-  // 新鲜度：统计日按 UTC 划分，每天北京时间 10:00（UTC 02:00）出前一天的榜，所以此刻应有的最新一期是 26 小时前所在的 UTC 日；
-  // 比它早几天就是「已 N 天没有新数据」（以前按统计日零点算，北京 20:00 以后最新一期也会误报过期）。
+  // 新鲜度：统计日是 GitHub 统计日（美国太平洋时间），太平洋零点是北京 16:00（夏令时 15:00），每天北京 18:00 出前一天的榜（#83），
+  // 所以此刻应有的最新一期是 3 小时前那一刻的太平洋昨天（冬令时留出 18:00 跑完的 1 小时）；比它早几天就是「已 N 天没有新数据」。
+  const PT = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const ptDay = (ms) => { const p = Object.fromEntries(PT.formatToParts(new Date(ms)).map((x) => [x.type, x.value])); return Date.parse(`${p.year}-${p.month}-${p.day}T00:00:00Z`); };
   // 小字行（所有者 2026-11-03 定）：只写这一期的日期和「数据已更新／数据未更新」，几天没更新、出了什么问题放在悬停说明里。
   const title = '<span class="tt"><span class="ghost" aria-hidden="true">Rising</span><b>涨星</b></span>';
   function head() {
     const { W, items } = b;
     if (!W.day) return `<div><div class="kick"><span class="fresh ${W.top.tone === 'bad' ? 'bad' : 'warn'}" title="${esc(W.top.text)}"><i></i>数据未更新</span></div><h1>${title}</h1></div><div class="tick"></div>`;
-    const late = Math.max(0, Math.floor((Date.now() - 26 * 3600e3 - Date.parse(W.day)) / 864e5));
+    const late = Math.max(0, Math.round((ptDay(Date.now() - 3 * 3600e3) - 864e5 - Date.parse(W.day)) / 864e5));
     const tone = W.top.tone === 'bad' ? 'bad' : late > 0 || W.top.tone === 'warn' ? 'warn' : '';
     const [top] = items;
     const hasPrev = items.some((it) => it.e.mv);

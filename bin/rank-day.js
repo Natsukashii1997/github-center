@@ -1,14 +1,17 @@
 // 跑一次出榜：npm run rank -- [--day YYYY-MM-DD] [--data data] [--limit 300]
-// 不给 --day 时取最近一个已结束的 UTC 日（每日定时任务就这样跑）。token 取环境变量 GITHUB_TOKEN，没有就用本机 gh 登录。
+// 不给 --day 时取最近一个已结束的统计日（GitHub 统计日，按美国太平洋时间；每日定时任务就这样跑）。token 取环境变量 GITHUB_TOKEN，没有就用本机 gh 登录。
 // 涨星榜三个窗口（另存每个窗口全部已核数的候选，#10）和新项目榜、官方热门榜、累计高星榜一起出。已发布的不重跑，手动重跑是安全的。
 // 有榜单更新失败时退出码为 1；整次运行出错也记进 status.json，网站照样提示。设置页关掉的数据源（官方热门、ClickHouse）不用。
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { rankDay, lastEndedDay, recordStatus, WINDOWS, LISTS } from '../src/ranking/index.js';
 import { readSettings } from '../src/settings/index.js';
+import { dayRange } from '../src/ranking/stat-day.js';
 
 const { values } = parseArgs({ options: { day: { type: 'string' }, data: { type: 'string', default: 'data' }, limit: { type: 'string', default: '300' } } });
 const day = values.day ?? lastEndedDay(new Date());
+const { from, to } = dayRange(day);
+const span = `${new Date(from).toISOString().slice(0, 16)}Z 至 ${new Date(to).toISOString().slice(0, 16)}Z`;
 // 设置页的数据源开关：关掉的官方热门榜、ClickHouse 这次不用。
 const { sources } = readSettings(values.data);
 const off = [['trending', 'GitHub 官方热门'], ['clickhouse', 'ClickHouse']].filter(([k]) => !sources[k]).map(([, n]) => n);
@@ -34,13 +37,13 @@ const seconds = ((performance.now() - t0) / 1000).toFixed(1);
 const num = (n) => n.toLocaleString('en-US');
 let failed = false;
 for (const [window, w] of Object.entries(r.windows)) {
-  console.log(`\n== ${window} 统计日 ${day}`);
+  console.log(`\n== ${window} 统计日 ${day}（太平洋时间，UTC ${span}）`);
   if (w.status === 'exists') { console.log(`快照已存在，没有重跑：${w.path}`); continue; }
   if (w.status === 'failed') { failed = true; console.log(`更新失败：${w.error}`); continue; }
   const s = w.snapshot;
   const c = s.candidates;
   console.log(`${w.status === 'published' ? '已发布' : w.status} ${w.path}（${s.from} 至 ${s.statDay}）`);
-  console.log(`候选 ${c.total} 个（事件数据 ${c.archive} 个，官方热门榜 ${c.trending} 个，合并去重后 ${c.total} 个${c.fallbackHours.length ? `；当天第 ${c.fallbackHours.join('、')} 小时用 ClickHouse 补` : ''}${c.backfilledDays.length ? `；${c.backfilledDays.length} 个更早的日子从 ClickHouse 补` : ''}）`);
+  console.log(`候选 ${c.total} 个（事件数据 ${c.archive} 个，官方热门榜 ${c.trending} 个，合并去重后 ${c.total} 个${c.fallbackHours.length ? `；GH Archive 缺的 ${c.fallbackHours.join('、')}（UTC）这几个小时用 ClickHouse 补` : ''}${c.backfilledDays.length ? `；${c.backfilledDays.length} 个更早的日子从 ClickHouse 补` : ''}）`);
   console.log(`官方核数请求 ${s.requests.history + s.requests.project} 次（星数历史 ${s.requests.history}，项目信息 ${s.requests.project}）`);
   if (c.unavailable.length) console.log(`官方接口查不到的候选 ${c.unavailable.length} 个：${c.unavailable.join('、')}`);
   if (c.failed.length) console.log(`核数失败 ${c.failed.length} 个：${c.failed.map((f) => `${f.name}（${f.reason}）`).join('；')}`);
