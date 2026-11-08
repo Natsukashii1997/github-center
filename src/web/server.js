@@ -113,7 +113,7 @@ function handoffApi(dataDir, form) {
 }
 
 // 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页、项目页、我的收藏和分类榜（bw，收藏页另有 favorites，分类榜另有 categories），登录页沿用 #14 的那套。
-const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'favorites.css': 'text/css', 'categories.css': 'text/css', 'categories.js': 'text/javascript', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript', 'settings.css': 'text/css', 'settings.js': 'text/javascript' };
+const ASSETS = { 'shell.css': 'text/css', 'bw.css': 'text/css', 'favorites.css': 'text/css', 'categories.css': 'text/css', 'categories.js': 'text/javascript', 'tokens.css': 'text/css', 'components.css': 'text/css', 'pages.css': 'text/css', 'sharks.js': 'text/javascript', 'shell.js': 'text/javascript', 'bw.js': 'text/javascript', 'ho.js': 'text/javascript', 'icons.js': 'text/javascript', 'gc.js': 'text/javascript', 'home.js': 'text/javascript', 'pages.js': 'text/javascript', 'project.js': 'text/javascript', 'favorites.js': 'text/javascript', 'login.js': 'text/javascript', 'settings.css': 'text/css', 'settings.js': 'text/javascript' };
 const assetFile = (name) => readFileSync(new URL(`./assets/${name}`, import.meta.url));
 // 登录页（#14）要用的样式和脚本：不登录也能取（只是设计变量、图标和组件代码，不含任何数据）；其余页面脚本登录后才给。
 const LOGIN_ASSETS = new Set(['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js', 'login.js']);

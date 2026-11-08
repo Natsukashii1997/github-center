@@ -1,9 +1,8 @@
 // 涨星榜首页和项目页共用（2026-11-03 白雾定稿，design/candidates/redesign/r2.js、c.js 落地）：数字格式、三种标签、柱图、右侧详情栏内容，
-// 收藏（POST /api/favorites，写成功才改按钮）和复制安装指令（GET /api/install；已收藏的顺带记最近交接，#78）。数据是服务端嵌进页面的真实快照与项目资料（src/web/home.js、pages.js）。
+// 收藏（POST /api/favorites，写成功才改按钮）；交给 AI 和决策状态在 ho.js（#79）。数据是服务端嵌进页面的真实快照与项目资料（src/web/home.js、pages.js）。
 // 一句话、主要用途、使用场景、说明标签、定义标签由补资料生成（#23）；还没按新版重新生成的项目没有这些，对应位置留空，不写替代文字。
 window.BW = (() => {
   const D = JSON.parse(document.getElementById('gc-data').textContent);
-  const AI = Object.fromEntries(D.ais);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
   const num = (n) => n.toLocaleString('en-US');
   const wan = (n) => (n >= 1e4 ? `${(n / 1e4).toFixed(1)}万` : num(n));
@@ -91,14 +90,16 @@ window.BW = (() => {
     if (a.cats) parts.push(aiSay(a.cats, '分类', '给出'));
     return `<p class="dw-ai">${parts.join('；')}。</p>`;
   }
-  function drawer(it, { cur, w, home, page } = {}) {
-    const skills = it.skills.length ? `<div class="dw-sec"><h4>包含 Skill · ${it.skills.length}</h4><div class="dw-sk">${it.skills.map((s) => `<div id="skill-${esc(s.path)}"><div><code>${esc(s.name)}</code><span>${esc(s.desc)}</span></div><div class="acts"><button class="star" data-star="${esc(it.repo)}" data-skill="${esc(s.path)}" aria-label="收藏这个 Skill"></button><button class="btn sm" data-copy="${esc(it.repo)}" data-skill="${esc(s.path)}"${noCopy(it)}>复制安装</button></div></div>`).join('')}</div>${page?.skillsTruncated ? '<p class="dw-note">仓库太大，Skill 列表可能不全。</p>' : ''}</div>` : '';
+  // decKey：详情栏只读块显示哪一条收藏的理由（收藏页从 Skill 卡打开时是那个 Skill），默认整个项目。
+  function drawer(it, { cur, w, home, page, decKey } = {}) {
+    const skills = it.skills.length ? `<div class="dw-sec"><h4>包含 Skill · ${it.skills.length}</h4><div class="dw-sk">${it.skills.map((s) => `<div id="skill-${esc(s.path)}"><div><code>${esc(s.name)}</code><span>${esc(s.desc)}</span></div><div class="acts"><button class="star" data-star="${esc(it.repo)}" data-skill="${esc(s.path)}" aria-label="收藏这个 Skill"></button><button class="btn sm" data-hopanel="${esc(it.repo)}" data-skill="${esc(s.path)}"${noCopy(it)}>交给 AI</button></div></div>`).join('')}</div>${page?.skillsTruncated ? '<p class="dw-note">仓库太大，Skill 列表可能不全。</p>' : ''}</div>` : '';
     const mt = it.maint;
     return `<div class="dw-body">
     <div class="dw-top">${cur ? `<span>No.${pad(cur.rank)}${cur.tie ? '（并列）' : ''} · ${esc(D.windows[cur.w].label)}</span><span class="mv ${cur.mv.c}">${esc(cur.mv.t)}</span>${st(cur)}` : '<span>项目页</span>'}${page?.top ? dataDay(page.top) : ''}${home ? '<button class="x" data-close aria-label="关闭">✕</button>' : ''}</div>
     <div class="dw-id"><img class="av" src="${esc(it.avatar)}" width="44" height="44" alt=""><div><h2>${esc(it.name)}</h2><a href="https://github.com/${esc(it.repo)}" target="_blank" rel="noopener">${esc(it.repo)} ↗</a></div></div>
     <div class="dw-tags">${say(it)}${def(it)}${lang(it)}</div>
     ${it.line ? `<p class="dw-line">${esc(it.line)}</p>` : it.what == null && gen(it) ? `<p class="dw-gen">${esc(gen(it))}</p>` : ''}
+    ${HO.block(decKey ?? HO.keyOf(it, ''))}
     <div class="dw-stats">${['d1', 'd7', 'd30'].map((x) => `<div class="${x === w ? 'cur' : ''}"><b>${it.gains[x] == null ? '暂缺' : `+${num(it.gains[x])}`}</b><span>${esc(D.windows[x].label)}</span></div>`).join('')}<div><b>${it.total == null ? '暂缺' : wan(it.total)}</b><span>总 Star</span></div></div>
     ${it.series ? `<div class="dw-chart"><div class="hd"><span>近 30 天每日新增</span><span>最高一天 +${num(it.peak)}</span></div>${bars(it.series, { w: 400, h: 76, gap: 2, tip: true, day: it.seriesDay })}<div class="ax"><span>${md(shift(it.seriesDay, -29))}</span><span>${md(shift(it.seriesDay, -15))}</span><span>${md(it.seriesDay)}</span></div></div>` : ''}
     ${ul('主要用途', it.use)}
@@ -114,7 +115,7 @@ window.BW = (() => {
     ${aiFoot(it.aiBy)}
     ${home ? '<div class="dw-hint"><span class="kbd">↑</span> <span class="kbd">↓</span> 切换项目 · <span class="kbd">Esc</span> 关闭</div>' : ''}
   </div>
-  <div class="dw-foot"><div class="segs">${D.ais.map(([id, n]) => `<button data-ai="${esc(id)}" aria-selected="${id === target}">${esc(n)}</button>`).join('')}</div><button class="btn pri" data-copy="${esc(it.repo)}"${noCopy(it)}>复制安装指令</button><button class="star" data-star="${esc(it.repo)}" aria-label="收藏"${it.id ? '' : ' disabled title="这个项目还没核出 GitHub 编号，暂时不能收藏"'}></button></div>`;
+  ${HO.foot(it, noCopy(it))}`;
   }
 
   // ── 提示气泡 ──
@@ -146,40 +147,12 @@ window.BW = (() => {
     toast(on ? `已收藏 ${name}` : `已取消收藏 ${name}`);
   }
 
-  // ── 安装指令：由服务端按项目资料拼出，复制进剪贴板。先把剪贴板占住再等指令回来，点击的那一刻就算数 ──
-  let target = D.ais[0][0];
-  async function copy(btn) {
-    if (btn.classList.contains('ok')) return;
-    const p = D.projects[btn.dataset.copy];
-    const q = new URLSearchParams({ project: p.id, ai: target, ...(btn.dataset.skill ? { skill: btn.dataset.skill } : {}) });
-    const text = fetch(`/api/install?${q}`).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
-    try {
-      if (window.ClipboardItem && navigator.clipboard.write) await navigator.clipboard.write([new ClipboardItem({ 'text/plain': text.then((t) => new Blob([t], { type: 'text/plain' })) })]);
-      else await navigator.clipboard.writeText(await text);
-    } catch { return toast('没能自动复制，请稍后再试'); }
-    const t = btn.textContent;
-    btn.classList.add('ok');
-    btn.textContent = '已复制 ✓';
-    setTimeout(() => { btn.classList.remove('ok'); btn.textContent = t; }, 1400);
-    toast(`已复制，粘贴给 ${AI[target]} 即可安装`);
-    const skill = btn.dataset.skill ?? '';
-    if (saved.has(skill ? `${p.repo}#${skill}` : p.repo)) handoff(p, skill, '安装');
-  }
-  // 复制过交接的已收藏项目记"最近交接"（#78，只表示复制过）；记上了就通知页面（收藏页的卡片据此更新），记不上不打扰。
-  async function handoff(p, skill, type) {
-    try {
-      const r = await fetch('/api/favorites', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ project_id: p.id, skill, action: 'handoff', type }) });
-      if (r.ok && (await r.json()).recorded) document.dispatchEvent(new CustomEvent('bw:handoff', { detail: { repo: p.repo, skill, type, at: new Date().toISOString() } }));
-    } catch { /* 记不上不影响复制 */ }
-  }
-
-  // 页面上的收藏、复制、选 AI：处理了就返回 true（首页不再把这次点击当成打开项目）
+  // 页面上的收藏星，以及决策与交接（ho.js，#79 起"复制安装指令"换成"交给 AI"）：处理了就返回 true（首页不再把这次点击当成打开项目）
   function act(ev) {
-    const t = ev.target.closest('[data-star],[data-copy],[data-ai]');
+    if (HO.act(ev)) return true;
+    const t = ev.target.closest('[data-star]');
     if (!t || t.disabled) return Boolean(t);
-    if (t.dataset.star) toggleFav(t);
-    else if (t.dataset.copy) copy(t);
-    else { target = t.dataset.ai; document.querySelectorAll('[data-ai]').forEach((x) => x.setAttribute('aria-selected', x.dataset.ai === target)); }
+    toggleFav(t);
     return true;
   }
   // 头像读不到时藏起来，留灰底

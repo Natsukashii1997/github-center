@@ -11,6 +11,7 @@ import { bucketOf, windowDays } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';
 import { rankHistory, markRows } from '../ranking/moves.js';
 import { readProfile, shownGenerated, skillPurpose, INSTALL_AIS, PROJECT_TYPES } from '../profiles/index.js';
+import { decisionsOf } from './favorites.js';
 
 const SERIES_DAYS = 30;
 const label = (w) => `近 ${WINDOWS[w].days} 天`;
@@ -181,6 +182,7 @@ export function homeData(dataDir, ctx) {
   return {
     account: { name: ctx.account.name },
     ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]),
+    decisions: decisionsOf(ctx.favorites, ctx.account.id),
     types: PROJECT_TYPES,
     windows,
     projects: Object.fromEntries([...seen].map(([name, list]) => [name, project(dataDir, list, ctx, find)])),
@@ -232,7 +234,7 @@ ${js.map((f) => `<script src="/assets/${f}"></script>`).join('\n')}
 
 // 首页涨星榜：报头、筛选条、前三卡、其余上榜的行，点项目从右侧滑出详情栏（assets/home.js 画）。
 // 和分类榜一样整页滚动、顶栏吸顶、底部留 30vh 空白（所有者 2026-11-03 改，原来是整页不滚、只有榜单盒子内部滚）。
-export const homePage = (data, ctx) => frame({ title: '涨星', active: '涨星', ctx, css: ['bw.css'], js: ['bw.js', 'home.js'], data,
+export const homePage = (data, ctx) => frame({ title: '涨星', active: '涨星', ctx, css: ['bw.css'], js: ['bw.js', 'ho.js', 'home.js'], data,
   bar: '<label class="search"><span>⌕</span><input data-q placeholder="搜项目名、标签、用途" aria-label="搜项目名、标签、用途"><span class="kbd">/</span></label>',
   body: `  <div class="wrap">
     <section class="hero-box" id="head"></section>

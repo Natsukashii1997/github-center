@@ -60,7 +60,7 @@ test('首页嵌入近 1 天榜单：名次、并列、新增、总 Star、统计
   // 品牌 Github·Tidings（2026-11-03 定稿）：报徽图标 + 衬线斜体字标；浏览器标签用同一个图标。
   assert.match(body, /<a class="brand" href="\/"><svg class="logo" width="24" height="24" aria-hidden="true" viewBox="0 0 24 24">[\s\S]*?<\/svg><span class="wm">Github<span class="d">·<\/span>Tidings<\/span><\/a>/);
   assert.match(body, /<title>涨星 · Github·Tidings<\/title>\n<link rel="icon" href="data:image\/svg\+xml,%3Csvg%20xmlns/);
-  assert.match(body, /<script src="\/assets\/sharks\.js"><\/script>\n<script src="\/assets\/shell\.js"><\/script>\n<script src="\/assets\/bw\.js"><\/script>\n<script src="\/assets\/home\.js"><\/script>/);
+  assert.match(body, /<script src="\/assets\/sharks\.js"><\/script>\n<script src="\/assets\/shell\.js"><\/script>\n<script src="\/assets\/bw\.js"><\/script>\n<script src="\/assets\/ho\.js"><\/script>\n<script src="\/assets\/home\.js"><\/script>/);
   const d1 = data.windows.d1;
   assert.deepEqual(d1.top, { tone: 'ok', text: '10 月 22 日数据 · 16:40 更新' });
   assert.deepEqual(d1.lede, { span: '统计日 10 月 22 日（UTC）', candidates: 23, checks: 23 + 21 });
@@ -198,7 +198,8 @@ test('嵌入的数据把 < 转义，项目文字里出现 </script> 也不会截
     generated: { materialHash: 'h', what: '会写 </script><b>的项目', problem: 'x', line: '一句话</script>', use: ['用途一', '用途二'], scene: ['场景一', '场景二'], tag: '语言运行时', type: '工具', conditions: [{ kind: '环境', text: '要 PHP', quote: 'PHP' }], skillPurposes: {} },
   });
   const { body, data } = await home(dir);
-  assert.equal((body.match(/<\/script>/g) || []).length, 5);
+  // 页面里的 </script> 只有真正的脚本标签：数据一段、外壳 sharks、shell，页面 bw、ho（#79）、home。
+  assert.equal((body.match(/<\/script>/g) || []).length, 6);
   const p = data.projects['php/php-src'];
   assert.equal(p.what, '会写 </script><b>的项目');
   assert.equal(p.installable, true);

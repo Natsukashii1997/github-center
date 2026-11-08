@@ -50,7 +50,7 @@
       <div class="g2-sp"><div><span>类型</span><b>${esc(p.type ?? '—')}</b></div><div><span>总 Star</span><b>${c.total == null ? '—' : wan(c.total)}</b></div><div><span>Skill</span><b>${p.skills.length || '—'}</b></div></div>
       <div class="act only-on">${vote(c)}${D.picks.canEdit ? '<button class="ic" data-swap title="换卡">⇄</button>' : ''}</div></article>`;
   }
-  const copyBtn = (c) => (c ? `<button class="lk" data-copy="${esc(c.repo)}"${noCopy(P(c.repo))}>复制安装指令</button>` : '');
+  const copyBtn = (c) => (c ? HO.quick(P(c.repo), { disabled: noCopy(P(c.repo)), cls: 'lk' }) : '');
   function drawPick() {
     const t = tag();
     if (!t) { $('sec-pick').innerHTML = '<div></div><div class="flow"><div class="empty"><b>还没有精选标签</b></div></div><div></div>'; return; }
@@ -81,7 +81,7 @@
     cf.i = i;
     document.querySelectorAll('.fw > article').forEach((el, j) => { const d = j - i; el.dataset.a = Math.abs(d); el.style.setProperty('--d', d); el.style.setProperty('--a', Math.abs(d)); });
     document.querySelectorAll('.dots i').forEach((el, j) => el.classList.toggle('on', j === i));
-    const old = document.querySelector('.hint [data-copy]');
+    const old = document.querySelector('.hint [data-ho]');
     if (old) old.outerHTML = copyBtn(t.cards[i]);
   }
   // 换类别：先把卡收在中间、压到后面，下一帧再铺开

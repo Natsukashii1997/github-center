@@ -17,7 +17,7 @@
   };
   const desc = (it) => (it.what != null ? `${it.what}${it.problem ?? ''}` : gen(it));
   const av = (it, n) => `<img class="av" src="${esc(it.avatar)}" width="${n}" height="${n}" alt="">`;
-  const copyBtn = (it) => `<button class="btn sm" data-copy="${esc(it.repo)}"${noCopy(it)}>复制安装指令</button>`;
+  const copyBtn = (it) => HO.quick(it, { disabled: noCopy(it), cls: 'btn sm' });
   const skills = (it, n = 3) => (it.skills.length ? `<span class="sk">${it.skills.slice(0, n).map((x) => `<code>${esc(x.name)}</code>`).join('')}${it.skills.length > n ? `<em>等 ${it.skills.length} 个 Skill</em>` : ''}</span>` : '');
 
   // 报头：数据新鲜度、第一名、新面孔、飙升最多；口径放在标题的悬停说明里。
