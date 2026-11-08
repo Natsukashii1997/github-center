@@ -52,11 +52,11 @@ test('导出成一个文件：外层是发现页、另三页页内切，样式�
   assert.match(html, /window\.__tidingsGo = /);
   const pages = { index: html, ...shellData(html, 'PAGES') };
   assert.deepEqual(Object.keys(pages), ['index', 'stars', 'favorites', 'settings']);
-  assert.ok(html.indexOf('window.__AV = {') < html.indexOf('window.__AV ??= window.parent.__AV'));   // 头像先于垫片
+  assert.ok(html.indexOf('window.__AV = {') < html.indexOf("const outer = '__INSTALL_GZ' in window"));   // 头像先于垫片
   for (const [kind, page] of Object.entries(pages)) {
     assert.doesNotMatch(page, /(?:href|src)="\/assets\//, kind);
     assert.doesNotMatch(page, /<script src=/, kind);                     // 全内联，不靠附带文件
-    assert.match(page, /window\.__AV \?\?= window\.parent\.__AV/, kind);
+    assert.match(page, /const outer = '__INSTALL_GZ' in window/, kind);     // 每页都有垫片
     assert.match(page, /只读快照 · 10 月 24 日/, kind);
     assert.match(page, /<a href="\/stars"[^>]*>涨星<\/a>/, kind);        // 站内链接留着，由垫片交给外层切页
   }
@@ -116,6 +116,27 @@ test('垫片：外层自己就是发现页，被套在跨域 iframe 里（Artifa
   const shellWin = { __INSTALL_GZ: 'QUJD', __tidingsGo: (k) => went.push(['iframe→外层', k]) };
   runShim({ parent: shellWin });
   assert.deepEqual(went, [['外层', 'stars'], ['iframe→外层', 'stars']]);
+});
+
+test('切页：用到才建 iframe，建过的留着只切显隐；打开时认 #stars 直达；不认识的回发现页', () => {
+  const html = shell({ index: '<html><head><title>发现</title></head><body></body></html>', stars: 'S', favorites: 'F', settings: 'T' }, {}, 'QUJD');
+  const code = [...html.matchAll(/<script>\n([\s\S]*?)<\/script>/g)].at(-1)[1];
+  const made = [];
+  const win = { location: { hash: '#stars' }, document: { title: '', createElement: () => ({}), body: { append: (f) => made.push(f) } } };
+  win.window = win;
+  vm.runInNewContext(code, win);
+  const shown = () => made.map((f) => `${f.srcdoc}:${f.hidden ? '藏' : '显'}`).join(' ');
+  assert.equal(shown(), 'S:显');
+  assert.equal(win.document.title, '涨星 · Github·Tidings');
+  win.__tidingsGo('settings');
+  assert.equal(shown(), 'S:藏 T:显');
+  win.__tidingsGo('index');
+  assert.equal(shown(), 'S:藏 T:藏');
+  assert.equal(win.document.title, 'Github·Tidings');
+  win.__tidingsGo('stars');
+  assert.equal(shown(), 'S:显 T:藏');                                     // 不重建，原来的滚动和展开都在
+  win.__tidingsGo('nope');
+  assert.equal(shown(), 'S:藏 T:藏');
 });
 
 test('dayLabel 按北京时间；外层壳的数据里 </script> 和行分隔符都转义', () => {

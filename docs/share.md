@@ -22,6 +22,8 @@ npm run share
 
 - 访客视角：不带账号名、收藏、投票和换卡；收藏页为空，设置页只读。页头写「只读快照 · M 月 D 日」（北京时间）。
 - 能用：切换近 1 / 7 / 30 天、点项目看详情、搜索、复制安装指令（整个项目和单个 Skill）。
-- 文件结构：外层就是发现页，涨星、收藏、设置各放进同源的 srcdoc iframe 盖在上面，用到才建、页内切换（发现页不套 iframe：Artifact 里再多套一层时进页第一下点击会被吞掉）；切页不改地址（Artifact 查看器看到地址变了会重载整页）；链接后面加 `#stars`、`#favorites`、`#prefs` 能直达那一页（claude.ai 保留 `#settings`）。
+- 文件结构：外层就是发现页，涨星、收藏、设置各放进同源的 srcdoc iframe 盖在上面，用到才建、页内切换；切页不改地址（Artifact 查看器看到地址变了会重载整页）。直接打开文件或本地网站时，地址后面加 `#stars`、`#favorites`、`#prefs` 能直达那一页（claude.ai 保留 `#settings`）；Artifact 链接上加了没用，查看器不把 hash 带进页面。
 - Artifact 只放行同源和 `data:`：样式脚本全内联，头像（`data:` 图）和安装指令（gzip 后 base64）放在外层，四页共用。每页里的垫片 `src/share/shim.js` 负责换头像、把站内链接交给外层切页、从外层取安装指令。
+- 垫片找外层：带着 `__INSTALL_GZ` 的那页就是外层自己，iframe 里的页才找 `window.parent`。不能一律找 parent：Artifact 查看器把整个页面放进 claude.ai 的跨域 iframe，外层页的 parent 是 claude.ai，读它的属性会抛错（2026-11-08 线上点不动就是这个）。
+- 在 Claude 内置浏览器里验线上页时，窗格隐藏的话进页后第一下点击可能不生效：点击落在 claude.ai 页面的 iframe 元素上，没进到分享页（查看器给内容先设近乎透明再淡入，窗格隐藏时不出新帧，浏览器分发输入时跳过了它），页面代码接不到；第二下起正常。验收「第一下就切」要在可见的浏览器里看。
 - 改了页面结构（页头 `<div class="r">`、`.me`、嵌入数据 `gc-data`、`/assets/` 引用方式）时，跑 `node --test test/share.test.js` 确认导出还对。

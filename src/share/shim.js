@@ -2,10 +2,10 @@
 // 头像换成外层的内嵌图，站内链接交给外层切页，安装指令从外层的数据里取，收藏、投票、换卡这类要账号的操作提示不可用。
 // Artifact 只放行同源和 data:，GitHub 头像地址一律不能真去请求。
 (() => {
-  const AV = window.__AV || {};
-  // 外层：带着安装指令数据的那页（发现页自己，见 index.js 的 shell）；iframe 里的页才找 parent。
+  // 外层：带着头像和安装指令数据的那页（发现页自己，见 index.js 的 shell）；iframe 里的页才找 parent。
   // 不能一律用 parent：Artifact 里外层页本身也套在 claude.ai 的 iframe 里，parent 跨域，读属性就抛错（2026-11-08 线上实测点不动）
-  const top = '__INSTALL_GZ' in window ? window : window.parent;
+  const outer = '__INSTALL_GZ' in window ? window : window.parent;
+  const AV = outer.__AV || {};
   const avKey = (src) => {
     let m = /avatars\.githubusercontent\.com\/u\/(\d+)/.exec(src);
     if (m) return `u/${m[1]}`;
@@ -54,7 +54,7 @@
     if (!a) return;
     e.preventDefault();
     const to = map(a.getAttribute('href'));
-    if (to && top.__tidingsGo) top.__tidingsGo(to);
+    if (to && outer.__tidingsGo) outer.__tidingsGo(to);
     else say('这是只读快照，这一页打不开');
   }, true);
   // 页面想把选中的窗口、项目写进地址栏：srcdoc 页没有可改的地址，只记状态、不改地址
@@ -67,11 +67,11 @@
   const realFetch = window.fetch.bind(window);
   let install;
   // 安装指令在外层，gzip 后 base64（9MB → 约 440KB），第一次用时解开
-  // 解开的结果存在外层，四页共用一份
-  const loadInstall = () => (install ??= (top.__installP ??= (async () => {
-    const bin = Uint8Array.from(atob(top.__INSTALL_GZ), (c) => c.charCodeAt(0));
+  // 解开的结果存在外层，四页共用一份；解不开这次当没有，外层和本页的缓存都清掉，下次再试
+  const loadInstall = () => (install ??= (outer.__installP ??= (async () => {
+    const bin = Uint8Array.from(atob(outer.__INSTALL_GZ), (c) => c.charCodeAt(0));
     return new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).json();
-  })().catch(() => (top.__installP = undefined, {}))));
+  })()).catch(() => (outer.__installP = install = undefined, {})));
   // 页面空下来就先取好，点「复制」时不用等下载
   addEventListener('load', () => (window.requestIdleCallback ?? setTimeout)(loadInstall));
   window.fetch = async (input, init) => {

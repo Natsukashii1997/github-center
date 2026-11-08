@@ -67,7 +67,7 @@ export function sharePage(html, kind, data, label) {
   html = html.replace(/<link rel="stylesheet" href="\/assets\/([\w.-]+\.css)">/g, (_, f) => `<style>\n${readFileSync(new URL(f, ASSETS), 'utf8')}\n</style>`);
   html = html.replace(/<script src="\/assets\/([\w.-]+\.js)"><\/script>/g, (_, f) => `<script>\n${readFileSync(new URL(f, ASSETS), 'utf8').replace(/<\/script/gi, '<\\/script')}\n</script>`);
   if (/(?:href|src)="\/assets\//.test(html)) throw new Error(`${kind} 页里还有没内联的 /assets/ 文件`);
-  const head = `<style>\n${CSS}\n</style>\n<script>window.__AV ??= window.parent.__AV || {};</script>\n<script>\n${readFileSync(SHIM, 'utf8')}\n</script>\n`;
+  const head = `<style>\n${CSS}\n</style>\n<script>\n${readFileSync(SHIM, 'utf8')}\n</script>\n`;
   if (!html.includes('</title>')) throw new Error(`${kind} 页没有 <title>`);
   html = html.replace('</title>', `</title>\n${head}`);
   html = html.replace(/<span class="me"[^>]*>.*?<\/span>/g, '');
@@ -77,10 +77,10 @@ export function sharePage(html, kind, data, label) {
 }
 
 // 外层就是发现页本身，另外三页各放进同源的 srcdoc iframe 盖在上面，用到才建、页内切换。头像、安装指令放在外层，四页共用。
-// 发现页不套 iframe：Artifact 里内容再多套一层 iframe 时，进页后的第一下点击会被吞掉（2026-11-08 线上实测）。
-// 打开时认 #stars、#favorites、#prefs 直达某页（claude.ai 保留 #settings）；切页不改地址：Artifact 查看器看到地址变了会重载整页。
+// 切页不改地址：Artifact 查看器看到地址变了会重载整页（2026-11-08 线上实测）。
+// 打开时认 #stars、#favorites、#prefs 直达某页（claude.ai 保留 #settings）；只对直接打开的文件和本地网站有效，Artifact 查看器不把 hash 带进页面。
 // Artifact 发布时外面还会套一层 doctype/html/head/body，浏览器会把重复的外层标签并掉，同一个文件两处都能用。
-export const HASHES = { stars: 'stars', favorites: 'favorites', settings: 'prefs' };
+const HASHES = { stars: 'stars', favorites: 'favorites', settings: 'prefs' };
 const TITLES = { index: '发现', stars: '涨星', favorites: '收藏', settings: '设置' };
 export function shell(pages, avatars, install) {
   const { index, ...rest } = pages;

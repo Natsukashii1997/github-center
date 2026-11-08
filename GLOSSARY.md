@@ -91,7 +91,7 @@ _Avoid_: 简报、摘要、AI 日报
 _Avoid_: 周刊、周榜
 
 **分享页**:
-本机网站发现、涨星、收藏、设置四页的只读副本，放在 Claude Artifact 上给别人打开（`npm run share` 导出，见 docs/share.md）；访客视角，不带账号名、收藏和投票，不会自动更新。页头标签写「只读快照 · M 月 D 日」。和榜单快照（`data/snapshots/`）不是一回事。
+本机网站发现、涨星、收藏、设置四页的只读副本，是一个自包含文件 `tidings.html`，放在 Claude Artifact 上给别人打开，也能直接把文件发给人用 Chrome 打开（`npm run share` 导出，见 docs/share.md）；访客视角，不带账号名、收藏和投票，不会自动更新。页头标签写「只读快照 · M 月 D 日」。和榜单快照（`data/snapshots/`）不是一回事。
 _Avoid_: 快照（单说时指榜单快照）、导出版
 
 **每日提醒**:
