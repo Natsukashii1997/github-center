@@ -43,8 +43,8 @@ ls -1 /Users/nat/Documents/ChatGPT/个人/work/github-center/data/weekly/*.feish
 
 `<统计日>.card.json` 原样作为 `msg_type: interactive` 的消息内容发出，不要改写。约定：
 
-- 横幅图不在文件里。发送方用自己的飞书身份上传一张固定横幅（`image_type: message`），把下面这个元素插在 `body.elements` 最前面：`{"tag": "img", "img_key": "<上传得到的 key>", "alt": {"tag": "plain_text", "content": "本周 GitHub 涨星榜"}, "scale_type": "crop_center", "preview": false, "corner_radius": "8px"}`。没有横幅就不插，卡片照样能发。
-- 前 3 名是灰底整行，4 名以后三列；整行点开 GitHub。底部三个按钮：GitHub 周趋势、完整涨星榜（电脑）、我的收藏（电脑）。
+- 横幅图不在文件里。发送方用自己的飞书身份上传一张固定横幅（`image_type: message`），把下面这个元素插在 `body.elements` 最前面：`{"tag": "img", "img_key": "<上传得到的 key>", "alt": {"tag": "plain_text", "content": "本周 GitHub 涨星榜"}, "scale_type": "fit_horizontal", "preview": false, "corner_radius": "8px"}`。横幅本身就是标题（#86 起卡片没有标题栏），按原比例完整显示；没有横幅就不插，卡片第一行的日期区间照样说明这是哪一期。
+- 每行三列：名次（前 3 名奖牌、灰底）｜项目名（大一号）、仓库主人、说明标签（蓝）、类型标签（颜色对应涨星榜页面）、新项目，下一行一句话｜近 7 天涨星和总 Star（每行都有）。整行点开 GitHub。底部三个等宽按钮整体居中，窄屏一行一个：GitHub 周趋势（蓝底）、完整涨星榜（电脑，炫彩）、我的收藏（电脑，白底）。标签取补资料写的 `tag`、`type`，存在周报 json 每条里（#86 前的周报没有）。
 - 2026-11-05 实发核对过：飞书卡片 JSON 2.0 的 `column_set` 不认 `padding` 和 `behaviors`，整行跳转要用 `action.multi_url`。
 - 仓库名、一句话、提示里会被当成格式的字符（`* _ ~ [ ] < > & 反引号`）已按飞书官方「富文本（Markdown）组件」的转义写法换成 `&#实体编号;`，发送方不用再处理。
 - 和 Markdown 一样只写一次、已有不重写。最新一期有周报但缺卡片文件（比如中途断掉）时，跑一次 `npm run weekly` 会照周报补上；更早的统计日不补。
