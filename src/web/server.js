@@ -7,7 +7,7 @@
 import { createServer } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { openAccounts, SESSION_DAYS } from './accounts.js';
-import { openFavorites } from './favorites.js';
+import { openFavorites, decisionOf, STATUSES, HANDOFF_TYPES, TEXT_MAX } from './favorites.js';
 import { WINDOWS } from '../ranking/index.js';
 import { readProfile, findOnBoards, installInstruction, INSTALL_AIS } from '../profiles/index.js';
 import { homeData, homePage, categoryListed } from './home.js';
@@ -43,7 +43,9 @@ function sameOrigin(req, lan, publicOrigin) {
 }
 
 // 收藏或取消收藏（#8）：只动自己的收藏。收藏 Skill 时它必须在存下的项目资料里；收藏整个项目时有资料或正在榜单上
-// （含分类榜，#10）就行；取消不用查，资料没了也能取消。成功返回 null，否则返回拒绝的 { status, error }。
+// （含分类榜，#10）就行；取消不用查，资料没了也能取消。
+// 改决策状态、理由、下一步（update）和记最近交接（handoff）见 #78，只能动自己已收藏的那一条。
+// 成功返回 { ok: 接口要回的 JSON }，否则返回拒绝的 { status, error }。
 const onCategoryBoard = (dataDir, id) => {
   const entry = [...categoryListed(dataDir).values()].flat().find((b) => b.entry.projectId === id)?.entry;
   return entry ? { id, name: entry.fullName } : undefined;
@@ -51,18 +53,33 @@ const onCategoryBoard = (dataDir, id) => {
 function changeFavorite(dataDir, favorites, picks, account, form) {
   const projectId = Number(form.get('project_id'));
   const skillPath = form.get('skill') ?? '';
-  if (form.get('action') === 'remove') {
+  const action = form.get('action');
+  if (action === 'remove') {
     favorites.remove(account.id, projectId, skillPath);
-    return null;
+    return { ok: { saved: false } };
   }
-  if (form.get('action') !== 'add') return { status: 400, error: '不认识的操作' };
+  if (action === 'update') {
+    const field = (name) => (form.has(name) ? form.get(name).trim() : undefined);
+    const change = { status: field('status'), reason: field('reason'), next: field('next_step') };
+    if (change.status !== undefined && !STATUSES.includes(change.status)) return { status: 400, error: '不认识的决策状态' };
+    if ((change.reason ?? '').length > TEXT_MAX) return { status: 400, error: `理由最多 ${TEXT_MAX} 字` };
+    if ((change.next ?? '').length > TEXT_MAX) return { status: 400, error: `下一步最多 ${TEXT_MAX} 字` };
+    const saved = favorites.update(account.id, projectId, skillPath, change);
+    return saved ? { ok: decisionOf(saved) } : { status: 404, error: '还没收藏这一条' };
+  }
+  if (action === 'handoff') {
+    const type = form.get('type');
+    if (!HANDOFF_TYPES.includes(type)) return { status: 400, error: '不认识的交接类型' };
+    return { ok: { recorded: favorites.handoff(account.id, projectId, skillPath, type) } };
+  }
+  if (action !== 'add') return { status: 400, error: '不认识的操作' };
   const known = Number.isSafeInteger(projectId) && projectId > 0;
   const profile = known ? readProfile(dataDir, projectId) : null;
   const listed = known && !profile && !skillPath ? findOnBoards(dataDir, { id: projectId }) ?? onCategoryBoard(dataDir, projectId) ?? onCategoriesPage(dataDir, picks, projectId) : null;
   const skill = skillPath && profile?.material?.skills.find((s) => s.path === skillPath);
   if (skillPath ? !skill : !profile && !listed) return { status: 404, error: '没有这个项目或 Skill 的资料' };
   favorites.add(account.id, { projectId, fullName: profile?.fullName ?? listed.name, skillPath, skillName: skill?.name ?? '' });
-  return null;
+  return { ok: { saved: true } };
 }
 
 // 样式、图标和脚本：白雾外壳（shell、背景鲨鱼 sharks.js，MIT，见 sharks-LICENSE.txt）、首页、项目页、我的收藏和分类榜（bw，收藏页另有 favorites，分类榜另有 categories），登录页沿用 #14 的那套。
@@ -145,9 +162,9 @@ export function startServer({ dataDir, port = 5310, host = '127.0.0.1', guest, l
       if (!sameOrigin(req, lan, publicOrigin)) return refuse({ status: 403, error: '只接受本站提交的表单' });
       const form = await readForm(req).catch(() => null);
       if (!form) return api ? json(413, { error: '表单太大' }, { connection: 'close' }) : tooBig();
-      const refused = changeFavorite(dataDir, favorites, picks, account, form);
-      if (refused) return refuse(refused);
-      return api ? json(200, { saved: form.get('action') === 'add' }) : send(303, { location: safeNext(form.get('next') ?? '/favorites') });
+      const done = changeFavorite(dataDir, favorites, picks, account, form);
+      if (!done.ok) return refuse(done);
+      return api ? json(200, done.ok) : send(303, { location: safeNext(form.get('next') ?? '/favorites') });
     }
     // 精选榜（#27）：投票、换卡、恢复、换卡候选、联网查仓库、改标签清单。只收 POST、只接受本站提交；谁能改由 boards/picks.js 判断，拒绝时回它给的状态码和原因。
     const pickOp = url.pathname.match(/^\/api\/picks\/([a-z]+)$/)?.[1];
