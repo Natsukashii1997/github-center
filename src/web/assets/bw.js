@@ -1,5 +1,5 @@
 // 涨星榜首页和项目页共用（2026-11-03 白雾定稿，design/candidates/redesign/r2.js、c.js 落地）：数字格式、三种标签、柱图、右侧详情栏内容，
-// 收藏（POST /api/favorites，写成功才改按钮）和复制安装指令（GET /api/install）。数据是服务端嵌进页面的真实快照与项目资料（src/web/home.js、pages.js）。
+// 收藏（POST /api/favorites，写成功才改按钮）和复制安装指令（GET /api/install；已收藏的顺带记最近交接，#78）。数据是服务端嵌进页面的真实快照与项目资料（src/web/home.js、pages.js）。
 // 一句话、主要用途、使用场景、说明标签、定义标签由补资料生成（#23）；还没按新版重新生成的项目没有这些，对应位置留空，不写替代文字。
 window.BW = (() => {
   const D = JSON.parse(document.getElementById('gc-data').textContent);
@@ -161,6 +161,15 @@ window.BW = (() => {
     btn.textContent = '已复制 ✓';
     setTimeout(() => { btn.classList.remove('ok'); btn.textContent = t; }, 1400);
     toast(`已复制，粘贴给 ${AI[target]} 即可安装`);
+    const skill = btn.dataset.skill ?? '';
+    if (saved.has(skill ? `${p.repo}#${skill}` : p.repo)) handoff(p, skill, '安装');
+  }
+  // 复制过交接的已收藏项目记"最近交接"（#78，只表示复制过）；记上了就通知页面（收藏页的卡片据此更新），记不上不打扰。
+  async function handoff(p, skill, type) {
+    try {
+      const r = await fetch('/api/favorites', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ project_id: p.id, skill, action: 'handoff', type }) });
+      if (r.ok && (await r.json()).recorded) document.dispatchEvent(new CustomEvent('bw:handoff', { detail: { repo: p.repo, skill, type, at: new Date().toISOString() } }));
+    } catch { /* 记不上不影响复制 */ }
   }
 
   // 页面上的收藏、复制、选 AI：处理了就返回 true（首页不再把这次点击当成打开项目）
