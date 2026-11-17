@@ -66,6 +66,7 @@ ssh -i ~/.ssh/github_center_aliyun root@47.100.185.175 'cd /srv/tidings/data && 
 
 ## 注意
 
-- 服务器在中国大陆，域名要做 ICP 备案；没备案时阿里云随时可能拦掉域名的访问。
+- 服务器在中国大陆，域名要做 ICP 备案；没备案时阿里云随时可能拦掉域名的访问。（2026-11-17 已被拦：http 返回「Non-compliance ICP Filing」，https 被重置。）
+- SSH 只能用密钥登录（2026-11-17 起，`/etc/ssh/sshd_config.d/00-hardening.conf`）；换电脑先把新公钥加进 `/root/.ssh/authorized_keys`，进不去时用阿里云控制台的 VNC。
 - 在服务器上读写库一律切到 `tidings`（`runuser -u tidings`），不要用 root 直接开库：root 建出的 `-wal`、`-shm` 文件网站写不进去。
 - Mac 上原来的本机网站（免登录）还能开，但设置会被每日更新拉回的服务器设置覆盖；以服务器为准。

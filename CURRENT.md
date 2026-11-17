@@ -4,6 +4,17 @@
 
 更新日期：2026-11-08（B0-04 检索测试集合并；#83 方案甲合并；批次 A 合并、B0-02 定案）；下面这句是 10-24 的旧状态：2026-10-24（上午，#11、#10 已关闭）。最近运行只读回读：13:58（北京时间，Claude接手核验，与13:44一致）；严格实验状态 10-24 10:22 只读回读：runner.py 随 09:29 电脑重启停止，status.json 停在 09:29（cold 仍在 collect_initial），尚无日榜结果。
 
+## 2026-11-17 · 服务器关闭 SSH 密码登录；域名因未备案被阿里云拦截
+
+- 起因：按「网站上线全景」32 项清单核对本项目（另一会话，常浩点名 github-center）。只读发现两件要紧事：
+  - **域名打不开**：http 返回阿里云拦截页（403，`Server: Beaver`，「Non-compliance ICP Filing」），https 连接被重置；直连 IP 带 Host 也一样。服务器上 `tidings`、`caddy` 都 active。`bin/health.js` 经 SSH 看进程，不探测公网，所以发现不了。
+  - SSH 允许 root 密码登录（`passwordauthentication yes`、`permitrootlogin yes`），`lastb` 有 261 条失败记录；ufw 未开，阿里云安全组没看。
+- 已做（常浩 11-17 说「关掉密码登录」）：新增 `/etc/ssh/sshd_config.d/00-hardening.conf`（`PasswordAuthentication no`、`KbdInteractiveAuthentication no`、`PermitRootLogin prohibit-password`），`sshd -t` 通过后 `systemctl reload ssh`。
+- 验证：新连接用 `~/.ssh/github_center_aliyun` 能登录；只用密码被拒（`Permission denied (publickey)`，服务器只宣告 publickey）；`node bin/health.js` 经同一条 SSH 正常跑完。
+- 备份：服务器 `/root/backup/2026-11-17-sshd/`；本机 `data/evidence/2026-11-17-ssh-关闭密码登录/`（改前配置、改前改后 `sshd -T`）。撤销：删掉 `00-hardening.conf` 再 `systemctl reload ssh`。
+- 影响：`authorized_keys` 只有 1 把钥匙；以后换电脑要先把新公钥加进去，或用阿里云控制台的 VNC 登录。
+- 没做：ICP 备案（常浩在阿里云控制台办）、公安备案（ICP 下来后 30 日内）；健康检查加公网探测、安全响应头、登录限流这几处代码修复未开 issue，待常浩定。
+
 ## 2026-11-08 · 周报飞书卡片改版（#86，PR #87 `7855662`；横幅在 digital-twin #106 / PR #107 `659fafd`）
 
 - 卡片去掉橙色标题栏，猛鬼兽插的新横幅就是标题（深色横条 1901×487，副标题「近 7 天新增 Star · TOP10」）。每行：名次｜项目名大一号 + 主人 + 说明标签（蓝）+ 类型标签（颜色对应涨星榜页面）+ 新项目｜涨星和总 Star（每行都有）。底部三个等宽按钮整体居中（蓝底、炫彩、白底），最下面只留一行「来自 Github·Tidings · 数据截至 X 月 X 日」。行距压紧，飞书电脑端实测整张卡约为改前的 70%。
