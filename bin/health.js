@@ -6,6 +6,7 @@ import { readRemote, serverStatus, listBackups } from '../src/remote/index.js';
 import { healthProblems } from '../src/remote/health.js';
 import { boardProjects, readProfile, findProfile, currentGenerated } from '../src/profiles/store.js';
 import { aiProblems } from '../src/ai-access.js';
+import { lastEndedDay, missingDays } from '../src/ranking/index.js';
 
 const remote = readRemote('data');
 let server = null;
@@ -22,5 +23,7 @@ const unfinished = boardProjects('data')
   .filter((p) => !currentGenerated(p.id ? readProfile('data', p.id) : findProfile('data', p.name)))
   .map((p) => p.name);
 const settings = readSettings('data');
-const problems = healthProblems({ run: lastRun('data'), settings, ai: aiProblems('data', settings), remote: Boolean(remote), server, backups: listBackups('data'), unfinished });
+// 涨星榜前 5 个统计日里缺的期次（#103）：回补失败不算出榜失败，靠这里报出来。
+const gaps = missingDays('data', lastEndedDay(new Date()));
+const problems = healthProblems({ run: lastRun('data'), settings, ai: aiProblems('data', settings), remote: Boolean(remote), server, backups: listBackups('data'), unfinished, gaps });
 if (problems.length) console.log(`🌟 Github·Tidings 自检\n${problems.map((p) => `- ${p}`).join('\n')}`);

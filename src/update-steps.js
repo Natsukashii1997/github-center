@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { readJson, writeAtomic } from './ranking/store.js';
 
 // 每日更新的步骤（bin/update.js 按顺序跑）：先出涨星榜和全站 Star 前 100、热点榜，精选榜的候选池才齐；补资料、归类放在后面，当天新上榜的项目就能当天补上。
+// 出榜出完最近一期，还会把前 5 个统计日里涨星榜缺的期次补出来（#103，ranking/backfill.js）；回补失败不算这一步失败。
 // 最后一步把数据推到服务器、把服务器的库备份回来（#46、#48，没有 data/remote.json 时什么都不做）。
 // 设置页（../settings）关掉的数据源：一步只靠它的整步跳过（skills.sh → 历史榜；HN、V2EX 都关 → 热点榜），日志写明原因；
 // 只关掉一部分来源的步骤照跑，由那一步自己读设置跳过那个来源。
@@ -73,8 +74,9 @@ export function retryOf(settings, state, now) {
   return { n, failed: state.failed, steps };
 }
 
-// 日志只读最后 64KB：够找到最近一次每日更新的开始、各步退出码和结束行。
-function logTail(file, bytes = 65_536) {
+// 日志只读最后 256KB：够找到最近一次每日更新的开始、各步退出码和结束行。平时一次更新约 14KB；
+// 回补（#103）最多再打 15 个窗口，每个 2–3KB，连缺 5 天时一次约 60KB，原来的 64KB 没有余量。
+function logTail(file, bytes = 262_144) {
   let fd;
   try {
     fd = openSync(file, 'r');
