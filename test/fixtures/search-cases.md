@@ -8,13 +8,15 @@
 
 - 不能为了让检索通过去改预期。要改问题、候选或规则，先经所有者确认，再改 `version`、`frozenAt`、`confirmedBy`。
 - 本机数据更新后，候选可能改名、掉出收录范围或换级别。`test/search-cases.test.js` 能读到本机 `data/` 时会逐条核对，核对不过就找所有者重新确认那一条，不要直接删。
+  - 项目类引用按 `projectId` 核对，仓库改名也认得。Skill 的两类引用（`skill`、`skills.sh`）按名字核对，来源仓库一改名就会报核对不过，其实 Skill 还在；报错里写着「同名 Skill 现在在 … 下，可能是仓库改名」的先查这个。确认是同一个 Skill 后，按新名字更新引用，照上一条改 `version`、`frozenAt`、`confirmedBy`。
+  - 这项核对只在有本机数据的地方跑，worktree 和 CI 里会跳过：主目录的全量测试红了，别处看不出来（S11 在 2026-11-12 至 11-20 就这样红了 8 天，#101）。
 
 ## 顶层字段
 
 | 字段 | 含义 |
 |---|---|
 | `version` | 测试集版本，改动一次加一 |
-| `frozenAt` / `confirmedBy` | 冻结日期、谁在什么时候怎么确认的 |
+| `frozenAt` / `confirmedBy` | 这一版的冻结日期、谁在什么时候怎么确认的；`confirmedBy` 里保留历次确认（首次冻结是 2026-11-08） |
 | `dataAsOf` | 预期结果核对时用的本机数据日期 |
 | `corpusAtFreeze` | 冻结时的检索范围规模：已分类项目数（`categorizedProjects`，含资料级和描述级）、资料级项目数、Skill 数（资料级 + 名称级，未按 PRD 4.3 合并去重） |
 | `rules` | 判定规则，见下一节 |
