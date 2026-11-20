@@ -8,6 +8,13 @@
 
 不提交凭据、真实运行数据库、原始响应、日志、进程锁或个人账号配置。不启用云端采集、付费资源或公开发布，除非用户另行明确授权。只提交当前任务文件，保留无关改动。
 
+## 运行
+
+```sh
+npm test                                  # 全量测试（CI 也跑这一条）
+git config core.hooksPath scripts/hooks   # 装提交、推送前的必经检查（每个克隆、每台电脑各一次；不用 --no-verify 绕过）
+```
+
 ## AI 接入
 
 按全局规则 P-13（#69）。和设置页「AI 接入」四张卡（`src/web/assets/settings.js`）、自检命令 `npm run ai` 同一份数据：`src/ai-access.js`。改了 AI 功能，这一节、`src/ai-access.js` 和设置页一起改。
