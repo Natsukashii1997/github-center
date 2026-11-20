@@ -73,18 +73,44 @@ function corpus() {
   }
   const snaps = join(dataDir, 'snapshots', 'skills');
   const latest = existsSync(snaps) ? readdirSync(snaps).filter((f) => f.endsWith('.json')).sort().at(-1) : null;
-  for (const e of latest ? JSON.parse(readFileSync(join(snaps, latest), 'utf8')).entries : []) skills.add(`skills.sh:${e.source}/${e.skillId}`);
-  return { projects, skills };
+  const sourcesOf = new Map();
+  for (const e of latest ? JSON.parse(readFileSync(join(snaps, latest), 'utf8')).entries : []) {
+    skills.add(`skills.sh:${e.source}/${e.skillId}`);
+    sourcesOf.set(e.skillId, [...(sourcesOf.get(e.skillId) ?? []), e.source]);
+  }
+  return { projects, skills, sourcesOf };
 }
 
-test('本机数据：每个引用都还在收录范围里（项目按 id 认，改名也算）', { skip: hasData ? false : `没有本机数据（${dataDir}/categories.json），跳过` }, () => {
-  const { projects, skills } = corpus();
+// 核对不过的引用，每条一句。项目按 id 认，仓库改名也认得；Skill 的两类引用按名字认，来源仓库一改名就对不上
+// （S11：2026-11-12 kepano/obsidian-skills 转到 obsidianmd/obsidian-skills，Skill 一直在榜，#101）。
+// skills.sh 的引用对不上、同一个 skillId 又挂在别的来源下时，把那些来源写进提示，免得再查一遍是改名还是真掉出了排行。
+function missingRefs(list, { projects, skills, sourcesOf = new Map() }) {
   const missing = [];
-  for (const c of cases) {
+  for (const c of list) {
     for (const r of refs(c)) {
-      const ok = r.kind === 'project' ? projects.has(r.projectId) : skills.has(r.ref);
-      if (!ok) missing.push(`${c.id} ${r.ref}`);
+      if (r.kind === 'project' ? projects.has(r.projectId) : skills.has(r.ref)) continue;
+      const elsewhere = r.kind === 'skills.sh' ? sourcesOf.get(r.ref.slice(r.ref.lastIndexOf('/') + 1)) : null;
+      missing.push(`${c.id} ${r.ref}${elsewhere ? `（同名 Skill 现在在 ${elsewhere.join('、')} 下，可能是仓库改名）` : ''}`);
     }
   }
-  assert.deepEqual(missing, [], '这些引用已不在本机收录范围里，找所有者重新确认这几条');
+  return missing;
+}
+
+test('核对：项目按 id 认；Skill 引用对不上时照实列出，同名 Skill 挂在别的来源下就提示可能是仓库改名', () => {
+  const list = [
+    { id: 'S01', candidates: [{ kind: 'project', ref: 'old/name', projectId: 7 }, { kind: 'skills.sh', ref: 'skills.sh:old/repo/notes' }], mustNotAppear: [] },
+    { id: 'N01', candidates: [], mustNotAppear: [{ kind: 'skills.sh', ref: 'skills.sh:a/b/gone' }, { kind: 'skill', ref: 'a/b#skills/x' }, { kind: 'project', ref: 'a/missing', projectId: 8 }] },
+    { id: 'S02', candidates: [{ kind: 'skills.sh', ref: 'skills.sh:a/b/kept' }, { kind: 'skill', ref: 'a/b#skills/kept' }], mustNotAppear: [] },
+  ];
+  const have = { projects: new Map([[7, 'new/name']]), skills: new Set(['skills.sh:new/repo/notes', 'skills.sh:a/b/kept', 'a/b#skills/kept']), sourcesOf: new Map([['notes', ['new/repo']], ['kept', ['a/b']]]) };
+  assert.deepEqual(missingRefs(list, have), [
+    'S01 skills.sh:old/repo/notes（同名 Skill 现在在 new/repo 下，可能是仓库改名）',
+    'N01 skills.sh:a/b/gone',
+    'N01 a/b#skills/x',
+    'N01 a/missing',
+  ]);
+});
+
+test('本机数据：每个引用都还在收录范围里（项目按 id 认，改名也算）', { skip: hasData ? false : `没有本机数据（${dataDir}/categories.json），跳过` }, () => {
+  assert.deepEqual(missingRefs(cases, corpus()), [], '这些引用已不在本机收录范围里，找所有者重新确认这几条');
 });

@@ -1,8 +1,8 @@
 {
   "$comment": "B0-04 检索测试集（issue #77）。格式与判定规则见同目录 search-cases.md。改动要经所有者确认。",
-  "version": 1,
-  "frozenAt": "2026-11-08",
-  "confirmedBy": "所有者 2026-11-08 逐条确认（确认页判定 R1–R3、S01，会话回复“其余也都确认”）",
+  "version": 2,
+  "frozenAt": "2026-11-20",
+  "confirmedBy": "所有者 2026-11-08 逐条确认（确认页判定 R1–R3、S01，会话回复“其余也都确认”）；2026-11-20 版本 2：S11 的两处引用因上游仓库改名（kepano/obsidian-skills → obsidianmd/obsidian-skills，仓库 id 不变）更新，所有者看过改动确认后回“改”（#101）",
   "dataAsOf": "2026-11-08",
   "corpusAtFreeze": {
     "categorizedProjects": 5616,
@@ -382,13 +382,13 @@
       "candidates": [
         {
           "kind": "skills.sh",
-          "ref": "skills.sh:kepano/obsidian-skills/obsidian-markdown",
+          "ref": "skills.sh:obsidianmd/obsidian-skills/obsidian-markdown",
           "level": "名称级",
           "why": "名称级"
         },
         {
           "kind": "project",
-          "ref": "kepano/obsidian-skills",
+          "ref": "obsidianmd/obsidian-skills",
           "projectId": 1126947080,
           "level": "描述级",
           "why": "描述级项目：Obsidian 的 Agent Skills"
