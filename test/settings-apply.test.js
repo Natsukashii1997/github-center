@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, existsS
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULTS } from '../src/settings/index.js';
-import { planSteps, STEPS, isDue, readRunState, markRun, beijing } from '../src/update-steps.js';
+import { planSteps, STEPS, isDue, retryOf, RETRY, readRunState, markRun, finishRun, beijing } from '../src/update-steps.js';
 import { rankDay } from '../src/ranking/index.js';
 import { updateHot } from '../src/boards/index.js';
 import { codexGenerator } from '../src/profiles/codex.js';
@@ -43,7 +43,42 @@ test('定时叫醒：每日更新开着、北京时间到了设置的时间、�
   assert.equal(isDue(s, readRunState(dir), at('2026-11-04T12:00:00')), false);
   markRun(dir, at('2026-11-05T11:15:00'));
   assert.ok(existsSync(join(dir, 'update-state.json')));
-  assert.deepEqual(readRunState(dir), { day: '2026-11-05', startedAt: '2026-11-05T03:15:00.000Z' });
+  assert.deepEqual(readRunState(dir), { day: '2026-11-05', startedAt: '2026-11-05T03:15:00.000Z', retries: 0 });
+  // 跑完补上结束时刻和失败的步骤（#94）。
+  finishRun(dir, at('2026-11-05T12:40:00'), ['出榜']);
+  assert.deepEqual(readRunState(dir), { day: '2026-11-05', startedAt: '2026-11-05T03:15:00.000Z', retries: 0, endedAt: '2026-11-05T04:40:00.000Z', failed: ['出榜'] });
+});
+
+test('#94 失败后当天重试：上次跑完满 30 分钟、当天最多 2 次、北京 22:00 起不试；重跑失败的步骤和后面要用它结果的步骤', () => {
+  const at = (bj) => new Date(Date.parse(`${bj}+08:00`));
+  const s = withSettings({ daily: { on: true, at: '18:00' } });
+  const failedRun = (failed, extra = {}) => ({ day: '2026-11-16', startedAt: '2026-11-16T10:00:46.000Z', retries: 0, endedAt: '2026-11-16T11:33:00.000Z', failed, ...extra });
+  // 11-16 那次：出榜失败，19:33 跑完。
+  const run = failedRun(['出榜']);
+  assert.equal(retryOf(s, run, at('2026-11-16T20:00:00')), null, '跑完不满 30 分钟');
+  const r = retryOf(s, run, at('2026-11-16T20:03:00'));
+  assert.deepEqual(r, { n: 1, failed: ['出榜'], steps: ['出榜', '精选榜', '补资料', '归类', '周报', '校准报告', '推到服务器、备份库'] });
+  // 各自取数的步骤只有自己失败才重跑；最后一步失败只重跑它自己。
+  assert.deepEqual(retryOf(s, failedRun(['热点榜', '补资料']), at('2026-11-16T20:03:00')).steps, ['热点榜', '精选榜', '补资料', '归类', '周报', '校准报告', '推到服务器、备份库']);
+  assert.deepEqual(retryOf(s, failedRun(['全站 Star 前 100']), at('2026-11-16T20:03:00')).steps, ['全站 Star 前 100', '精选榜', '补资料', '归类', '周报', '校准报告', '推到服务器、备份库']);
+  assert.deepEqual(retryOf(s, failedRun(['推到服务器、备份库']), at('2026-11-16T20:03:00')).steps, ['推到服务器、备份库']);
+  // 次数、截止时间、不重试的情况。
+  assert.equal(retryOf(s, failedRun(['出榜'], { retries: 1 }), at('2026-11-16T20:03:00')).n, 2);
+  assert.equal(retryOf(s, failedRun(['出榜'], { retries: RETRY.max }), at('2026-11-16T20:03:00')), null, '当天已重试 2 次');
+  assert.equal(retryOf(s, run, at('2026-11-16T22:00:00')), null, '22:00 起不试');
+  assert.equal(retryOf(s, run, at('2026-11-16T21:59:00')).n, 1);
+  assert.equal(retryOf(s, run, at('2026-11-17T18:30:00')), null, '不是今天的失败，由整套跑接手');
+  assert.equal(retryOf(s, failedRun([]), at('2026-11-16T20:03:00')), null, '全部成功');
+  assert.equal(retryOf(s, failedRun(['出榜'], { endedAt: undefined }), at('2026-11-16T20:03:00')), null, '还没跑完');
+  assert.equal(retryOf(s, { day: '2026-11-16', startedAt: '2026-11-16T10:00:46.000Z' }, at('2026-11-16T20:03:00')), null, '旧记录没有失败步骤');
+  assert.equal(retryOf(s, failedRun(['改了名的步骤']), at('2026-11-16T20:03:00')), null, '认不出的步骤不重试');
+  assert.equal(retryOf(withSettings({ daily: { on: false, at: '18:00' } }), run, at('2026-11-16T20:03:00')), null, '每日更新关掉了');
+  // 重试开跑时记下第几次，并清掉上次的结束时刻：没跑完前不会再叫起第二次。
+  const dir = fresh();
+  markRun(dir, at('2026-11-16T20:03:00'), 1);
+  assert.equal(retryOf(s, readRunState(dir), at('2026-11-16T21:00:00')), null);
+  finishRun(dir, at('2026-11-16T20:40:00'), ['出榜']);
+  assert.equal(retryOf(s, readRunState(dir), at('2026-11-16T21:10:00')).n, 2);
 });
 
 // 出榜：用录制的上游（统计日 2026-10-22），只跑近 1 天。

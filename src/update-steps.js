@@ -29,7 +29,7 @@ export function planSteps(settings) {
 
 // 定时（scripts/schedule.sh）：launchd 每天北京时间 09:00–23:45 每 15 分钟叫醒一次 `bin/update.js --scheduled`，电脑睡着错过的醒来补一次。
 // 到点才跑：每日更新开着、北京时间已到设置里的时间、今天（北京时间）还没跑过；没到点就什么都不写直接退出。
-// 每次开跑（含手动 npm run update）记下日期（data/update-state.json），同一天不再定时跑第二次，失败了也等第二天。
+// 每次开跑（含手动 npm run update）记下日期（data/update-state.json），同一天不再定时整套跑第二次；有步骤失败的，当天按 retryOf 重试（#94）。
 const STATE = (dataDir) => join(dataDir, 'update-state.json');
 export const beijing = (now) => {
   const iso = new Date(now.getTime() + 8 * 3600_000).toISOString();
@@ -46,10 +46,31 @@ export function readRunState(dataDir) {
   const run = lastRun(dataDir);
   return run ? { day: beijing(new Date(run.startedAt)).day, startedAt: run.startedAt } : null;
 }
-export const markRun = (dataDir, now) => writeAtomic(STATE(dataDir), JSON.stringify({ day: beijing(now).day, startedAt: now.toISOString() }) + '\n');
+// 开跑时记日期、开跑时刻和这是当天第几次重试（整套跑是 0）；跑完再补上结束时刻和失败的步骤（finishRun）。
+export const markRun = (dataDir, now, retries = 0) => writeAtomic(STATE(dataDir), JSON.stringify({ day: beijing(now).day, startedAt: now.toISOString(), retries }) + '\n');
+export function finishRun(dataDir, now, failed) {
+  const state = readJson(STATE(dataDir)) ?? {};
+  writeAtomic(STATE(dataDir), JSON.stringify({ ...state, endedAt: now.toISOString(), failed }) + '\n');
+}
 export const ranToday = (state, now) => state?.day === beijing(now).day;
 export function isDue(settings, state, now) {
   return settings.daily.on && beijing(now).time >= settings.daily.at && !ranToday(state, now);
+}
+
+// 失败后当天重试（#94，常浩 2026-11-20 定）：今天这次有步骤失败，上一次跑完满 30 分钟，就再跑一次；当天最多重试 2 次，北京 22:00 起不再试。
+// 跑哪几步：失败的步骤，加上排在第一个失败步骤后面、要用前面结果的步骤（例如出榜补上了，周报才写得出新的一期）；
+// 各自取数、不读别的步骤结果的步骤，只有自己失败才重跑。没跑完（没有结束时刻，可能还在跑或中途被杀）不重试。
+export const RETRY = { max: 2, gapMinutes: 30, until: '22:00' };
+const INDEPENDENT = new Set(['出榜', '全站 Star 前 100', '历史榜（Skill 安装量）', '热点榜']);
+export function retryOf(settings, state, now) {
+  if (!settings.daily.on || !ranToday(state, now) || !state.failed?.length || !state.endedAt) return null;
+  const n = (state.retries ?? 0) + 1;
+  if (n > RETRY.max || beijing(now).time >= RETRY.until) return null;
+  if (now.getTime() - Date.parse(state.endedAt) < RETRY.gapMinutes * 60_000) return null;
+  const first = STEPS.findIndex((x) => state.failed.includes(x.name));
+  if (first < 0) return null;
+  const steps = STEPS.filter((x, i) => state.failed.includes(x.name) || (i > first && !INDEPENDENT.has(x.name))).map((x) => x.name);
+  return { n, failed: state.failed, steps };
 }
 
 // 日志只读最后 64KB：够找到最近一次每日更新的开始、各步退出码和结束行。
