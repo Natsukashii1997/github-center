@@ -2,6 +2,7 @@
 // 没问题返回空数组（什么都不发），有问题每条一句中文。只读：不改文件、不发消息。
 // Mac 一直关机时这里也跑不了（猛鬼兽也在 Mac 上），那种情况靠网站上写明的数据日期。
 import { beijing } from '../update-steps.js';
+import { WINDOWS } from '../ranking/stat-day.js';
 
 const STUCK_HOURS = 3;
 const GRACE_MINUTES = 120; // 到了更新时间再等 2 小时（平时 15 分钟跑完）才要求今天已跑过
@@ -13,7 +14,8 @@ const minutesOf = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3)
 // run：lastRun()；settings：readSettings()；remote：有没有配服务器；server：服务器上网站的状态（'active' 等）或连不上时的 Error；
 // backups：listBackups()（新的在前）；unfinished：榜单上简介没和当前资料对上的项目名（#52，当轮重试也没补上，网站先显示旧简介或 GitHub 描述）；
 // ai：设置页「AI 接入」选定的执行方用不了的功能，每个一句（../ai-access.js 的 aiProblems，#69）。
-export function healthProblems({ run, settings, remote, server, backups, unfinished = [], ai = [], now = new Date() }) {
+// gaps：涨星榜前几天缺的期次（../ranking/backfill.js 的 missingDays，#103）；回补失败不算出榜失败，靠这里报出来。
+export function healthProblems({ run, settings, remote, server, backups, unfinished = [], ai = [], gaps = [], now = new Date() }) {
   const out = [...ai];
   const today = beijing(now);
   if (settings.daily.on) {
@@ -30,6 +32,10 @@ export function healthProblems({ run, settings, remote, server, backups, unfinis
   if (unfinished.length) {
     const shown = unfinished.slice(0, UNFINISHED_LISTED).join('、') + (unfinished.length > UNFINISHED_LISTED ? ' 等' : '');
     out.push(`有 ${unfinished.length} 个榜单项目的简介没生成成功（重试过也没成），网站上先显示旧简介或 GitHub 描述：${shown}。详情看 data/logs/update.log。`);
+  }
+  if (gaps.length) {
+    const list = gaps.map((g) => `${g.day.slice(5)}（近 ${g.windows.map((w) => WINDOWS[w].days).join('、')} 天）`).join('、');
+    out.push(`涨星榜缺 ${gaps.length} 期：${list}。每日更新出完最近一期后会自动回补；连着几天还缺，看 data/logs/update.log 里「回补」的报错。`);
   }
   if (remote) {
     if (server instanceof Error) out.push(`连不上服务器：${server.message}`);
