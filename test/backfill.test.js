@@ -68,7 +68,7 @@ test('出榜带回补：先出最近一期，再按新到旧补缺期，只补�
   assert.deepEqual(r, { failed: false, backfilled: [{ day: '2026-11-17', windows: ['d1', 'd7'], failed: false }, { day: '2026-11-15', windows: ['d1', 'd7', 'd30'], failed: true }] });
 });
 
-test('出榜带回补：最近一期没出成就不回补（上游多半有问题，不再加码），退出照旧算失败；点名日期的手动出榜不回补', async () => {
+test('出榜带回补：最近一期没出成就不回补（上游多半有问题，不再加码），退出照旧算失败；点名日期的手动出榜不回补；没缺期只跑一次', async () => {
   const dir = tmp();
   for (const w of ['d1', 'd7', 'd30']) snap(dir, w, '2026-11-14', '2026-11-16', '2026-11-18');
   const calls = [];
@@ -78,11 +78,17 @@ test('出榜带回补：最近一期没出成就不回补（上游多半有问�
 
   calls.length = 0;
   const fine = async (day, opts) => (calls.push([day, opts]), { failed: false });
+  // 没有缺期：只出最近一期这一次，不多跑。
+  const full = tmp();
+  for (const w of ['d1', 'd7', 'd30']) snap(full, w, ...span('2026-11-10', '2026-11-18'));
+  assert.deepEqual(await rankWithBackfill({ dataDir: full, day: '2026-11-19', rankOne: fine }), { failed: false, backfilled: [] });
+  assert.deepEqual(calls, [['2026-11-19', {}]]);
+  calls.length = 0;
   assert.deepEqual(await rankWithBackfill({ dataDir: dir, day: '2026-11-17', explicit: true, rankOne: fine }), { failed: false, backfilled: [] });
   assert.deepEqual(calls, [['2026-11-17', {}]]);
 });
 
-test('健康检查：前 5 天有缺期就说缺哪几期，没有就不说', () => {
+test('健康检查：前 5 天有缺期就说缺哪几期，没有就不说；每日更新关着也不说', () => {
   const settings = { daily: { on: true, at: '18:00' } };
   const now = new Date('2026-11-20T01:50:00Z'); // 北京时间 09:50
   const ok = { run: { startedAt: '2026-11-19T10:00:00Z', endedAt: '2026-11-19T10:15:00Z', failed: [], running: false }, settings, remote: false, server: null, backups: [], now };
@@ -91,4 +97,6 @@ test('健康检查：前 5 天有缺期就说缺哪几期，没有就不说', ()
   assert.deepEqual(healthProblems({ ...ok, gaps: [{ day: '2026-11-17', windows: ['d1'] }, { day: '2026-11-15', windows: ['d1', 'd7', 'd30'] }] }), [
     '涨星榜缺 2 期：11-17（近 1 天）、11-15（近 1、7、30 天）。每日更新出完最近一期后会自动回补；连着几天还缺，看 data/logs/update.log 里「回补」的报错。',
   ]);
+  // 每日更新关着：不会回补，缺期一直在，不天天报同一句。
+  assert.deepEqual(healthProblems({ ...ok, settings: { daily: { on: false, at: '18:00' } }, gaps: [{ day: '2026-11-17', windows: ['d1'] }] }), []);
 });

@@ -14,7 +14,7 @@ const minutesOf = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3)
 // run：lastRun()；settings：readSettings()；remote：有没有配服务器；server：服务器上网站的状态（'active' 等）或连不上时的 Error；
 // backups：listBackups()（新的在前）；unfinished：榜单上简介没和当前资料对上的项目名（#52，当轮重试也没补上，网站先显示旧简介或 GitHub 描述）；
 // ai：设置页「AI 接入」选定的执行方用不了的功能，每个一句（../ai-access.js 的 aiProblems，#69）。
-// gaps：涨星榜前几天缺的期次（../ranking/backfill.js 的 missingDays，#103）；回补失败不算出榜失败，靠这里报出来。
+// gaps：涨星榜前几天缺的期次（../ranking/backfill.js 的 missingDays，#103）；回补失败不算出榜失败，靠这里报出来。每日更新关着时不报。
 export function healthProblems({ run, settings, remote, server, backups, unfinished = [], ai = [], gaps = [], now = new Date() }) {
   const out = [...ai];
   const today = beijing(now);
@@ -33,7 +33,8 @@ export function healthProblems({ run, settings, remote, server, backups, unfinis
     const shown = unfinished.slice(0, UNFINISHED_LISTED).join('、') + (unfinished.length > UNFINISHED_LISTED ? ' 等' : '');
     out.push(`有 ${unfinished.length} 个榜单项目的简介没生成成功（重试过也没成），网站上先显示旧简介或 GitHub 描述：${shown}。详情看 data/logs/update.log。`);
   }
-  if (gaps.length) {
+  // 每日更新关着时不报：这时不会回补，缺期会一直停在那里，天天报同一句没有用。
+  if (gaps.length && settings.daily.on) {
     const list = gaps.map((g) => `${g.day.slice(5)}（近 ${g.windows.map((w) => WINDOWS[w].days).join('、')} 天）`).join('、');
     out.push(`涨星榜缺 ${gaps.length} 期：${list}。每日更新出完最近一期后会自动回补；连着几天还缺，看 data/logs/update.log 里「回补」的报错。`);
   }

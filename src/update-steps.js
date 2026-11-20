@@ -74,8 +74,9 @@ export function retryOf(settings, state, now) {
   return { n, failed: state.failed, steps };
 }
 
-// 日志只读最后 64KB：够找到最近一次每日更新的开始、各步退出码和结束行。
-function logTail(file, bytes = 65_536) {
+// 日志只读最后 256KB：够找到最近一次每日更新的开始、各步退出码和结束行。平时一次更新约 14KB；
+// 回补（#103）最多再打 15 个窗口，每个 2–3KB，连缺 5 天时一次约 60KB，原来的 64KB 没有余量。
+function logTail(file, bytes = 262_144) {
   let fd;
   try {
     fd = openSync(file, 'r');
