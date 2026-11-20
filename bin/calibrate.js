@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 import { findSnapshot } from '../src/ranking/store.js';
 import { strictDays, readStrictResult, compare, clues, report } from '../src/ranking/calibrate.js';
 
-// 严格实验的运行目录（HANDOFF.md 里的“实验根目录”下）。
+// 严格实验的运行目录（docs/history/HANDOFF.md 里的“实验根目录”下）。
 const STRICT = '/Users/nat/Documents/ChatGPT/自动化推送/outputs/github-center-sustained-run';
 const { values } = parseArgs({ options: { day: { type: 'string' }, data: { type: 'string', default: 'data' }, strict: { type: 'string', default: STRICT } } });
 const reportPath = (day) => join(values.data, 'calibration', `${day}.md`);
