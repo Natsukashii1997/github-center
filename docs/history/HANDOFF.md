@@ -1,5 +1,7 @@
 # GitHub 快速中心｜Claude 接手交接
 
+> 历史记录（2026-10-23 建仓时的交接），不代表现状；2026-11-20 从仓库根目录移到这里（#99），正文只改了相对链接。当前状态看 [CURRENT.md](../../CURRENT.md)。
+
 交接日期：2026-10-23（北京时间）。运行状态回读：13:44。交接基线提交：`d4d0539088956f4ba131e6ef122e0863b2e7a397`。
 
 **一句话定位：基于AIHOT的阅读风格与后台组织思路，做个人先用、未来邀请小团队的GitHub快速中心。需求共识已确认，数据可行性部分验证；尚无可日常使用的网站。当前全量日榜被1个上游空项阻塞，8个星数漂移的补齐方案只在隔离副本通过。**
@@ -13,9 +15,9 @@
 | 主开发仓库 | `/Users/nat/Documents/ChatGPT/个人/work/github-center` |
 | GitHub | https://github.com/Natsukashii1997/github-center ，已核验private |
 | 当前分支 | `codex/bootstrap`；交接前工作区干净，本次仅新增／修正文档 |
-| 需求事实源 | [docs/product/confirmed-scope.md](docs/product/confirmed-scope.md)，含R01—R14与已废弃建议；本次从原始共识补全 |
-| 项目状态 | [CURRENT.md](CURRENT.md)；[AGENTS.md](AGENTS.md)是共同协作入口 |
-| 任务管理 | GitHub Issues已开启，当前0张Issue；五个默认标签均存在。读[约定](docs/agents/issue-tracker.md)，不是已经拆好开发票 |
+| 需求事实源 | [docs/product/confirmed-scope.md](../../docs/product/confirmed-scope.md)，含R01—R14与已废弃建议；本次从原始共识补全 |
+| 项目状态 | [CURRENT.md](../../CURRENT.md)；[AGENTS.md](../../AGENTS.md)是共同协作入口 |
+| 任务管理 | GitHub Issues已开启，当前0张Issue；五个默认标签均存在。读[约定](../../docs/agents/issue-tracker.md)，不是已经拆好开发票 |
 | 原实验根目录 | `/Users/nat/Documents/ChatGPT/自动化推送/outputs`；下文称“实验根目录” |
 | 实时采集目录 | 实验根目录下`github-center-sustained-run/`；其CURRENT、plan、status、进程和数据库才是实时运行事实 |
 | 安全恢复证据 | 实验根目录下`github-center-safe-recovery/`，含原始探测、完整隔离备份及验证库 |
@@ -96,7 +98,7 @@
 | [HelloGitHub/geese](https://github.com/HelloGitHub-Team/geese) | 中文发现、搜索与内容组织 | 旧研究记录README与LICENSE表述冲突；代码复用前核验，不自动增加评论评分 |
 | [astralapp/astral](https://github.com/astralapp/astral) | 收藏与再次找回 | 用户只要简单收藏，不照搬复杂管理与旧技术栈 |
 
-完整[49个开源参考清单](research/GitHub动态开源参考清单-2026-10-22.md)另列许可不完整／受限候选，不要把全部候选都称为许可明确开源。研究后段的早期实现建议不能覆盖后来确认的全站、官方日桶和完整性要求。
+完整[49个开源参考清单](../../research/GitHub动态开源参考清单-2026-10-22.md)另列许可不完整／受限候选，不要把全部候选都称为许可明确开源。研究后段的早期实现建议不能覆盖后来确认的全站、官方日桶和完整性要求。
 
 ## 4. 已完成与未完成：不要误接成产品收尾
 
@@ -111,7 +113,7 @@
 | 全量日榜 | 当前65935候选、245完整分片、836完整页保留 | 评分0，第二轮未开始，榜单未产出，进程停止 |
 | 产品功能 | 已确认需求 | 前端、应用服务、登录、分类、具体Skill、收藏、对比、历史页面、日报页面、安装复制、团队邀请都未实现 |
 
-低风险离线入口：在主仓库执行`python3 scripts/check_offline.py`。它在临时副本运行五组模拟检查，不启动真实采集。当前已有通过证据，没有必要为读交接重复跑；改动相关逻辑后才按风险重验。[建仓核验](docs/verification/bootstrap.md)。
+低风险离线入口：在主仓库执行`python3 scripts/check_offline.py`。它在临时副本运行五组模拟检查，不启动真实采集。当前已有通过证据，没有必要为读交接重复跑；改动相关逻辑后才按风险重验。[建仓核验](../../docs/verification/bootstrap.md)。
 
 ## 5. 当前卡点和真实恢复条件
 
@@ -197,11 +199,11 @@
 
 ### 常规接手与功能
 
-- [已确认范围](docs/product/confirmed-scope.md)、[项目状态](CURRENT.md)、[建仓核验](docs/verification/bootstrap.md)。
-- [49个参考](research/GitHub动态开源参考清单-2026-10-22.md)。
-- [月榜可读样例](research/github-center-daily-validation/月榜Top20实测示例-2026-10-22.md)、[月榜独立审查](research/github-center-daily-validation/month-completeness-review.md)。
-- [AI日报样例](research/github-center-feasibility/AI日报实测样例-2026-10-22.md)、[独立内容审查](research/github-center-feasibility/evidence-ai/independent-review.md)、[免费AI与AIHOT适配](research/github-center-feasibility/free-ai-options.md)。
-- [统计日语义](research/github-center-daily-validation/stat-day-semantics.md)、[日更容量审查](research/github-center-daily-validation/daily-run-review.md)。
+- [已确认范围](../../docs/product/confirmed-scope.md)、[项目状态](../../CURRENT.md)、[建仓核验](../../docs/verification/bootstrap.md)。
+- [49个参考](../../research/GitHub动态开源参考清单-2026-10-22.md)。
+- [月榜可读样例](../../research/github-center-daily-validation/月榜Top20实测示例-2026-10-22.md)、[月榜独立审查](../../research/github-center-daily-validation/month-completeness-review.md)。
+- [AI日报样例](../../research/github-center-feasibility/AI日报实测样例-2026-10-22.md)、[独立内容审查](../../research/github-center-feasibility/evidence-ai/independent-review.md)、[免费AI与AIHOT适配](../../research/github-center-feasibility/free-ai-options.md)。
+- [统计日语义](../../research/github-center-daily-validation/stat-day-semantics.md)、[日更容量审查](../../research/github-center-daily-validation/daily-run-review.md)。
 
 ### 数据恢复分支：原实验目录的实时证据
 

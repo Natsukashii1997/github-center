@@ -1,8 +1,8 @@
 # GitHub 快速中心协作约定
 
-先读 README.md、CURRENT.md、docs/product/PRD-v2.md（现行需求事实源，2026-11-08 冻结）、docs/product/产品说明.md（现状基线），再读与任务相关的研究说明。requirements-regrill.md、confirmed-scope.md 只作历史记录。
+先读 README.md、CURRENT.md、docs/product/PRD-v2.md（现行需求事实源，2026-11-08 冻结）、docs/product/产品说明.md（现状基线），再读与任务相关的研究说明。所有者定过的内容登记在 docs/DECIDED.md，要改先问；没登记不等于没定。requirements-regrill.md、confirmed-scope.md 和 docs/history/ 只作历史记录。
 
-当前处于数据可行性验证阶段。仓库不是已部署应用；research/ 中的程序是实验源码。原实验运行目录的数据库、断点和自动检查保留在本机，不随建仓搬迁，也不从此仓库自动重启。
+首版已经建成并在运行：每日更新在所有者的 Mac 上由 launchd 定时跑（scripts/schedule.sh），网站部署在服务器上（docs/deploy.md），进度和缺口看 CURRENT.md。research/ 是建仓前数据可行性实验的源码和结论快照，只作历史记录和校准参考；原实验运行目录的数据库、断点和自动检查保留在本机，不随建仓搬迁，也不从此仓库自动重启。
 
 保留用户已确认的全站范围、Top20含末位并列、缺失不补零和零新增费用优先原则。历史研究结果、隔离检查通过、运行采用和完整榜单验收必须分开报告。
 

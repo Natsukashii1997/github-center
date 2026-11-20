@@ -3,7 +3,7 @@
 > **已被取代（2026-10-23）**：用户与 Claude 从零重新梳理需求并确认“理解一致”，需求事实源改为 [requirements-regrill.md](requirements-regrill.md) 的最终回放。本文以下内容只作历史记录，与新回放冲突时以新回放为准。
 > **再次更新（2026-11-08）**：requirements-regrill.md 也已被取代，现行需求事实源是 [PRD v2.1](PRD-v2.md)。
 
-更新：2026-10-23。本文是需求事实源；实现状态见根目录 CURRENT.md，接手说明见 HANDOFF.md。
+更新：2026-10-23。本文是需求事实源；实现状态见根目录 CURRENT.md，接手说明见 docs/history/HANDOFF.md。
 
 ## 确认依据与本次纠正
 
