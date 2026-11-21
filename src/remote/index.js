@@ -5,7 +5,8 @@
 //     算之前拉服务器的标签清单和固定的卡（pullPicks），算完把候选池写成 data/pick-pool.json 随数据推上去，由服务器写进库并补卡（scripts/server.sh apply）。
 //   - 其余数据（榜单、快照、资料、归类、周报等）只有 Mac 写：pushData 用 rsync 推上去，不推 PUSH_EXCLUDE 里的。
 //   - 服务器的库每天推完后备份回 Mac（backupDb，#48）：data/backups/center-<北京时间日期>.db，留 BACKUP_KEEP 份。
-// 连接配置 data/remote.json（不入库）：{ "ssh": "root@服务器", "key": "~/.ssh/私钥", "dir": "/srv/tidings" }。没有这个文件就是只在本机跑，这里什么都不做。
+// 连接配置 data/remote.json（不入库）：{ "ssh": "root@服务器", "key": "~/.ssh/私钥", "dir": "/srv/tidings", "url": "https://域名" }。没有这个文件就是只在本机跑，这里什么都不做。
+// url 可不填，只给健康检查探测域名用（#105）。
 import { spawnSync } from 'node:child_process';
 import { DatabaseSync } from 'node:sqlite';
 import { homedir } from 'node:os';
@@ -117,3 +118,30 @@ export const listBackups = (dataDir) => {
 };
 // 服务器上网站服务的状态（'active' 表示在跑），健康检查用（#48）。
 export const serverStatus = (cfg, run = defaultRun) => server(cfg, 'status', run).trim();
+
+// 服务器上的代码是哪个提交（#105）：scripts/deploy-code.sh 发布时写 VERSION（「全 sha 发布时间」一行）。
+// 没有这个文件（早于 #105 发的代码）返回 null；内容不对抛错。
+export function serverVersion(cfg, run = defaultRun) {
+  const text = server(cfg, 'version', run).trim();
+  if (!text) return null;
+  const [commit, at] = text.split(/\s+/);
+  if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error(`服务器的 VERSION 内容不对：${text.slice(0, 80)}`);
+  return { commit, at };
+}
+
+// 只看这些路径：只改文档的提交不用重新发布。
+export const CODE_PATHS = ['src', 'bin', 'scripts', 'deploy', 'package.json'];
+// 部署的提交和本机 ref（默认 main，每日更新跑的就是它）在代码上差多少（#105）：behind 是 main 上有、部署里没有、改了代码的提交数；
+// differs 是两边代码实际不一样（改了又改回去的不算）。本机没有那个提交时抛错。cwd 是仓库目录。
+export function codeLag(commit, { cwd = '.', ref = 'main' } = {}) {
+  const git = (...args) => spawnSync('git', args, { cwd, encoding: 'utf8' });
+  const fail = (r, what) => new Error(`${what}失败：${String(r.stderr || r.error?.message || '').trim().slice(-200)}`);
+  const has = git('cat-file', '-e', `${commit}^{commit}`);
+  if (has.error) throw fail(has, '跑 git ');
+  if (has.status !== 0) throw new Error(`本机找不到部署的提交 ${commit.slice(0, 7)}（先 git fetch）`);
+  const count = git('rev-list', '--count', `${commit}..${ref}`, '--', ...CODE_PATHS);
+  if (count.status !== 0) throw fail(count, 'git rev-list ');
+  const diff = git('diff', '--quiet', commit, ref, '--', ...CODE_PATHS);
+  if (diff.status > 1 || diff.status === null) throw fail(diff, 'git diff ');
+  return { behind: Number(count.stdout.trim()), differs: diff.status === 1 };
+}
