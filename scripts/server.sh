@@ -6,6 +6,7 @@
 #   bash scripts/server.sh apply        Mac 推完数据后：数据交给 tidings，把 data/pick-pool.json 写进库并补卡
 #   bash scripts/server.sh backup       把库做一份一致的副本（sqlite3 .backup）原样打到标准输出，Mac 存成备份（#48）
 #   bash scripts/server.sh status       网站服务在不在跑（systemctl is-active），健康检查用（#48）
+#   bash scripts/server.sh version      服务器上的代码是哪个提交（发布时写的 VERSION，没有就什么都不打），健康检查用（#105）
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -35,8 +36,11 @@ case "${1:-}" in
   status)
     systemctl is-active tidings || true
     ;;
+  version)
+    [ -f VERSION ] && cat VERSION || true
+    ;;
   *)
-    echo "用法：bash scripts/server.sh settings | picks-state | apply | backup | status" >&2
+    echo "用法：bash scripts/server.sh settings | picks-state | apply | backup | status | version" >&2
     exit 2
     ;;
 esac

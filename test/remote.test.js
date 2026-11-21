@@ -7,7 +7,8 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { openAccounts } from '../src/web/accounts.js';
 import { openPicks, updatePicks, DEFAULT_TAGS } from '../src/boards/index.js';
-import { readRemote, pullSettings, pullPicks, writePool, pushData, PUSH_EXCLUDE, POOL_FILE } from '../src/remote/index.js';
+import { readRemote, pullSettings, pullPicks, writePool, pushData, serverVersion, codeLag, PUSH_EXCLUDE, POOL_FILE } from '../src/remote/index.js';
+import { spawnSync } from 'node:child_process';
 
 const fresh = () => mkdtempSync(join(tmpdir(), 'gc-remote-'));
 const CFG = { ssh: 'root@1.2.3.4', key: '/k/id', dir: '/srv/tidings' };
@@ -143,4 +144,51 @@ test('备份服务器的库（#48）：传回的库核对完整、有账号才�
   assert.throws(() => backupDb(mac, CFG, '2026-11-05', fakeRun({ backup: ok(readFileSync(join(empty, 'center.db'))) }).run), /库里没有账号/);
   assert.ok(!existsSync(join(mac, 'backups', 'center-2026-11-05.db')));
   assert.deepEqual(readdirSync(join(mac, 'backups')).filter((n) => !/^center-[\d-]+\.db$/.test(n)), [], '没有临时文件、-wal、-shm');
+});
+
+test('服务器代码版本：读 VERSION；没有就是 null；内容不对或子命令不认识（服务器代码早于 #105）报错（#105）', () => {
+  const sha = 'abcdef0123456789abcdef0123456789abcdef01';
+  const f = fakeRun({ version: ok(`${sha} 2026-11-20T15:50:00Z\n`) });
+  assert.deepEqual(serverVersion(CFG, f.run), { commit: sha, at: '2026-11-20T15:50:00Z' });
+  assert.equal(f.calls[0].at(-1), 'bash /srv/tidings/scripts/server.sh version');
+  assert.equal(serverVersion(CFG, fakeRun({ version: ok('') }).run), null);
+  assert.throws(() => serverVersion(CFG, fakeRun({ version: ok('oops\n') }).run), /VERSION 内容不对：oops/);
+  assert.throws(() => serverVersion(CFG, fakeRun({ version: { status: 2, stdout: '', stderr: '用法：bash scripts/server.sh settings | picks-state | apply | backup | status' } }).run), /version 失败（退出码 2）/);
+});
+
+test('服务器代码落后多少：只数改了代码的提交，只改文档的不算；本机没有那个提交报错（真 git 仓库，#105）', () => {
+  const repo = fresh();
+  const git = (...args) => {
+    const r = spawnSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...args], { cwd: repo, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  const commit = (file, text) => {
+    mkdirSync(join(repo, file, '..'), { recursive: true });
+    writeFileSync(join(repo, file), text);
+    git('add', '-A');
+    git('commit', '-qm', file);
+    return git('rev-parse', 'HEAD');
+  };
+  git('init', '-q', '-b', 'main');
+  const deployed = commit('src/a.js', '1');
+  assert.deepEqual(codeLag(deployed, { cwd: repo }), { behind: 0, differs: false });
+  commit('docs/x.md', 'doc');
+  commit('CURRENT.md', 'now');
+  assert.deepEqual(codeLag(deployed, { cwd: repo }), { behind: 0, differs: false }, '只差文档不算');
+  commit('src/a.js', '2');
+  commit('scripts/s.sh', 'x');
+  commit('package.json', '{}');
+  assert.deepEqual(codeLag(deployed, { cwd: repo }), { behind: 3, differs: true });
+  // 改了又改回去：提交数还在，但代码一样。
+  writeFileSync(join(repo, 'src/a.js'), '1');
+  git('rm', '-q', 'scripts/s.sh', 'package.json');
+  commit('src/a.js', '1');
+  assert.deepEqual(codeLag(deployed, { cwd: repo }), { behind: 4, differs: false });
+  // 部署了 main 上没有的提交（别的分支）：不落后但不一样。
+  git('checkout', '-qb', 'side', deployed);
+  const side = commit('bin/b.js', 'side');
+  git('checkout', '-q', 'main');
+  assert.deepEqual(codeLag(side, { cwd: repo, ref: deployed }), { behind: 0, differs: true });
+  assert.throws(() => codeLag('0123456789abcdef0123456789abcdef01234567', { cwd: repo }), /本机找不到部署的提交 0123456（先 git fetch）/);
 });

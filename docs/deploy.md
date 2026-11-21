@@ -24,8 +24,11 @@
 - Mac 用专用密钥 `~/.ssh/github_center_aliyun` 以 root 登录；Mac 的 `data/remote.json`（不入库）：
 
 ```json
-{ "ssh": "root@47.100.185.175", "key": "~/.ssh/github_center_aliyun", "dir": "/srv/tidings" }
+{ "ssh": "root@47.100.185.175", "key": "~/.ssh/github_center_aliyun", "dir": "/srv/tidings", "url": "https://tidings.natsukashii.cn" }
 ```
+
+  `url` 可不填，只给健康检查探测域名用（#105）；不填就不探测。
+- 代码目录里的 `VERSION`：发代码时写的「提交全 sha 发布时间（UTC）」一行（#105），`bash scripts/server.sh version` 打印它。健康检查靠它知道服务器跑的是哪个提交。
 
 ## 常用操作
 
@@ -34,6 +37,8 @@
 ```bash
 bash scripts/deploy-code.sh
 ```
+
+默认发 `origin/main`，也可以在后面写一个提交。发完会写 `VERSION`；只增改、不删服务器上的旧文件。
 
 手动推一次数据：
 
@@ -55,7 +60,12 @@ ssh -i ~/.ssh/github_center_aliyun root@47.100.185.175 'cd /srv/tidings && runus
 node bin/health.js
 ```
 
-检查每日更新多久没跑、有没有卡住或失败的步骤、服务器上的网站在不在跑、库的备份是否超过 2 天、涨星榜前 5 天有没有缺期（#103）。Mac 一直关机时这条也跑不了，靠网站上写明的数据日期。
+检查每日更新多久没跑、有没有卡住或失败的步骤、服务器上的网站在不在跑、库的备份是否超过 2 天、涨星榜前 5 天有没有缺期（#103）。配了服务器时还查两件（#105）：
+
+- 域名能不能打开（`data/remote.json` 填了 `url` 才查）：请求 `<url>/login`，拿到本站登录页算通；https 连不上再请求一次 http，认得出阿里云的未备案拦截页（403「Non-compliance ICP Filing」），其余报状态码或错误。每次最多等 15 秒，不走代理。用的是 Node 的 fetch，它和 Chrome 一样能打开 https（2026-11-21 实测，curl 被重置），所以这一项回答的是「新式浏览器能不能打开」。
+- 服务器代码落后本机 `main` 多少：读服务器的 `VERSION`，只数改了 `src bin scripts deploy package.json` 的提交，只差文档不报；落后就给出发布命令。服务器上没有 `VERSION`（早于 #105 发的代码）时提示重新发一次。服务器连不上时这项不查。
+
+Mac 一直关机时这条也跑不了，靠网站上写明的数据日期。
 
 从备份恢复服务器的库（先停网站）：
 
@@ -66,7 +76,7 @@ ssh -i ~/.ssh/github_center_aliyun root@47.100.185.175 'cd /srv/tidings/data && 
 
 ## 注意
 
-- 服务器在中国大陆，域名要做 ICP 备案；没备案时阿里云随时可能拦掉域名的访问。（2026-11-17 已被拦：http 返回「Non-compliance ICP Filing」，https 被重置。）
+- 服务器在中国大陆，域名要做 ICP 备案；没备案时阿里云随时可能拦掉域名的访问。（2026-11-17 已被拦：http 返回「Non-compliance ICP Filing」，curl 访问 https 被重置。2026-11-21 实测 Chrome 和 Node 24 的 fetch 能正常打开 https，curl 仍被重置，http 仍是拦截页；原因推测是拦截按握手包里的域名识别，没抓包证实。）
 - SSH 只能用密钥登录（2026-11-17 起，`/etc/ssh/sshd_config.d/00-hardening.conf`）；换电脑先把新公钥加进 `/root/.ssh/authorized_keys`，进不去时用阿里云控制台的 VNC。
 - 在服务器上读写库一律切到 `tidings`（`runuser -u tidings`），不要用 root 直接开库：root 建出的 `-wal`、`-shm` 文件网站写不进去。
 - Mac 上原来的本机网站（免登录）还能开，但设置会被每日更新拉回的服务器设置覆盖；以服务器为准。
