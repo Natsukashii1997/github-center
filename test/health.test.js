@@ -1,7 +1,7 @@
 // #48 健康检查：没问题不出声；每日更新太久没跑、卡住、有步骤失败，服务器连不上或网站没在跑，备份缺失或过旧，各说一句。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { healthProblems, probeSite } from '../src/remote/health.js';
+import { healthProblems, probeSite, remoteChecks } from '../src/remote/health.js';
 
 const settings = { daily: { on: true, at: '10:00' } };
 // 北京时间 2026-11-04 09:50（UTC 01:50），猛鬼兽工程自检的时间。
@@ -105,16 +105,51 @@ test('域名、服务器代码版本各说一句；没查（不传）就不说�
   assert.deepEqual(healthProblems({ ...ok, site: { host: 't.cn', ok: true }, version, lag: { behind: 0, differs: false } }), []);
   assert.deepEqual(healthProblems({ ...ok, version, lag: { behind: 3, differs: false } }), [], '改了又改回去，代码一样就不报');
   assert.deepEqual(healthProblems({ ...ok, site: { host: 't.cn', blocked: true } }),
-    ['域名 t.cn 打不开：被阿里云按未备案拦截（http 返回「Non-compliance ICP Filing」）。ICP 备案通过后这句自动不报。']);
+    ['域名 t.cn 打不开：被阿里云按未备案拦截（返回「Non-compliance ICP Filing」）。ICP 备案通过后这句自动不报。']);
   assert.deepEqual(healthProblems({ ...ok, site: { host: 't.cn', error: 'https://t.cn/login 返回 502' } }), ['域名 t.cn 打不开：https://t.cn/login 返回 502。']);
   assert.deepEqual(healthProblems({ ...ok, version, lag: { behind: 4, differs: true } }),
     ['服务器代码落后本机 main 4 个改了代码的提交（部署的是 abcdef0，2026-11-20 23:50 发的）：发布用 bash scripts/deploy-code.sh。']);
   assert.match(healthProblems({ ...ok, version, lag: { behind: 0, differs: true } })[0], /^服务器代码和本机 main 不一样（部署的是 abcdef0，2026-11-20 23:50 发的，有 main 里没有的代码改动/);
   assert.deepEqual(healthProblems({ ...ok, version: null }),
     ['服务器上没有代码版本记录（VERSION），对不上它跑的是哪个提交：重新发一次代码（bash scripts/deploy-code.sh）就有了。']);
-  assert.match(healthProblems({ ...ok, version: new Error('服务器 version 失败（退出码 2）：用法') })[0], /^读不到服务器的代码版本：服务器 version 失败（退出码 2）：用法。.*重新发一次代码/);
+  assert.deepEqual(healthProblems({ ...ok, version: new Error('服务器 version 失败（退出码 2）：用法') }),
+    ['服务器上的代码早于这项检查（#105），读不到代码版本：重新发一次代码（bash scripts/deploy-code.sh）就好。']);
+  assert.deepEqual(healthProblems({ ...ok, version: new Error('服务器 version 失败（退出码 255）：Connection reset') }),
+    ['读不到服务器的代码版本：服务器 version 失败（退出码 255）：Connection reset'], 'ssh 偶然断了照实报，不叫人重发');
   assert.deepEqual(healthProblems({ ...ok, version, lag: new Error('本机找不到部署的提交 abcdef0（先 git fetch）') }),
     ['对不上服务器代码和本机 main：本机找不到部署的提交 abcdef0（先 git fetch）。']);
   // 没配服务器时这几项都不看。
   assert.deepEqual(healthProblems({ ...ok, remote: false, server: null, backups: [], site: { host: 't.cn', blocked: true }, version: null }), []);
+});
+
+test('配了服务器查哪几项：连不上不查版本，没版本记录不算落后，没填 url 不探测（#105）', async () => {
+  const sha = 'abcdef0123456789abcdef0123456789abcdef01';
+  const calls = [];
+  const check = (over = {}) => ({
+    status: () => (calls.push('status'), 'active'),
+    version: () => (calls.push('version'), { commit: sha, at: '2026-11-20T15:50:00Z' }),
+    lag: (c) => (calls.push(`lag ${c.slice(0, 7)}`), { behind: 0, differs: false }),
+    probe: async (u) => (calls.push(`probe ${u}`), { host: 't.cn', ok: true }),
+    ...over,
+  });
+  assert.deepEqual(await remoteChecks({ url: 'https://t.cn' }, check()), {
+    server: 'active', version: { commit: sha, at: '2026-11-20T15:50:00Z' }, lag: { behind: 0, differs: false }, site: { host: 't.cn', ok: true },
+  });
+  assert.deepEqual(calls, ['status', 'version', 'lag abcdef0', 'probe https://t.cn']);
+
+  calls.length = 0;
+  const down = await remoteChecks({}, check({ status: () => { throw new Error('Connection timed out'); } }));
+  assert.equal(down.server.message, 'Connection timed out');
+  assert.deepEqual(calls, [], '连不上服务器：不查版本；没填 url：不探测');
+  assert.deepEqual(healthProblems({ ...ok, ...down }), ['连不上服务器：Connection timed out'], '只报一句');
+
+  calls.length = 0;
+  const none = await remoteChecks({}, check({ version: () => null }));
+  assert.deepEqual(calls, ['status']);
+  assert.equal(none.version, null);
+  assert.equal(none.lag, undefined);
+  const broken = await remoteChecks({}, check({ version: () => { throw new Error('VERSION 内容不对'); }, lag: () => assert.fail('不该算落后') }));
+  assert.equal(broken.version.message, 'VERSION 内容不对');
+  const lagErr = await remoteChecks({}, check({ lag: () => { throw new Error('本机找不到部署的提交'); } }));
+  assert.equal(lagErr.lag.message, '本机找不到部署的提交');
 });

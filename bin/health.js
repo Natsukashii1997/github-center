@@ -3,31 +3,16 @@
 import { readSettings } from '../src/settings/index.js';
 import { lastRun } from '../src/update-steps.js';
 import { readRemote, serverStatus, serverVersion, codeLag, listBackups } from '../src/remote/index.js';
-import { healthProblems, probeSite } from '../src/remote/health.js';
+import { healthProblems, probeSite, remoteChecks } from '../src/remote/health.js';
 import { boardProjects, readProfile, findProfile, currentGenerated } from '../src/profiles/store.js';
 import { aiProblems } from '../src/ai-access.js';
 import { lastEndedDay, missingDays } from '../src/ranking/index.js';
 
 const remote = readRemote('data');
-const attempt = (fn) => {
-  try {
-    return fn();
-  } catch (e) {
-    return e;
-  }
-};
-let server = null;
-let version;
-let lag;
-let site;
-if (remote) {
-  server = attempt(() => serverStatus(remote));
-  // 服务器代码是哪个提交、落后本机 main 多少（#105）：连不上服务器时上面已经报了，不再查。
-  if (!(server instanceof Error)) version = attempt(() => serverVersion(remote));
-  if (version && !(version instanceof Error)) lag = attempt(() => codeLag(version.commit));
-  // 域名能不能打开（#105）：data/remote.json 填了 url 才查。
-  if (remote.url) site = await probeSite(remote.url);
-}
+// 服务器在不在跑（#48），代码是哪个提交、落后本机 main 多少，域名能不能打开（#105）。
+const { server = null, version, lag, site } = remote
+  ? await remoteChecks(remote, { status: () => serverStatus(remote), version: () => serverVersion(remote), lag: codeLag, probe: probeSite })
+  : {};
 // 各榜单前 20 里还没有和当前资料对上的简介的项目（#52）。只读快照和项目资料文件，不开库；
 // 分类榜上的项目没生成成功时，补资料这一步退出码为 1，上面“有步骤失败”会报。
 const unfinished = boardProjects('data')

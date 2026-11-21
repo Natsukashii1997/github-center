@@ -89,9 +89,12 @@ export function healthProblems({ run, settings, remote, server, backups, unfinis
     const latest = backups[0]?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
     if (!latest) out.push('还没有服务器库的备份（data/backups/ 是空的）。');
     else if (daysBetween(latest, today.day) > BACKUP_STALE_DAYS) out.push(`服务器库的最新备份是 ${latest}，已经 ${daysBetween(latest, today.day)} 天没备份了。`);
-    if (site?.blocked) out.push(`域名 ${site.host} 打不开：被阿里云按未备案拦截（http 返回「Non-compliance ICP Filing」）。ICP 备案通过后这句自动不报。`);
+    if (site?.blocked) out.push(`域名 ${site.host} 打不开：被阿里云按未备案拦截（返回「Non-compliance ICP Filing」）。ICP 备案通过后这句自动不报。`);
     else if (site?.error) out.push(`域名 ${site.host} 打不开：${site.error}。`);
-    if (version instanceof Error) out.push(`读不到服务器的代码版本：${version.message}。服务器上的代码早于这项检查（#105）时就会这样，重新发一次代码（${DEPLOY}）就好。`);
+    // 服务器上的 server.sh 早于 #105 时不认识 version，退出码 2（打用法）；其余失败（比如 ssh 偶然断了）照实报。
+    if (version instanceof Error) out.push(/退出码 2）/.test(version.message)
+      ? `服务器上的代码早于这项检查（#105），读不到代码版本：重新发一次代码（${DEPLOY}）就好。`
+      : `读不到服务器的代码版本：${version.message}`);
     else if (version === null) out.push(`服务器上没有代码版本记录（VERSION），对不上它跑的是哪个提交：重新发一次代码（${DEPLOY}）就有了。`);
     if (lag instanceof Error) out.push(`对不上服务器代码和本机 main：${lag.message}。`);
     else if (lag?.differs) {
@@ -102,5 +105,22 @@ export function healthProblems({ run, settings, remote, server, backups, unfinis
         : `服务器代码和本机 main 不一样（${which}，有 main 里没有的代码改动：可能从别的分支发的，或本机 main 还没拉）。`);
     }
   }
+  return out;
+}
+
+// 配了服务器时查哪几项（#105 起）：连不上服务器就不再查版本（上面已报「连不上」，免得同一件事报两遍）；
+// 有版本记录才算落后多少；填了 url 才探测域名。各项出错都收成 Error 交给 healthProblems。check 里是各项的查法，测试换替身。
+export async function remoteChecks(remote, check) {
+  const attempt = (fn) => {
+    try {
+      return fn();
+    } catch (e) {
+      return e;
+    }
+  };
+  const out = { server: attempt(check.status) };
+  if (!(out.server instanceof Error)) out.version = attempt(check.version);
+  if (out.version && !(out.version instanceof Error)) out.lag = attempt(() => check.lag(out.version.commit));
+  if (remote.url) out.site = await check.probe(remote.url);
   return out;
 }
