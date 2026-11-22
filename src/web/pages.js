@@ -7,7 +7,7 @@ import { readProfile, findProfile, currentGenerated, shownGenerated, skillPurpos
 import { boardProjects, findOnBoards, categoryListed, categoryListedById, listTotals } from '../listed.js';
 import { windowStatus } from './home.js';
 import { project as projectCard, aiBy, categoryOnly, conditionsOf, shortOf, maintOf } from './project-card.js';
-import { embed, esc, frame, MARK, WORDMARK, FAVICON } from './frame.js';
+import { esc, frame, MARK, WORDMARK, FAVICON } from './frame.js';
 import { rankHistory } from '../ranking/moves.js';
 import { decisionOf, decisionsOf } from './favorites.js';
 
@@ -124,25 +124,19 @@ export function favoritesData(dataDir, ctx) {
   return { ...base(ctx), items, shelves, projects, views };
 }
 
-// ── 登录页的壳（#14 的样式和组件，不套白雾外壳）；数据嵌进 <script type="application/json"> ──
-const shell = ({ title, body, script, data }) => `<!doctype html>
+// ── 登录页的壳（#14 的样式和组件，不套白雾外壳；#116 起样式和脚本各收成一个文件，样子不变） ──
+const shell = ({ title, body }) => `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title} · Github·Tidings</title>
 ${FAVICON}
-<link rel="stylesheet" href="/assets/tokens.css">
-<link rel="stylesheet" href="/assets/components.css">
-<link rel="stylesheet" href="/assets/pages.css">
+<link rel="stylesheet" href="/assets/login.css">
 </head>
 <body>
 ${body}
-<script type="application/json" id="gc-data">${embed(data)}</script>
-<script src="/assets/icons.js"></script>
-<script src="/assets/gc.js"></script>
-<script src="/assets/pages.js"></script>
-<script src="/assets/${script}"></script>
+<script src="/assets/login.js"></script>
 </body>
 </html>
 `;
@@ -163,7 +157,7 @@ export const favoritesPage = (data, ctx) => frame({ title: '收藏', active: '�
   <aside class="drawer" id="drawer" aria-label="详情栏"></aside>` });
 
 // 登录（#5）：表单由服务端判定；失败时输入框描边变失败色、提示条写明，用户名照填回去（密码不回填）。next 已由 safeNext 处理成本站路径。
-export const loginPage = (next, error, name = '') => shell({ title: '登录', script: 'login.js', data: { ...base({ account: { name: '' } }), projects: {} }, body: `<main class="login-split">
+export const loginPage = (next, error, name = '') => shell({ title: '登录', body: `<main class="login-split">
   <section class="intro" aria-label="这个站是做什么的">
     <a class="brand" href="/login">${MARK}${WORDMARK}</a>
     <p class="claim">每天两分钟，知道 GitHub 上什么在涨、值不值得装。</p>

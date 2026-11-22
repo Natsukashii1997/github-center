@@ -212,18 +212,20 @@ test('嵌入的数据把 < 转义，项目文字里出现 </script> 也不会截
 test('页面脚本登录后才能取（登录页用的样式和组件脚本除外），只给登记过的文件', async () => {
   const site = await serve(dataDirWithSnapshot());
   try {
-    const css = await site.get('assets/components.css');
+    const css = await site.get('assets/login.css');
     assert.equal(css.status, 200);
     assert.match(css.headers['content-type'], /^text\/css/);
     assert.doesNotMatch(css.body, /gc-demo/); // 方案里的演示面板不进入生产
-    assert.match((await site.get('assets/gc.js')).headers['content-type'], /^text\/javascript/);
+    assert.match((await site.get('assets/login.js')).headers['content-type'], /^text\/javascript/);
     assert.equal((await site.get('assets/nope.js')).status, 404);
     assert.equal((await site.get('assets/%2e%2e%2fserver.js')).status, 404);
-    // 登录页（未登录时打开）要用的样式、图标、组件和登录脚本不登录也能取，其余页面脚本不行。
-    for (const f of ['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js', 'login.js']) assert.equal((await http(site.url + `assets/${f}`)).status, 200, f);
+    // 登录页（未登录时打开）要用的样式和脚本不登录也能取，其余页面脚本不行。
+    for (const f of ['login.css', 'login.js']) assert.equal((await http(site.url + `assets/${f}`)).status, 200, f);
     for (const f of ['shell.css', 'bw.css', 'sharks.js', 'shell.js', 'bw.js', 'home.js', 'project.js', 'favorites.js', 'nope.js']) assert.equal((await http(site.url + `assets/${f}`)).status, 303, f);
     // 删掉的日报、其他榜单页脚本不再给（#21）。
     for (const f of ['boards.js', 'daily.js']) assert.equal((await site.get(`assets/${f}`)).status, 404, f);
+    // 登录页旧外壳的文件 #116 起收进 login.css、login.js，旧名字不再给。
+    for (const f of ['tokens.css', 'components.css', 'pages.css', 'icons.js', 'gc.js', 'pages.js']) assert.equal((await site.get(`assets/${f}`)).status, 404, f);
   } finally {
     site.close();
   }
