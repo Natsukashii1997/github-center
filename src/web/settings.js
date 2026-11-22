@@ -7,7 +7,7 @@
 import { readStatus, readLatestSnapshot } from '../store.js';
 import { readSettings, parseSettings, saveSettings, SettingsError, AGENTS, EFFORTS, DAYS, EARLIEST, REQUIRED, UNAVAILABLE } from '../settings/index.js';
 import { lastRun, readRunState, ranToday } from '../update-steps.js';
-import { frame } from './home.js';
+import { frame } from './frame.js';
 import { aiAccess, VIAS, STATES } from '../ai-access.js';
 import { NAMES } from '../agent.js';
 

@@ -5,7 +5,9 @@ import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, SINCES } from '.
 import { readCategories } from '../categories/index.js';
 import { readProfile, findProfile, currentGenerated, shownGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
 import { boardProjects } from '../profiles/store.js';
-import { project as projectCard, aiBy, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, shortOf, maintOf, frame, MARK, WORDMARK, FAVICON } from './home.js';
+import { windowStatus, categoryListed } from './home.js';
+import { project as projectCard, aiBy, categoryOnly, conditionsOf, shortOf, maintOf } from './project-card.js';
+import { embed, esc, frame, MARK, WORDMARK, FAVICON } from './frame.js';
 import { rankHistory } from '../ranking/moves.js';
 import { decisionOf, decisionsOf } from './favorites.js';
 

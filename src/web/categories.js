@@ -12,7 +12,7 @@ import { readCategories } from '../categories/index.js';
 import { readProfile, shownGenerated } from '../profiles/index.js';
 import { rankHistory } from '../ranking/moves.js';
 import { base, detail, latestBoards } from './pages.js';
-import { frame } from './home.js';
+import { frame } from './frame.js';
 
 // 本地已有数字的项目（按项目 id）：历史榜最近一期前 100、涨星榜三个窗口这一期的候选（同精选候选池的来源），再加热点榜上核过的。
 // 换卡只能换进这些项目（总 Star、作者 id 取这里，不信页面传来的数字）；卡片和详情栏的 GitHub 描述也取这里。
