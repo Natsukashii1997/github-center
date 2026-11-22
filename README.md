@@ -57,8 +57,8 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 | `src/remote/` | 和服务器同步：拉设置、推数据、备份库；健康检查的判断也在这里 |
 | `scripts/` | launchd 安装（`schedule.sh`）、服务器端脚本（`server.sh`）、发代码（`deploy-code.sh`）、提交和推送钩子 |
 | `test/` | 全量测试，不联网；上游数据用 `test/fixtures/upstream/` 里录制的 |
-| `design/`、`docs/design/` | 设计候选稿、审查记录和截图 |
-| `research/`、`docs/history/` | 建仓前的数据可行性实验和早期交接，只作历史记录 |
+| `design/`、`docs/design/` | 设计审查记录、截图和冻结稿（`t1b/`、`t1b-pages/` 是登录页还在照的冻结方案）；用过的候选稿在 `design/archive/` |
+| `archive/research/`、`docs/history/` | 建仓前的数据可行性实验（2026-11-22 从 `research/` 移来，#112）和早期交接，只作历史记录 |
 
 ### 名字容易误会的地方
 
