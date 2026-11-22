@@ -38,7 +38,6 @@ async function targets({ dataDir, gh, now, cats }) {
   }
   const trending = readLatestSnapshot(dataDir, 'trending');
   const listed = [
-    ...['new', 'top'].flatMap((l) => readLatestSnapshot(dataDir, l)?.entries ?? []),
     ...Object.values(trending?.pages ?? {}).flatMap((p) => p.entries),
   ].map((e) => ({ id: e.projectId ?? null, fullName: e.fullName, description: null, topics: null }));
   for (const p of profileProjects(dataDir)) listed.push({ id: p.id, fullName: p.name, description: null, topics: null });

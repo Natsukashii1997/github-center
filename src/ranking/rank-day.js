@@ -215,9 +215,9 @@ function candidatesFile({ window, day, runId, generatedAt, r, meta }) {
   return { window, statDay: day, generatedAt, runId, check: { threshold, recordRatio, completenessFloor }, meta: { found: items.filter((x) => x.evidence.meta).length, missing: items.filter((x) => !x.evidence.meta).length }, items };
 }
 
-// 跑一次出榜：某个已结束统计日的近 1、7、30 天涨星榜前 20（含末位并列），以及新项目榜、官方热门榜、累计高星榜，各自单独发布。
+// 跑一次出榜：某个已结束统计日的近 1、7、30 天涨星榜前 20（含末位并列），以及官方热门榜，各自单独发布。
 // 已发布的不重跑；某个榜单失败不影响其他榜单，失败原因记进 status.json，网站据此提示。
-// 另外三个榜单只能取到运行当时的数据，所以只在出最近一个已结束的统计日时生成；补跑更早的日子不生成，免得把现在的数字记成旧日子的。
+// 官方热门榜只能取到运行当时的数据，所以只在出最近一个已结束的统计日时生成；补跑更早的日子不生成，免得把现在的数字记成旧日子的。
 // sources：设置页的数据源开关（../settings）。关掉官方热门：候选只来自事件数据，也不出官方热门榜；关掉 ClickHouse：不补缺的小时和更早的日子。
 export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, now = () => new Date(), limit = 300, maxCandidates = MAX_CANDIDATES, windows = Object.keys(WINDOWS), lists = Object.keys(LISTS), sleep, sources = { trending: true, clickhouse: true } }) {
   if (day > lastEndedDay(now())) throw new Error(`统计日 ${day} 还没结束（GitHub 统计日按美国太平洋时间），最近一个已结束的是 ${lastEndedDay(now())}`);

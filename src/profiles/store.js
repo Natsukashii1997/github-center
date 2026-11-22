@@ -40,7 +40,6 @@ export function boardProjects(dataDir) {
   const pages = (sinces) => sinces.flatMap((s) => trending?.pages[s]?.entries.slice(0, 20) ?? []);
   for (const w of Object.keys(WINDOWS)) readLatestSnapshot(dataDir, w)?.entries.forEach(add);
   pages(SINCES.slice(0, 1)).forEach(add);
-  for (const l of ['new', 'top']) readLatestSnapshot(dataDir, l)?.entries.forEach(add);
   pages(SINCES.slice(1)).forEach(add);
   return out;
 }

@@ -57,10 +57,10 @@ test('#94 失败后当天重试：上次跑完满 30 分钟、当天最多 2 次
   const run = failedRun(['出榜']);
   assert.equal(retryOf(s, run, at('2026-11-16T20:00:00')), null, '跑完不满 30 分钟');
   const r = retryOf(s, run, at('2026-11-16T20:03:00'));
-  assert.deepEqual(r, { n: 1, failed: ['出榜'], steps: ['出榜', '精选榜', '补资料', '归类', '周报', '校准报告', '推到服务器、备份库'] });
+  assert.deepEqual(r, { n: 1, failed: ['出榜'], steps: ['出榜', '精选榜', '补资料', '归类', '周报', '推到服务器、备份库'] });
   // 各自取数的步骤只有自己失败才重跑；最后一步失败只重跑它自己。
-  assert.deepEqual(retryOf(s, failedRun(['热点榜', '补资料']), at('2026-11-16T20:03:00')).steps, ['热点榜', '精选榜', '补资料', '归类', '周报', '校准报告', '推到服务器、备份库']);
-  assert.deepEqual(retryOf(s, failedRun(['全站 Star 前 100']), at('2026-11-16T20:03:00')).steps, ['全站 Star 前 100', '精选榜', '补资料', '归类', '周报', '校准报告', '推到服务器、备份库']);
+  assert.deepEqual(retryOf(s, failedRun(['热点榜', '补资料']), at('2026-11-16T20:03:00')).steps, ['热点榜', '精选榜', '补资料', '归类', '周报', '推到服务器、备份库']);
+  assert.deepEqual(retryOf(s, failedRun(['全站 Star 前 100']), at('2026-11-16T20:03:00')).steps, ['全站 Star 前 100', '精选榜', '补资料', '归类', '周报', '推到服务器、备份库']);
   assert.deepEqual(retryOf(s, failedRun(['推到服务器、备份库']), at('2026-11-16T20:03:00')).steps, ['推到服务器、备份库']);
   // 次数、截止时间、不重试的情况。
   assert.equal(retryOf(s, failedRun(['出榜'], { retries: 1 }), at('2026-11-16T20:03:00')).n, 2);

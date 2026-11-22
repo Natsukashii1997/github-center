@@ -16,7 +16,6 @@ export const STEPS = [
   { name: '补资料', args: ['--use-env-proxy', 'bin/profiles.js'] },
   { name: '归类', args: ['--use-env-proxy', 'bin/classify.js'] },
   { name: '周报', args: ['bin/weekly.js'] },
-  { name: '校准报告', args: ['bin/calibrate.js'] },
   { name: '推到服务器、备份库', args: ['bin/push.js'] },
 ];
 

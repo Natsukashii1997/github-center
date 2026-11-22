@@ -1,5 +1,5 @@
 // 每日出榜：涨星榜（全站事件数据和官方热门榜找候选，GitHub 官方星数历史核数，每日自检，ADR 0001）
-// 和新项目榜、官方热门榜、累计高星榜，都存成不可变快照。涨星榜缺的期次每次出榜后回补（backfill.js，#103）。
+// 和官方热门榜，都存成不可变快照。涨星榜缺的期次每次出榜后回补（backfill.js，#103）。
 export { rankDay } from './rank-day.js';
 export { readLatestSnapshot, readStatus, recordStatus, newerFailure } from './store.js';
 export { lastEndedDay, WINDOWS } from './stat-day.js';

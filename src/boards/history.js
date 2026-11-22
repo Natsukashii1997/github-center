@@ -1,11 +1,11 @@
 // 历史榜（#24）：每天一次 GitHub 官方搜索按总 Star 倒序取全站前 100，存快照 snapshots/history/<日期>.json，网站展示前 50。
 // 日期是实际抓取那天（UTC），快照里另记抓取时刻。同一天已存过就不再请求；失败时保留上一次快照，status.json 记下失败的日期和原因。
-// 沿用累计高星榜的已知现象：搜索会把少数仓库计进总数、列表里却不返回，页面上写明（SEARCH_NOTE）。
+// 已知现象（原累计高星榜同样有）：搜索会把少数仓库计进总数、列表里却不返回，页面上写明（SEARCH_NOTE）。
 import { join } from 'node:path';
 import { openStore, findSnapshot, readLatestSnapshot, readStatus, recordStatus, newerFailure, writeOnce } from '../ranking/store.js';
 
 export const BOARD = 'history';
-// 门槛只是为了让搜索条件成立，前 100 名远高于它（和累计高星榜同一条件）。
+// 门槛只是为了让搜索条件成立，前 100 名远高于它（原累计高星榜也是这条，#110 起只在这里请求）。
 export const QUERY = 'stars:>=10000 fork:true';
 export const KEEP = 100;
 export const SHOW = 50;

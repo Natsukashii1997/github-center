@@ -97,7 +97,7 @@
   };
   const dayOpts = () => D.days.map((t, i) => `<option value="${i}"${S.weekly.day === i ? ' selected' : ''}>每${t}</option>`).join('');
   function body() {
-    const steps = '出榜 → 全站 Star 前 100 → 历史榜 → 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准，共 9 步，一步失败照样跑后面的';
+    const steps = '出榜 → 全站 Star 前 100 → 历史榜 → 热点榜 → 精选榜 → 补资料 → 归类 → 周报，共 8 步，一步失败照样跑后面的';
     const cards = [
       ['s-src', '数据源', `${inUse()}/${D.sources.length}`, `数据源 <small>每天跟着每日更新一起抓；关掉的来源不再抓，网站上用到它的部分沿用最后一次的数据</small>`, D.sources.map(sourceRow).join('')],
       ['s-time', '定时与推送', '2', '定时与推送 <small>每日更新是本机 launchd 任务；周报推送由猛鬼兽按这里的设置发</small>', [
