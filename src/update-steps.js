@@ -7,23 +7,24 @@ import { readJson, writeAtomic } from './store.js';
 // 最后一步把数据推到服务器、把服务器的库备份回来（#46、#48，没有 data/remote.json 时什么都不做）。
 // 设置页（../settings）关掉的数据源：一步只靠它的整步跳过（skills.sh → 历史榜；HN、V2EX 都关 → 热点榜），日志写明原因；
 // 只关掉一部分来源的步骤照跑，由那一步自己读设置跳过那个来源。
+// id 是代码内部用的稳定英文名（#114）；name 是中文步骤名，日志、data/update-state.json 的 failed、设置页、健康检查都用它，不要改。
 export const STEPS = [
-  { name: '出榜', args: ['--use-env-proxy', 'bin/rank-day.js'] },
-  { name: '全站 Star 前 100', args: ['--use-env-proxy', 'bin/history.js'] },
-  { name: '历史榜（Skill 安装量）', args: ['--use-env-proxy', 'bin/skills.js'], off: (s) => !s.sources.skills && 'skills.sh' },
-  { name: '热点榜', args: ['--use-env-proxy', 'bin/hot.js'], off: (s) => !s.sources.hn && !s.sources.v2ex && 'Hacker News 和 V2EX' },
-  { name: '精选榜', args: ['bin/picks.js'] },
-  { name: '补资料', args: ['--use-env-proxy', 'bin/profiles.js'] },
-  { name: '归类', args: ['--use-env-proxy', 'bin/classify.js'] },
-  { name: '周报', args: ['bin/weekly.js'] },
-  { name: '推到服务器、备份库', args: ['bin/push.js'] },
+  { id: 'rank', name: '出榜', args: ['--use-env-proxy', 'bin/rank-day.js'] },
+  { id: 'history', name: '全站 Star 前 100', args: ['--use-env-proxy', 'bin/history.js'] },
+  { id: 'skills', name: '历史榜（Skill 安装量）', args: ['--use-env-proxy', 'bin/skills.js'], off: (s) => !s.sources.skills && 'skills.sh' },
+  { id: 'hot', name: '热点榜', args: ['--use-env-proxy', 'bin/hot.js'], off: (s) => !s.sources.hn && !s.sources.v2ex && 'Hacker News 和 V2EX' },
+  { id: 'picks', name: '精选榜', args: ['bin/picks.js'] },
+  { id: 'profiles', name: '补资料', args: ['--use-env-proxy', 'bin/profiles.js'] },
+  { id: 'classify', name: '归类', args: ['--use-env-proxy', 'bin/classify.js'] },
+  { id: 'weekly', name: '周报', args: ['bin/weekly.js'] },
+  { id: 'push', name: '推到服务器、备份库', args: ['bin/push.js'] },
 ];
 
-// 这次要跑的步骤：{ name, args, skip }，skip 是跳过的原因（不跳过为 null）。
+// 这次要跑的步骤：{ id, name, args, skip }，skip 是跳过的原因（不跳过为 null）。
 export function planSteps(settings) {
-  return STEPS.map(({ name, args, off }) => {
+  return STEPS.map(({ id, name, args, off }) => {
     const by = off?.(settings);
-    return { name, args, skip: by ? `设置页里关掉了 ${by}` : null };
+    return { id, name, args, skip: by ? `设置页里关掉了 ${by}` : null };
   });
 }
 
@@ -61,7 +62,8 @@ export function isDue(settings, state, now) {
 // 跑哪几步：失败的步骤，加上排在第一个失败步骤后面、要用前面结果的步骤（例如出榜补上了，周报才写得出新的一期）；
 // 各自取数、不读别的步骤结果的步骤，只有自己失败才重跑。没跑完（没有结束时刻，可能还在跑或中途被杀）不重试。
 export const RETRY = { max: 2, gapMinutes: 30, until: '22:00' };
-const INDEPENDENT = new Set(['出榜', '全站 Star 前 100', '历史榜（Skill 安装量）', '热点榜']);
+// 各自取数的步骤（按 id）：出榜、全站 Star 前 100、历史榜、热点榜。state.failed 和返回的 steps 照旧是中文步骤名。
+const INDEPENDENT = new Set(['rank', 'history', 'skills', 'hot']);
 export function retryOf(settings, state, now) {
   if (!settings.daily.on || !ranToday(state, now) || !state.failed?.length || !state.endedAt) return null;
   const n = (state.retries ?? 0) + 1;
@@ -69,7 +71,7 @@ export function retryOf(settings, state, now) {
   if (now.getTime() - Date.parse(state.endedAt) < RETRY.gapMinutes * 60_000) return null;
   const first = STEPS.findIndex((x) => state.failed.includes(x.name));
   if (first < 0) return null;
-  const steps = STEPS.filter((x, i) => state.failed.includes(x.name) || (i > first && !INDEPENDENT.has(x.name))).map((x) => x.name);
+  const steps = STEPS.filter((x, i) => state.failed.includes(x.name) || (i > first && !INDEPENDENT.has(x.id))).map((x) => x.name);
   return { n, failed: state.failed, steps };
 }
 
