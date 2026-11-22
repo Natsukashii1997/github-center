@@ -45,14 +45,16 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 | 位置 | 管什么 |
 |---|---|
 | `bin/` | 命令入口，每个文件对应一条 `npm run`；`update.js` 是每日更新的总入口 |
-| `src/update-steps.js` | 每日更新的九步、到点判断、当天重试 |
-| `src/ranking/` | 涨星榜：统计日（`stat-day.js`）、找候选（`sources.js`）、官方核数和出榜（`rank-day.js`）、自检（`check.js`）、名次变化（`moves.js`） |
-| `src/boards/` | 发现页的几块：历史榜、热点榜、精选榜，和给精选榜当候选池的全站 Star 前 100 |
-| `src/profiles/` | 项目资料：读项目原文、生成简介和使用条件、安装指令和交接文字 |
-| `src/categories/` | 把项目归进 9 个分类，按分类筛榜 |
+| `src/update-steps.js` | 每日更新的九步（每步有英文 id 和中文名，日志和记录只用中文名）、到点判断、当天重试 |
+| `src/store.js`、`src/map-limit.js` | 全项目共用的文件存储（`readJson`、`writeAtomic`、快照读写、各榜更新结果）；并发工具 `mapLimit` |
+| `src/listed.js` | 已收录项目名单：哪些项目在中心里（各榜上的、发现页上的、只上了分类涨星榜的）、去哪取它的资料和总 Star，补资料、归类、健康检查和网站都从这里取 |
+| `src/ranking/` | 涨星榜：统计日（`stat-day.js`）、找候选（`sources.js`）、官方核数和出榜（`rank-day.js`）、自检（`check.js`）、名次变化（`moves.js`）、已核数候选和事件合计的落盘（`files.js`） |
+| `src/boards/` | 发现页的几块：历史榜、热点榜、精选榜（标签建议的提示词在 `picks-prompt.js`），和给精选榜当候选池的全站 Star 前 100 |
+| `src/profiles/` | 项目资料：读项目原文、生成简介和使用条件（提示词在 `prompt.js`）、安装指令和交接文字 |
+| `src/categories/` | 把项目归进 9 个分类（提示词在 `prompt.js`），按分类筛榜 |
 | `src/agent.js`、`src/ai-access.js` | 调本机 Codex / Claude 命令行；AI 接入的清单和可用状态 |
 | `src/settings/` | 设置的默认值、校验和读写 |
-| `src/web/` | 网站：`server.js` 是路由和接口，其余文件把数据整理好嵌进页面；`assets/` 是浏览器端的样式和脚本 |
+| `src/web/` | 网站：`server.js` 是路由和接口，`frame.js` 是各页共用的 HTML 外壳，`project-card.js` 是各页共用的项目卡转换，`home.js` 是涨星页，其余文件把各页数据整理好嵌进页面；`assets/` 是浏览器端的样式和脚本 |
 | `src/weekly/`、`src/share/` | 周报和飞书卡片；导出只读分享页 |
 | `src/remote/` | 和服务器同步：拉设置、推数据、备份库；健康检查的判断也在这里 |
 | `scripts/` | launchd 安装（`schedule.sh`）、服务器端脚本（`server.sh`）、发代码（`deploy-code.sh`）、提交和推送钩子 |
@@ -66,9 +68,6 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 
 - **`src/boards/history.js` 不是产品里的「历史榜」**。它是 GitHub 全站 Star 前 100，不展示，给精选榜当候选池，也给收藏页、项目页查总 Star（#110）。产品里的「历史榜」（按 Skill 安装量）在 `src/boards/skills.js`。
 - **`hot` 有两个意思**。`src/ranking/rank-day.js` 里的 `hotPage`、`hot` 指 GitHub 官方热门榜（trending）；`src/boards/hot.js` 是 Hacker News 和 V2EX 的热点榜。
-- **三个 `codex.js` 不只管 Codex**。`src/profiles/codex.js`、`src/categories/codex.js`、`src/boards/picks-codex.js` 是补资料、归类、精选标签的提示词和输出格式，实际由哪家执行看设置页「AI 接入」。
-- **`src/ranking/store.js` 是全项目的文件存储**。`readJson`、`writeAtomic`、快照读写都在这里，设置、调度、资料、周报都用它。并发工具 `mapLimit` 在 `src/ranking/rank-day.js`。
-- **`src/web/home.js` 不只是首页**。它同时放着涨星页的数据、各页共用的项目卡转换和 HTML 外壳（`frame`）。
 - **榜单在代码里有三个词**。windows 是涨星榜的三个窗口（`d1`、`d7`、`d30`），lists 现在只剩官方热门榜（`trending`；新项目榜 `new`、累计高星榜 `top` 2026-11-22 起不再生成，旧快照还在，#110），boards 是 `history`、`skills`、`hot`、`picks`；存快照时统一叫 board。
 - **`daily` 有两个意思**。设置里的 `daily` 是每日更新的开关和时间；`data/daily/` 和 `/daily` 地址是 2026-11-03 已删除的日报留下的。
 - **前端文件名是缩写**。`bw.js`、`bw.css` 是白雾定稿的共用组件，`ho.js` 是决策状态和交接，`gc.js` 是只剩登录页在用的旧组件。
