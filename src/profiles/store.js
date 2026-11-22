@@ -1,9 +1,7 @@
 // 项目资料按项目 id 各存一个文件（data/profiles/<id>.json），网站只读这里；记下生成依据（资料哈希、来源链接）。
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { readJson, writeAtomic, readLatestSnapshot } from '../ranking/store.js';
-import { WINDOWS } from '../ranking/stat-day.js';
-import { SINCES } from '../ranking/lists.js';
+import { readJson, writeAtomic } from '../store.js';
 
 const profilesDir = (dataDir) => join(dataDir, 'profiles');
 export const readProfile = (dataDir, id) => readJson(join(profilesDir(dataDir), `${id}.json`));
@@ -26,22 +24,3 @@ export function findProfile(dataDir, fullName) {
   return null;
 }
 
-// 网站上各榜单当前显示的项目（每个榜前 20 含并列；官方热门榜每页前 20），去重；近 1 天涨星榜排最前，先生成。
-export function boardProjects(dataDir) {
-  const seen = new Set();
-  const out = [];
-  const add = (e) => {
-    const keys = [`name:${e.fullName.toLowerCase()}`, ...(e.projectId ? [`id:${e.projectId}`] : [])];
-    if (keys.some((k) => seen.has(k))) return;
-    keys.forEach((k) => seen.add(k));
-    out.push({ id: e.projectId ?? null, name: e.fullName });
-  };
-  const trending = readLatestSnapshot(dataDir, 'trending');
-  const pages = (sinces) => sinces.flatMap((s) => trending?.pages[s]?.entries.slice(0, 20) ?? []);
-  for (const w of Object.keys(WINDOWS)) readLatestSnapshot(dataDir, w)?.entries.forEach(add);
-  pages(SINCES).forEach(add);
-  return out;
-}
-
-// 榜单上的这个项目（按名字不分大小写，或按项目 id），不在榜单上返回 undefined。
-export const findOnBoards = (dataDir, { name, id }) => boardProjects(dataDir).find((p) => (id ? p.id === id : p.name.toLowerCase() === name.toLowerCase()));

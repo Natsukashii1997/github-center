@@ -4,7 +4,8 @@ import { readSettings } from '../src/settings/index.js';
 import { lastRun } from '../src/update-steps.js';
 import { readRemote, serverStatus, serverVersion, codeLag, listBackups } from '../src/remote/index.js';
 import { healthProblems, probeSite, remoteChecks } from '../src/remote/health.js';
-import { boardProjects, readProfile, findProfile, currentGenerated } from '../src/profiles/store.js';
+import { readProfile, findProfile, currentGenerated } from '../src/profiles/store.js';
+import { boardProjects } from '../src/listed.js';
 import { aiProblems } from '../src/ai-access.js';
 import { lastEndedDay, missingDays } from '../src/ranking/index.js';
 

@@ -4,7 +4,7 @@
 // 周报推送（weekly）本仓库不读：猛鬼兽（Hermes）每 15 分钟读一次 data/settings.json 决定发不发（#61，约定见 docs/handoff/weekly-hermes.md）。
 // 改默认值或字段时同步改 digital-twin 的 hermes/scripts/tidings_weekly.py。
 import { join } from 'node:path';
-import { readJson, writeAtomic } from '../ranking/store.js';
+import { readJson, writeAtomic } from '../store.js';
 
 // 能开关的数据源。GH Archive 是涨星榜的基础数据，必须开；Reddit 还没接（要先有免费的应用凭证），只能关。
 export const SOURCES = ['trending', 'gharchive', 'clickhouse', 'skills', 'hn', 'v2ex', 'reddit'];

@@ -9,10 +9,11 @@ import { readFileSync } from 'node:fs';
 import { openAccounts, SESSION_DAYS } from './accounts.js';
 import { openFavorites, decisionOf, STATUSES, HANDOFF_TYPES, TEXT_MAX } from './favorites.js';
 import { WINDOWS } from '../ranking/index.js';
-import { readProfile, findOnBoards, installInstruction, INSTALL_AIS, handoffText, compareText, searchText, HANDOFF_KINDS, COMPARE_MIN, COMPARE_MAX } from '../profiles/index.js';
-import { homeData, homePage, categoryListed } from './home.js';
+import { readProfile, installInstruction, INSTALL_AIS, handoffText, compareText, searchText, HANDOFF_KINDS, COMPARE_MIN, COMPARE_MAX } from '../profiles/index.js';
+import { homeData, homePage } from './home.js';
 import { projectData, projectMissing, projectPage, favoritesData, favoritesPage, loginPage } from './pages.js';
-import { categoriesData, categoriesPage, picksApi, onCategoriesPage } from './categories.js';
+import { categoriesData, categoriesPage, picksApi } from './categories.js';
+import { findOnBoards, onCategoryBoard, onCategoriesPage } from '../listed.js';
 import { openPicks, PicksError } from '../boards/index.js';
 import { settingsData, settingsPage, changeSettings, SettingsError } from './settings.js';
 
@@ -46,10 +47,6 @@ function sameOrigin(req, lan, publicOrigin) {
 // （含分类榜，#10）就行；取消不用查，资料没了也能取消。
 // 改决策状态、理由、下一步（update）和记最近交接（handoff）见 #78，只能动自己已收藏的那一条。
 // 成功返回 { ok: 接口要回的 JSON }，否则返回拒绝的 { status, error }。
-const onCategoryBoard = (dataDir, id) => {
-  const entry = [...categoryListed(dataDir).values()].flat().find((b) => b.entry.projectId === id)?.entry;
-  return entry ? { id, name: entry.fullName } : undefined;
-};
 function changeFavorite(dataDir, favorites, picks, account, form) {
   const projectId = Number(form.get('project_id'));
   const skillPath = form.get('skill') ?? '';

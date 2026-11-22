@@ -4,7 +4,7 @@
 // 可用状态存在 data/ai-status.json：每次跑 AI 功能前在 Mac 上查一次（装没装、登没登录），跑完记各执行方最近一次调用的成败；
 // 这个文件随数据推到服务器（../remote 的 pushData），服务器上的设置页照着显示，自己不查（服务器上没有这两个命令行）。
 import { join } from 'node:path';
-import { readJson, writeAtomic } from './ranking/store.js';
+import { readJson, writeAtomic } from './store.js';
 import { checkAgents, NAMES, VIA } from './agent.js';
 import { AGENTS, FOLLOW, agentOf } from './settings/index.js';
 

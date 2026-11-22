@@ -1,4 +1,5 @@
-// 归类器（#10）：用本机已登录的 Codex CLI 一次给一批项目归类，结构化输出，不新增 API 费用。接口见 update.js 开头。
+// 归类器（#10）：归类的提示词和输出格式，一次给一批项目归类，结构化输出，不新增 API 费用。接口见 update.js 开头。
+// 执行方看设置页「AI 接入」（本机已登录的 Codex 或 Claude 命令行，见 ../agent.js）。
 // 项目资料是外部内容：Codex 的运行限制同项目资料（../agent.js），提示里写明只当资料。
 import { agentJson } from '../agent.js';
 import { CATEGORIES } from './store.js';
@@ -74,9 +75,10 @@ Topics：${topics(x.topics)}
 
 // effort：设置页「归类」的思考强度，不给用默认；换强度不改 version；agent、codexDown：设置页「AI 接入」给归类选的执行方（见 ../agent.js），换执行方也不改 version。
 // classify 返回 { results, ai }：ai 是这一批的留痕。
-export function codexClassifier({ bin, claudeBin, timeoutMs, effort, agent, codexDown } = {}) {
+export function aiClassifier({ bin, claudeBin, timeoutMs, effort, agent, codexDown } = {}) {
   const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs, codexDown });
   return {
+    // 版本号前缀 codex- 是历史写法，记在每条归类上，不改。
     version: `codex-${PROMPT_VERSION}`,
     stats,
     async classify(items, { review = false } = {}) {

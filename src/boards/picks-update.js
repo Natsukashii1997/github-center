@@ -1,9 +1,10 @@
 // 精选榜默认填法（#26）：候选池 = 历史榜最近一期前 100 和涨星榜三个窗口这一期的已核数候选（都带简介、topics 和总 Star），
 // 按总 Star 取前 limit 个；还没按当前标签清单建议过标签的交给建议器（每批 50 个，2 批同时跑），然后按默认填法重填没固定的卡。
 // 一批建议失败不影响其他批，这些项目下次运行再建议；已建议过的不重建（标签清单加了标签才全部重建）。
-import { readLatestSnapshot, readCandidates } from '../ranking/store.js';
+import { readLatestSnapshot } from '../store.js';
+import { readCandidates } from '../ranking/files.js';
 import { WINDOWS } from '../ranking/stat-day.js';
-import { mapLimit } from '../ranking/rank-day.js';
+import { mapLimit } from '../map-limit.js';
 import { openPicks } from './picks.js';
 import { BOARD as HISTORY } from './history.js';
 
@@ -25,7 +26,7 @@ export function poolFrom(dataDir, limit = POOL) {
   return [...byId.values()].sort((a, b) => b.total - a.total || a.id - b.id).slice(0, limit);
 }
 
-// tagger：{ version, suggest(tags, items) → { results: [{ i, tags }], ai? } }（picks-codex.js；ai 是这一批的留痕，#69）。
+// tagger：{ version, suggest(tags, items) → { results: [{ i, tags }], ai? } }（picks-prompt.js；ai 是这一批的留痕，#69）。
 export async function updatePicks({ dataDir, tagger, limit = POOL, batch = BATCH }) {
   const pool = poolFrom(dataDir, limit);
   const picks = openPicks(dataDir);

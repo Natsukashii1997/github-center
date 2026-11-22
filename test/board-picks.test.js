@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { openAccounts } from '../src/web/accounts.js';
 import { openPicks, updatePicks, DEFAULT_TAGS, canEditPicks } from '../src/boards/index.js';
-import { suggestPrompt } from '../src/boards/picks-codex.js';
+import { suggestPrompt } from '../src/boards/picks-prompt.js';
 
 const put = (dataDir, path, obj) => {
   mkdirSync(join(dataDir, path, '..'), { recursive: true });

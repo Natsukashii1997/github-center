@@ -5,7 +5,7 @@
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { githubClient } from '../src/ranking/github.js';
-import { updateCategories, codexClassifier } from '../src/categories/index.js';
+import { updateCategories, aiClassifier } from '../src/categories/index.js';
 import { readSettings } from '../src/settings/index.js';
 import { useAgent, recordCalls } from '../src/ai-access.js';
 
@@ -13,7 +13,7 @@ const { values } = parseArgs({ options: { data: { type: 'string', default: 'data
 const t0 = performance.now();
 const token = process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const settings = readSettings(values.data);
-const classifier = codexClassifier({ ...(await useAgent(values.data, settings, 'classify')), effort: settings.effort.classify });
+const classifier = aiClassifier({ ...(await useAgent(values.data, settings, 'classify')), effort: settings.effort.classify });
 const r = await updateCategories({ dataDir: values.data, gh: githubClient({ fetch: globalThis.fetch, token }), classifier });
 
 const line = (name, s) => `${name}：要归 ${s.todo} 个，归上 ${s.classified} 个，没归上 ${s.unclassified} 个，失败 ${s.failed} 个${s.errors.length ? `（${s.errors.length} 批，如 ${s.errors[0]}）` : ''}${s.rounds ? `；失败的批当轮重试了 ${s.rounds} 轮` : ''}`;

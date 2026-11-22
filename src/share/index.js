@@ -11,8 +11,8 @@ import { request } from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { startServer } from '../web/server.js';
 import { openAccounts } from '../web/accounts.js';
-import { embed } from '../web/home.js';
-import { mapLimit } from '../ranking/rank-day.js';
+import { embed } from '../web/frame.js';
+import { mapLimit } from '../map-limit.js';
 
 export const PAGES = [['index', '/'], ['stars', '/stars'], ['favorites', '/favorites'], ['settings', '/settings']];
 const ASSETS = new URL('../web/assets/', import.meta.url);

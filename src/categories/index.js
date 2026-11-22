@@ -2,4 +2,4 @@
 export { CATEGORIES, MAX_CATEGORIES, readCategories, lookup } from './store.js';
 export { updateCategories } from './update.js';
 export { gainersInCategory } from './boards.js';
-export { codexClassifier } from './codex.js';
+export { aiClassifier } from './prompt.js';

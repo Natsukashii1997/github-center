@@ -1,33 +1,19 @@
 // 项目页、我的收藏、登录（#14 起）。服务端把页面要的快照、项目资料和这个人的收藏整理成一份数据嵌进页面，页面脚本画出来。
 // 2026-11-03 起（#21）项目页和首页右侧详情栏共用同一份内容（assets/bw.js），套白雾外壳；我的收藏按定稿改成收藏架（#22），点项目在本页打开同一份详情栏；登录页不变。
 // 日报页、其他榜单页已删（旧地址跳首页，见 server.js）。名次、新增和总 Star 只取快照；项目页的数字和走势取这一期榜单那次运行存下的官方原始响应（同首页）。
-import { readLatestSnapshot, readStatus, newerFailure, WINDOWS, SINCES } from '../ranking/index.js';
+import { readLatestSnapshot, readStatus, newerFailure, WINDOWS } from '../ranking/index.js';
 import { readCategories } from '../categories/index.js';
 import { readProfile, findProfile, currentGenerated, shownGenerated, skillPurpose, INSTALL_AIS } from '../profiles/index.js';
-import { boardProjects } from '../profiles/store.js';
-import { project as projectCard, aiBy, embed, esc, windowStatus, categoryListed, categoryOnly, conditionsOf, shortOf, maintOf, frame, MARK, WORDMARK, FAVICON } from './home.js';
+import { boardProjects, findOnBoards, categoryListed, categoryListedById, listTotals } from '../listed.js';
+import { windowStatus } from './home.js';
+import { project as projectCard, aiBy, categoryOnly, conditionsOf, shortOf, maintOf } from './project-card.js';
+import { embed, esc, frame, MARK, WORDMARK, FAVICON } from './frame.js';
 import { rankHistory } from '../ranking/moves.js';
 import { decisionOf, decisionsOf } from './favorites.js';
 
 const labels = () => Object.fromEntries(Object.entries(WINDOWS).map(([id, { days }]) => [id, { label: `近 ${days} 天` }]));
 // 每页都带的：账号、安装目标、窗口名。
 export const base = (ctx) => ({ account: { name: ctx.account.name }, ais: Object.entries(INSTALL_AIS).map(([id, ai]) => [id, ai.name]), windows: labels(), decisions: ctx.favorites ? decisionsOf(ctx.favorites, ctx.account.id) : {} });
-
-// 各榜最新快照里每个项目的总 Star（更新时的数字）：按项目 id 和名字都能查；收藏页和不在涨星榜上的项目页用。
-function listTotals(dataDir) {
-  const byId = new Map(), byName = new Map();
-  const note = (e) => {
-    if (e.total == null) return;
-    if (e.projectId && !byId.has(e.projectId)) byId.set(e.projectId, e.total);
-    if (!byName.has(e.fullName.toLowerCase())) byName.set(e.fullName.toLowerCase(), e.total);
-  };
-  for (const b of Object.keys(WINDOWS)) readLatestSnapshot(dataDir, b)?.entries.forEach(note);
-  // 全站 Star 前 100（boards/history.js）。2026-11-22 前查的是累计高星榜（和它同一条搜索）和新项目榜，#110 起这两个榜不再生成。
-  readLatestSnapshot(dataDir, 'history')?.entries.forEach((e) => note({ projectId: e.id, fullName: e.repo, total: e.total }));
-  const trending = readLatestSnapshot(dataDir, 'trending');
-  for (const s of SINCES) trending?.pages[s]?.entries.forEach(note);
-  return { of: (id, name) => (id && byId.get(id)) ?? byName.get(name.toLowerCase()) ?? null };
-}
 
 // 一个项目在紧凑行、网格卡上要的资料：简介、分类、Skill、收藏状态。数字由各页按快照另给；头像没有 owner id 时页面按用户名取。
 function brief(dataDir, { id, fullName }, ctx, find, profile = id ? readProfile(dataDir, id) : null) {
@@ -45,7 +31,7 @@ function brief(dataDir, { id, fullName }, ctx, find, profile = id ? readProfile(
 // ── 项目页：只给有资料或正在榜单上的项目；找不到返回 null（404） ──
 export function projectData(dataDir, fullName, ctx) {
   const profile = findProfile(dataDir, fullName);
-  const listed = profile ? null : boardProjects(dataDir).find((p) => p.name.toLowerCase() === fullName.toLowerCase());
+  const listed = profile ? null : findOnBoards(dataDir, { name: fullName });
   // 只上了分类榜的项目（#10，不生成项目资料）：数字和描述取它所在分类榜的候选。
   const onCategory = listed ? null : categoryListed(dataDir).get(fullName.toLowerCase()) ?? null;
   if (!profile && !listed && !onCategory) return null;
@@ -108,7 +94,7 @@ export function favoritesData(dataDir, ctx) {
   const find = readCategories(dataDir).get;
   const listed = boardProjects(dataDir);
   // 只在分类涨星榜上的项目（#10）：不生成项目资料，站内照样打得开，数字、总 Star 和描述取那里的候选。
-  const onCategory = new Map([...categoryListed(dataDir).values()].map((list) => [list[0].entry.projectId, list]));
+  const onCategory = categoryListedById(dataDir);
   // 总 Star：不在涨星榜上的项目取各榜最新快照里的数字（更新时的数字），都没有就“暂缺”。
   const totals = listTotals(dataDir);
   const opts = { find, history: rankHistory(dataDir, find), snapshots: latestBoards(dataDir) };

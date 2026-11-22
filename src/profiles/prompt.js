@@ -1,4 +1,5 @@
-// 项目资料的生成器（#6）：用本机已登录的 Codex CLI（或设置页选的 Claude，见 ../agent.js）非交互生成，结构化输出，不新增 API 费用。接口见 update.js 开头。
+// 项目资料的生成器（#6）：补资料的提示词和输出格式。执行方看设置页「AI 接入」（本机已登录的 Codex 或 Claude 命令行，见 ../agent.js），
+// 非交互生成，结构化输出，不新增 API 费用。接口见 update.js 开头。
 // 项目原文是外部内容，所以 Codex 在空的临时目录里、只读沙箱下运行，执行命令的工具关掉，不加载 config.toml（模型、MCP、插件）。
 // 已知限制（实测 0.160.1）：Codex 仍会读全局 ~/.codex/AGENTS.md 和本机 Skill 列表，没有开关能关掉；
 // 所以提示里写明这些约定不适用于这里，输出又受固定格式和原文核对约束。
@@ -68,9 +69,10 @@ ${material.skills.map((s) => `- path: ${s.path}\n  name: ${s.name}\n  descriptio
 
 // effort：设置页「补资料」的思考强度，不给用默认 low；agent、codexDown：设置页「AI 接入」给补资料选的执行方（见 ../agent.js）。
 // 换强度、换执行方都不改 version，已生成的不因此重写。stats.relayed：Claude 接力的次数。生成结果带 ai：这条的留痕（谁做的、怎么接、模型、时间）。
-export function codexGenerator({ bin, claudeBin, timeoutMs, effort, agent, codexDown } = {}) {
+export function aiGenerator({ bin, claudeBin, timeoutMs, effort, agent, codexDown } = {}) {
   const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs, codexDown });
   return {
+    // 版本号前缀 codex- 是历史写法，已存进每份资料的 generated.version，改了会让全部项目重新生成，所以不改。
     version: `codex-${PROMPT_VERSION}`,
     stats,
     async generate(material) {

@@ -6,7 +6,7 @@ import { mkdtempSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } fro
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startServer } from '../src/web/server.js';
-import { dailySeries } from '../src/web/home.js';
+import { dailySeries } from '../src/web/project-card.js';
 import { saveProfile } from '../src/profiles/store.js';
 import { visit, serve, http } from './helpers/web.js';
 

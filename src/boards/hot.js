@@ -8,7 +8,7 @@
 // Reddit 等以后拿到免费凭证再接（在 SOURCES 里加一项）；不接 X。
 import { join } from 'node:path';
 import { existsSync, readdirSync } from 'node:fs';
-import { readJson, findSnapshot, readStatus, recordStatus, newerFailure, writeOnce, readLatestSnapshot } from '../ranking/store.js';
+import { readJson, findSnapshot, readStatus, recordStatus, newerFailure, writeOnce, readLatestSnapshot } from '../store.js';
 import { windowDays } from '../ranking/stat-day.js';
 import { findRepos } from './repo-link.js';
 

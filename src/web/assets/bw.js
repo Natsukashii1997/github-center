@@ -46,7 +46,7 @@ window.BW = (() => {
   // 行和卡上的小柱图（150×30 带小字）；没有官方星数历史就写明
   const chart = (it) => (it.series ? `<div class="ch">${bars(it.series, { w: 150, h: 30 })}<span>30 天每日新增 · 最高 +${k(it.peak)}</span></div>` : '<div class="ch"><span class="nochart">暂无走势（没有官方星数历史）</span></div>');
 
-  // 一个项目按某次运行的读数（卡片数字和走势取这一期榜单那次运行，见 src/web/home.js）；extra 是首页这一行的名次等
+  // 一个项目按某次运行的读数（卡片数字和走势取这一期榜单那次运行，见 src/web/project-card.js）；extra 是首页这一行的名次等
   function view(repo, runId, extra = {}) {
     const p = D.projects[repo], run = (runId && p.runs[runId]) || null;
     const [owner, name] = p.repo.split('/');

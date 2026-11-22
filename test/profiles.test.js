@@ -4,9 +4,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmodSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { updateProfiles, codexGenerator, parseSkill } from '../src/profiles/index.js';
+import { updateProfiles, aiGenerator, parseSkill } from '../src/profiles/index.js';
 import { readProfile } from '../src/profiles/store.js';
-import { profileProjects } from '../src/profiles/update.js';
+import { profileProjects } from '../src/listed.js';
 import { openPicks } from '../src/boards/index.js';
 import { visit, dataOf } from './helpers/web.js';
 
@@ -371,7 +371,7 @@ test('Codex 生成器：非交互、结构化输出、只读沙箱、关掉执�
   `);
   const { PROJECT_TYPES } = await import('../src/profiles/update.js');
   const material = { fullName: 'acme/agent-kit', description: 'Agents', topics: ['agent'], listing: ['README.md', 'skills/'], readme: { path: 'README.md', text: AGENT_README, truncated: false }, docs: [{ path: 'docs/install.md', text: 'Install with npm.', truncated: false }], skills: [{ path: 'skills/pdf', name: 'pdf', description: 'Read PDFs.' }] };
-  const { ai, ...result } = await codexGenerator({ bin }).generate(material);
+  const { ai, ...result } = await aiGenerator({ bin }).generate(material);
   assert.deepEqual(result, { what: '干什么', problem: '解决什么', conditions: [], skills: [] });
   // 留痕（#69）：Codex 做的、本机 CLI 接入；Codex 输出里没有模型名。
   assert.deepEqual({ ...ai, at: typeof ai.at }, { by: 'codex', via: 'cli', model: null, at: 'string' });
@@ -400,9 +400,9 @@ test('Codex 生成器：非交互、结构化输出、只读沙箱、关掉执�
   // 默认执行方「Codex 优先·Claude 接力」时 Codex 失败由 Claude 接力（../src/agent.js），这里给一个也失败的假 claude，不碰本机真的 Claude。
   const noClaude = fakeCodex(fresh(), 'process.exit(1);');
   const broken = fakeCodex(fresh(), "process.stderr.write('Error: Not logged in. Run codex login.\\n'); process.exit(1);");
-  await assert.rejects(codexGenerator({ bin: broken, claudeBin: noClaude }).generate(material), /Codex 生成失败（退出码 1）：Error: Not logged in/);
+  await assert.rejects(aiGenerator({ bin: broken, claudeBin: noClaude }).generate(material), /Codex 生成失败（退出码 1）：Error: Not logged in/);
   const slow = fakeCodex(fresh(), 'setTimeout(() => {}, 10000);');
-  await assert.rejects(codexGenerator({ bin: slow, claudeBin: noClaude, timeoutMs: 200 }).generate(material), /超时被停止/);
+  await assert.rejects(aiGenerator({ bin: slow, claudeBin: noClaude, timeoutMs: 200 }).generate(material), /超时被停止/);
 });
 
 test('维护信号（#18）：每次补资料都查最新正式版；有就记版本号、发布时间和链接，没发过记 none，查失败记 unknown', async () => {

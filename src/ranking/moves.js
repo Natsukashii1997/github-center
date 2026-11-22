@@ -3,7 +3,7 @@
 // 视觉照批准的 signals-r1（design/candidates/signals/，原型在那里的 build.mjs）。
 import { join } from 'node:path';
 import { existsSync, statSync } from 'node:fs';
-import { readJson } from './store.js';
+import { readJson } from '../store.js';
 import { gainersInCategory } from '../categories/boards.js';
 
 // 名次变化从哪一期起显示（所有者 2026-10-24）：近 1 天从 10-23 起；近 7/30 天和分类榜从 10-24 起

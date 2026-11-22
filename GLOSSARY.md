@@ -267,3 +267,33 @@ _Avoid_: 安装命令、一键安装
 | `agent` | 默认执行方：`codex`、`claude`、`relay`（Codex 优先·Claude 接力） |
 | `agentFor` | 各功能单独指定的执行方，`default` 表示跟随默认 |
 | `profiles`、`classify`、`picks` | 三个用到 AI 的功能：补资料、归类、精选标签建议 |
+| `aiGenerator`、`aiClassifier`、`aiTagger` | 这三个功能的生成器，提示词和输出格式在 `src/profiles/prompt.js`、`src/categories/prompt.js`、`src/boards/picks-prompt.js`；执行方看设置，不只是 Codex |
+| 生成器的 `version`（如 `codex-p4`） | 提示词版本，`codex-` 前缀是历史写法，已存进资料和归类记录，没改 |
+
+### 已收录项目名单
+
+「这个项目在不在中心里、去哪取它的资料和数字」只在 `src/listed.js` 判断（#114）。它管的是项目，范围比术语「已收录」窄：Skill 的收录（资料级、名称级）不在这里。
+
+| 代码里 | 含义 |
+|---|---|
+| `boardProjects` | 网站上各榜单当前显示的项目（涨星榜三个窗口、官方热门榜每页前 20），补资料按它的顺序排优先级 |
+| `profileProjects` | 要补资料的项目：`boardProjects` 再加发现页上显示的（精选卡、历史榜前 50 所在仓库、热点榜前 15） |
+| `categoryListed` | 只上了分类涨星榜的项目，不生成项目资料，数字和描述取候选 |
+| `knownProjects` | 本地已有数字的项目（全站 Star 前 100、涨星榜候选、热点榜），发现页换卡和详情栏描述用 |
+| `listTotals` | 各榜最新快照里每个项目的总 Star |
+
+### 每日更新的步骤
+
+`src/update-steps.js` 的每一步有代码内部用的英文 `id` 和中文名 `name`。日志、`data/update-state.json` 的 `failed`、设置页、健康检查只用中文名。
+
+| `id` | 中文名 |
+|---|---|
+| `rank` | 出榜 |
+| `history` | 全站 Star 前 100 |
+| `skills` | 历史榜（Skill 安装量） |
+| `hot` | 热点榜 |
+| `picks` | 精选榜 |
+| `profiles` | 补资料 |
+| `classify` | 归类 |
+| `weekly` | 周报 |
+| `push` | 推到服务器、备份库 |

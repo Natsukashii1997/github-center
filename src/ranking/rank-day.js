@@ -1,7 +1,9 @@
 import { bucketOf, lastEndedDay, windowDays, dayHours, dayRange, WINDOWS } from './stat-day.js';
 import { archiveHour, clickhouseHour, clickhouseDay, trending } from './sources.js';
 import { githubClient, PER_PAGE } from './github.js';
-import { openStore, findSnapshot, readEvents, saveEvents, recordStatus } from './store.js';
+import { openStore, findSnapshot, recordStatus } from '../store.js';
+import { publishCandidates, readEvents, saveEvents } from './files.js';
+import { mapLimit } from '../map-limit.js';
 import { topWithTies } from './rank.js';
 import { selfCheck, lowerThreshold, completenessFloor } from './check.js';
 import { LISTS, buildList } from './lists.js';
@@ -12,18 +14,6 @@ const MAX_FAILED_SHARE = 0.05;
 const CONCURRENCY = 4;
 // 每个窗口最多核这么多个候选（约是近 1 天全部有事件记录的项目数），保证每天一次的运行在额度内跑得完。
 const MAX_CANDIDATES = 5000;
-
-export async function mapLimit(items, n, fn) {
-  const out = new Array(items.length);
-  let next = 0;
-  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
-    while (next < items.length) {
-      const i = next++;
-      out[i] = await fn(items[i], i);
-    }
-  }));
-  return out;
-}
 
 // 同一项目可能以不同名字出现（当天改过名），有 id 时按 id 合并，名字取后出现的（更新）；只有名字的按小写名合并，并尽量并入同名的有 id 记录。
 // 有 id 的记录遇到同名、还没有 id 的记录（ClickHouse 补的日子不带 id）也并进去，补上 id。
@@ -250,7 +240,7 @@ export async function rankDay({ day, dataDir, fetch = globalThis.fetch, token, n
         const meta = await metaFor(r.verified, window);
         const generatedAt = now().toISOString();
         const cands = candidatesFile({ window, day, runId, generatedAt, r, meta });
-        const candidatesSaved = { path: store.publishCandidates(window, cands).path, ...cands.meta };
+        const candidatesSaved = { path: publishCandidates(dataDir, window, cands).path, ...cands.meta };
         const snapshot = {
           window,
           statDay: day,
