@@ -64,7 +64,7 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 
 这些是现在代码里的实际情况，读代码前先知道，能省不少时间：
 
-- **`src/boards/history.js` 不是产品里的「历史榜」**。它是 GitHub 全站 Star 前 100，现在只给精选榜当候选池、不展示。产品里的「历史榜」（按 Skill 安装量）在 `src/boards/skills.js`。
+- **`src/boards/history.js` 不是产品里的「历史榜」**。它是 GitHub 全站 Star 前 100，不展示，给精选榜当候选池，也给收藏页、项目页查总 Star（#110）。产品里的「历史榜」（按 Skill 安装量）在 `src/boards/skills.js`。
 - **`hot` 有两个意思**。`src/ranking/rank-day.js` 里的 `hotPage`、`hot` 指 GitHub 官方热门榜（trending）；`src/boards/hot.js` 是 Hacker News 和 V2EX 的热点榜。
 - **三个 `codex.js` 不只管 Codex**。`src/profiles/codex.js`、`src/categories/codex.js`、`src/boards/picks-codex.js` 是补资料、归类、精选标签的提示词和输出格式，实际由哪家执行看设置页「AI 接入」。
 - **`src/ranking/store.js` 是全项目的文件存储**。`readJson`、`writeAtomic`、快照读写都在这里，设置、调度、资料、周报都用它。并发工具 `mapLimit` 在 `src/ranking/rank-day.js`。

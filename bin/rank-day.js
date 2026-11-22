@@ -63,13 +63,7 @@ async function rankOne(day, { windows, backfill = false } = {}) {
     console.log(`\n== ${LISTS[list]} 统计日 ${day}`);
     if (l.status === 'exists') { console.log(`快照已存在，没有重跑：${l.path}`); continue; }
     if (l.status === 'failed') { failed = true; console.log(`更新失败：${l.error}`); continue; }
-    const s = l.snapshot;
-    if (s.pages) {
-      for (const [since, p] of Object.entries(s.pages)) console.log(`${since}：${p.entries.length} 个，前 3 名 ${p.entries.slice(0, 3).map((e) => e.fullName).join('、')}`);
-    } else {
-      console.log(`搜索条件 ${s.query}，搜索计数 ${num(s.totalCount)}；上榜 ${s.entries.length} 个`);
-      for (const e of s.entries) console.log(`${String(e.rank).padStart(2)}  ${num(e.total).padEnd(9)} ${e.fullName}`);
-    }
+    for (const [since, p] of Object.entries(l.snapshot.pages)) console.log(`${since}：${p.entries.length} 个，前 3 名 ${p.entries.slice(0, 3).map((e) => e.fullName).join('、')}`);
   }
   console.log(`\n${backfill ? `回补 ${day}：` : ''}全部上游请求 ${upstream} 次；耗时 ${seconds} 秒`);
   return { failed };

@@ -1,5 +1,5 @@
 // 项目归类（#10）：网站各榜单这一期涉及的项目都归上类。涨星榜是三个窗口这一期全部已核数的候选（分类榜在里面重新取前 20），
-// 其他三个榜单是榜上的项目；分类榜上显示的（精选卡、历史榜前 50 所在的仓库、热点榜前 15，和补资料同一份名单 profileProjects）也归。按名称、描述和 topics 一批批交给可替换的归类器；已归过的不重归。
+// 官方热门榜是榜上的项目；分类榜上显示的（精选卡、历史榜前 50 所在的仓库、热点榜前 15，和补资料同一份名单 profileProjects）也归。按名称、描述和 topics 一批批交给可替换的归类器；已归过的不重归。
 // 各榜单显示的项目（每榜前 20）有了项目页资料后，再用完整资料复核一次；资料变了再复核。
 // 一批归类失败不影响其他批，当轮重试 3 轮（#52），还不行这些项目算“还没归类”，下次运行再归；每归完一批就存一次，中途停下不丢已归的。
 //
@@ -37,9 +37,7 @@ async function targets({ dataDir, gh, now, cats }) {
     for (const c of file?.items ?? []) add({ id: c.id, fullName: c.fullName, description: c.description, topics: c.topics });
   }
   const trending = readLatestSnapshot(dataDir, 'trending');
-  const listed = [
-    ...Object.values(trending?.pages ?? {}).flatMap((p) => p.entries),
-  ].map((e) => ({ id: e.projectId ?? null, fullName: e.fullName, description: null, topics: null }));
+  const listed = Object.values(trending?.pages ?? {}).flatMap((p) => p.entries).map((e) => ({ id: e.projectId ?? null, fullName: e.fullName, description: null, topics: null }));
   for (const p of profileProjects(dataDir)) listed.push({ id: p.id, fullName: p.name, description: null, topics: null });
   const missing = listed.filter((x) => !cats.get(x) && add(x));
   let requests = 0;
