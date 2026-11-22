@@ -2,7 +2,7 @@
 // 日期是实际抓取那天（UTC），快照里另记抓取时刻。同一天已存过就不再请求；失败时保留上一次快照，status.json 记下失败的日期和原因。
 // 已知现象（原累计高星榜同样有）：搜索会把少数仓库计进总数、列表里却不返回，页面上写明（SEARCH_NOTE）。
 import { join } from 'node:path';
-import { openStore, findSnapshot, readLatestSnapshot, readStatus, recordStatus, newerFailure, writeOnce } from '../ranking/store.js';
+import { openStore, findSnapshot, readLatestSnapshot, readStatus, recordStatus, newerFailure, writeOnce } from '../store.js';
 
 export const BOARD = 'history';
 // 门槛只是为了让搜索条件成立，前 100 名远高于它（原累计高星榜也是这条，#110 起只在这里请求）。

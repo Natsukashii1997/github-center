@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rankDay, readLatestSnapshot, readStatus } from '../src/ranking/index.js';
-import { readCandidates } from '../src/ranking/store.js';
+import { readCandidates } from '../src/ranking/files.js';
 import { completenessFloor } from '../src/ranking/check.js';
 import { recordedUpstream } from './helpers/recorded-upstream.js';
 

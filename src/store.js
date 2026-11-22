@@ -1,6 +1,6 @@
-// 文件存储：每次运行的官方原始响应单独存放；快照按榜单（涨星榜的每个窗口各算一个）和统计日只写一次，已存在就不覆盖。
-// 涨星榜每个窗口这一期的全部已核数候选（#10）也只写一次。
-// 另存每天的全站 Star 事件合计（只用来挑候选和自检，近 7/30 天复用）和每个榜单最近一次更新的结果。
+// 文件存储（全项目共用：设置、调度、资料、归类、周报、各榜单都用）：读写 JSON、先写临时文件再改名、按路径只写一次；
+// 每次运行的官方原始响应单独存放；快照按榜单（涨星榜的每个窗口各算一个）和统计日只写一次，已存在就不覆盖；
+// 另存每个榜单最近一次更新的结果。涨星榜专用的已核数候选和全站 Star 事件合计在 ranking/files.js（#114 从这里拆出）。
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, renameSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
@@ -25,8 +25,6 @@ export function openStore(dataDir, runId) {
       return { url: res.url, path, sha256: createHash('sha256').update(res.body).digest('hex'), date: res.date };
     },
     publish: (board, snapshot) => writeOnce(dataDir, snapshotPath(board, snapshot.statDay), JSON.stringify(snapshot, null, 2)),
-    // 涨星榜每个窗口这一期全部已核数的候选（#10 分类榜在里面按分类重新取前 20），和快照一样只写一次。
-    publishCandidates: (window, file) => writeOnce(dataDir, candidatesPath(window, file.statDay), JSON.stringify(file)),
   };
 }
 
@@ -42,9 +40,6 @@ export function writeOnce(dataDir, path, text) {
   }
 }
 
-const candidatesPath = (window, day) => join('candidates', window, `${day}.json`);
-export const readCandidates = (dataDir, window, day) => readJson(join(dataDir, candidatesPath(window, day)));
-
 export function findSnapshot(dataDir, board, day) {
   const path = snapshotPath(board, day);
   const snapshot = readJson(join(dataDir, path));
@@ -57,9 +52,6 @@ export function readLatestSnapshot(dataDir, board = 'd1') {
   const latest = readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().pop();
   return latest ? readJson(join(dir, latest)) : null;
 }
-
-export const readEvents = (dataDir, day) => readJson(join(dataDir, 'events', `${day}.json`));
-export const saveEvents = (dataDir, day, events) => writeAtomic(join(dataDir, 'events', `${day}.json`), JSON.stringify(events) + '\n');
 
 // 每个榜单只记最新统计日的结果：重跑更早的日子不会盖掉更新的失败记录。
 export function recordStatus(dataDir, { day, at, boards }) {

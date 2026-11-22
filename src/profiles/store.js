@@ -1,7 +1,7 @@
 // 项目资料按项目 id 各存一个文件（data/profiles/<id>.json），网站只读这里；记下生成依据（资料哈希、来源链接）。
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { readJson, writeAtomic, readLatestSnapshot } from '../ranking/store.js';
+import { readJson, writeAtomic, readLatestSnapshot } from '../store.js';
 import { WINDOWS } from '../ranking/stat-day.js';
 import { SINCES } from '../ranking/lists.js';
 

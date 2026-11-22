@@ -4,7 +4,7 @@
 // 只读公开页面、不调用它的 /api/（要 Vercel OIDC token）；条款允许合理使用和自存缓存，robots.txt 允许首页。
 // 同一天（UTC）已存过就不再请求；失败时保留上一次快照，status.json 记下失败的日期和原因（同历史榜 history.js）。
 import { join } from 'node:path';
-import { openStore, findSnapshot, readLatestSnapshot, readStatus, recordStatus, newerFailure, writeOnce } from '../ranking/store.js';
+import { openStore, findSnapshot, readLatestSnapshot, readStatus, recordStatus, newerFailure, writeOnce } from '../store.js';
 
 export const BOARD = 'skills';
 export const URL = 'https://www.skills.sh/';

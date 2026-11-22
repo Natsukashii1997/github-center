@@ -5,7 +5,8 @@
 // 首页按定义标签筛选，不按分类（分类榜另成一页，后续批次）；只上了分类榜的项目仍由 categoryListed 认出来，项目页和收藏用。
 import { join } from 'node:path';
 import { readLatestSnapshot, readStatus, newerFailure, WINDOWS } from '../ranking/index.js';
-import { readJson, readCandidates } from '../ranking/store.js';
+import { readJson } from '../store.js';
+import { readCandidates } from '../ranking/files.js';
 import { CATEGORIES, readCategories, gainersInCategory } from '../categories/index.js';
 import { bucketOf, windowDays, dayRange } from '../ranking/stat-day.js';
 import { PER_PAGE } from '../ranking/github.js';

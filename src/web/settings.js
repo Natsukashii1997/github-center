@@ -4,7 +4,7 @@
 // 状态只读本地文件：status.json（各榜单最近一次更新）、最新热点榜快照（HN、V2EX 各自成败）、logs/update.log（上次每日更新）、
 // ai-status.json（两家执行方的可用状态和最近调用，Mac 上跑 AI 功能前查好推上来，见 ../ai-access.js）。不调用任何外部接口，也不在这里查执行方。
 // 只有所有者能改；伙伴看得到，控件都是灰的。
-import { readStatus, readLatestSnapshot } from '../ranking/store.js';
+import { readStatus, readLatestSnapshot } from '../store.js';
 import { readSettings, parseSettings, saveSettings, SettingsError, AGENTS, EFFORTS, DAYS, EARLIEST, REQUIRED, UNAVAILABLE } from '../settings/index.js';
 import { lastRun, readRunState, ranToday } from '../update-steps.js';
 import { frame } from './home.js';

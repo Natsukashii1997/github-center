@@ -6,7 +6,8 @@
 // 归类器接口：{ version, classify(items, { review }) → { results: [{ i, categories }], ai? } }，i 是项目在这一批里的序号，ai 是这一批的留痕（#69，存在每条归类上）；
 // items 是 { fullName, description, topics }，复核时另有 what、problem、skills（Skill 名字）。
 import { WINDOWS } from '../ranking/stat-day.js';
-import { readLatestSnapshot, readCandidates, openStore } from '../ranking/store.js';
+import { readLatestSnapshot, openStore } from '../store.js';
+import { readCandidates } from '../ranking/files.js';
 import { fetchMeta } from '../ranking/meta.js';
 import { withRetries } from '../retry.js';
 import { readProfile, findProfile, currentGenerated } from '../profiles/store.js';

@@ -1,6 +1,6 @@
 import { openSync, readSync, fstatSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
-import { readJson, writeAtomic } from './ranking/store.js';
+import { readJson, writeAtomic } from './store.js';
 
 // 每日更新的步骤（bin/update.js 按顺序跑）：先出涨星榜和全站 Star 前 100、热点榜，精选榜的候选池才齐；补资料、归类放在后面，当天新上榜的项目就能当天补上。
 // 出榜出完最近一期，还会把前 5 个统计日里涨星榜缺的期次补出来（#103，ranking/backfill.js）；回补失败不算这一步失败。

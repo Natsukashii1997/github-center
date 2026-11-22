@@ -5,7 +5,7 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { readLatestSnapshot, readStatus, newerFailure, lastEndedDay } from '../ranking/index.js';
-import { readJson, writeOnce, writeAtomic } from '../ranking/store.js';
+import { readJson, writeOnce, writeAtomic } from '../store.js';
 import { windowDays } from '../ranking/stat-day.js';
 import { readProfile, findProfile, shownGenerated } from '../profiles/index.js';
 import { windowStatus } from '../web/home.js';

@@ -10,7 +10,7 @@ import { updatePicks, codexTagger, openPicks } from '../src/boards/index.js';
 import { POOL } from '../src/boards/picks-update.js';
 import { readSettings } from '../src/settings/index.js';
 import { useAgent, recordCalls } from '../src/ai-access.js';
-import { readJson } from '../src/ranking/store.js';
+import { readJson } from '../src/store.js';
 import { readRemote, pullPicks, writePool, POOL_FILE } from '../src/remote/index.js';
 
 const { values } = parseArgs({ options: { data: { type: 'string', default: 'data' }, limit: { type: 'string', default: String(POOL) }, state: { type: 'boolean' }, apply: { type: 'boolean' } } });

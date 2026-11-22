@@ -12,7 +12,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readdirSync, renameSync, rmSync } from 'node:fs';
-import { readJson, writeAtomic } from '../ranking/store.js';
+import { readJson, writeAtomic } from '../store.js';
 import { openPicks } from '../boards/index.js';
 
 export const PUSH_EXCLUDE = ['runs/', 'logs/', 'backups/', 'center.db', 'center.db-*', 'settings.json', 'update-state.json', 'remote.json', '*.tmp'];
