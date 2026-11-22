@@ -70,7 +70,7 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 - **`hot` 有两个意思**。`src/ranking/rank-day.js` 里的 `hotPage`、`hot` 指 GitHub 官方热门榜（trending）；`src/boards/hot.js` 是 Hacker News 和 V2EX 的热点榜。
 - **榜单在代码里有三个词**。windows 是涨星榜的三个窗口（`d1`、`d7`、`d30`），lists 现在只剩官方热门榜（`trending`；新项目榜 `new`、累计高星榜 `top` 2026-11-22 起不再生成，旧快照还在，#110），boards 是 `history`、`skills`、`hot`、`picks`；存快照时统一叫 board。
 - **`daily` 有两个意思**。设置里的 `daily` 是每日更新的开关和时间；`data/daily/` 和 `/daily` 地址是 2026-11-03 已删除的日报留下的。
-- **前端文件名是缩写**。`bw.js`、`bw.css` 是白雾定稿的共用组件，`ho.js` 是决策状态和交接，`gc.js` 是只剩登录页在用的旧组件。
+- **前端文件名是缩写**。`bw.js`、`bw.css` 是白雾定稿的共用组件，`ho.js` 是决策状态和交接；登录页还是 #14 那套样子，样式和脚本收在 `login.css`、`login.js`（#116）。
 
 ## data/ 目录
 
