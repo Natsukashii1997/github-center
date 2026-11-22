@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { updateCategories, readCategories, CATEGORIES } from '../src/categories/index.js';
-import { batchPrompt, reviewPrompt } from '../src/categories/codex.js';
+import { batchPrompt, reviewPrompt } from '../src/categories/prompt.js';
 import { saveProfile } from '../src/profiles/store.js';
 import { githubClient } from '../src/ranking/github.js';
 import { recordedUpstream } from './helpers/recorded-upstream.js';

@@ -6,7 +6,7 @@
 // 随每日更新最后一步推上去。服务器上由 scripts/server.sh 调：--state 打印标签清单和固定的卡，--apply 把推上来的候选池写进库并补卡。
 import { parseArgs } from 'node:util';
 import { join } from 'node:path';
-import { updatePicks, codexTagger, openPicks } from '../src/boards/index.js';
+import { updatePicks, aiTagger, openPicks } from '../src/boards/index.js';
 import { POOL } from '../src/boards/picks-update.js';
 import { readSettings } from '../src/settings/index.js';
 import { useAgent, recordCalls } from '../src/ai-access.js';
@@ -41,7 +41,7 @@ if (values.state || values.apply) {
     }
   }
   const settings = readSettings(values.data);
-  const tagger = codexTagger({ ...(await useAgent(values.data, settings, 'picks')), effort: settings.effort.picks });
+  const tagger = aiTagger({ ...(await useAgent(values.data, settings, 'picks')), effort: settings.effort.picks });
   const r = await updatePicks({ dataDir: values.data, tagger, limit: Number(values.limit) });
 
   console.log(`候选池 ${r.pool} 个：要建议 ${r.todo} 个，建议了 ${r.suggested} 个，失败 ${r.failed} 个${r.errors.length ? `（${r.errors.length} 批，如 ${r.errors[0]}）` : ''}`);

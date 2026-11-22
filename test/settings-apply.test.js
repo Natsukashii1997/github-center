@@ -8,9 +8,9 @@ import { DEFAULTS } from '../src/settings/index.js';
 import { planSteps, STEPS, isDue, retryOf, RETRY, readRunState, markRun, finishRun, beijing } from '../src/update-steps.js';
 import { rankDay } from '../src/ranking/index.js';
 import { updateHot } from '../src/boards/index.js';
-import { codexGenerator } from '../src/profiles/codex.js';
-import { codexClassifier } from '../src/categories/codex.js';
-import { codexTagger } from '../src/boards/picks-codex.js';
+import { aiGenerator } from '../src/profiles/prompt.js';
+import { aiClassifier } from '../src/categories/prompt.js';
+import { aiTagger } from '../src/boards/picks-prompt.js';
 import { recordedUpstream } from './helpers/recorded-upstream.js';
 
 const fresh = () => mkdtempSync(join(tmpdir(), 'gc-apply-'));
@@ -168,9 +168,9 @@ fs.writeFileSync(a[a.indexOf('-o') + 1], JSON.stringify({ results: [], what: '',
 
 test('思考强度：补资料、归类、精选榜各自按设置传给 codex，不给就用默认 low', async () => {
   const codex = fakeCodex();
-  await codexClassifier({ bin: codex.bin, effort: 'high' }).classify([{ fullName: 'a/b', description: 'x', topics: [] }]);
-  await codexTagger({ bin: codex.bin, effort: 'medium' }).suggest([{ name: '智能体' }], [{ fullName: 'a/b', description: 'x', topics: [] }]);
-  await codexClassifier({ bin: codex.bin }).classify([{ fullName: 'a/b', description: 'x', topics: [] }]);
-  await codexGenerator({ bin: codex.bin, effort: 'high' }).generate({ fullName: 'a/b', description: 'x', topics: [], listing: [], readme: null, docs: [], skills: [] }).catch(() => null);
+  await aiClassifier({ bin: codex.bin, effort: 'high' }).classify([{ fullName: 'a/b', description: 'x', topics: [] }]);
+  await aiTagger({ bin: codex.bin, effort: 'medium' }).suggest([{ name: '智能体' }], [{ fullName: 'a/b', description: 'x', topics: [] }]);
+  await aiClassifier({ bin: codex.bin }).classify([{ fullName: 'a/b', description: 'x', topics: [] }]);
+  await aiGenerator({ bin: codex.bin, effort: 'high' }).generate({ fullName: 'a/b', description: 'x', topics: [], listing: [], readme: null, docs: [], skills: [] }).catch(() => null);
   assert.deepEqual(codex.efforts(), ['model_reasoning_effort="high"', 'model_reasoning_effort="medium"', 'model_reasoning_effort="low"', 'model_reasoning_effort="high"']);
 });

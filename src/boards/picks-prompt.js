@@ -1,4 +1,5 @@
-// 精选标签建议器（#26）：用本机已登录的 Codex CLI 按精选标签清单给一批项目建议标签，结构化输出，不新增 API 费用。
+// 精选标签建议器（#26）：精选标签建议的提示词和输出格式，按精选标签清单给一批项目建议标签，结构化输出，不新增 API 费用。
+// 执行方看设置页「AI 接入」（本机已登录的 Codex 或 Claude 命令行，见 ../agent.js）。
 // 依据只有 GitHub 上的简介和 topics（外部内容）：运行限制同项目资料（../agent.js 的 codexJson：空临时目录、只读沙箱、
 // 关掉执行命令的工具、不加载 config.toml），提示里写明只当资料。
 // 接口：{ version, suggest(tags, items) → { results: [{ i, tags }], ai } }（ai 是这一批的留痕）；tags 是 [{ name, note }]（note 是标签的一句话说明，可空），items 是 { fullName, description, topics }。
@@ -43,9 +44,10 @@ ${items.map((x, i) => `${i} | ${x.fullName} | ${clean(x.description, 300)} | ${x
 }
 
 // effort：设置页「精选榜」的思考强度，不给用默认；换强度不改 version；agent、codexDown：设置页「AI 接入」给精选标签建议选的执行方（见 ../agent.js），换执行方也不改 version。
-export function codexTagger({ bin, claudeBin, timeoutMs, effort, agent, codexDown } = {}) {
+export function aiTagger({ bin, claudeBin, timeoutMs, effort, agent, codexDown } = {}) {
   const { json, stats } = agentJson({ agent, bin, claudeBin, timeoutMs, codexDown });
   return {
+    // 版本号前缀 codex- 是历史写法，记在每条建议上，不改。
     version: `codex-${PROMPT_VERSION}`,
     stats,
     async suggest(tags, items) {

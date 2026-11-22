@@ -4,7 +4,7 @@
 // 有项目生成失败或资料读不全时退出码为 1（网站对这些项目显示“简介生成中”或保留上一次的简介）。
 import { execFileSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
-import { updateProfiles, codexGenerator } from '../src/profiles/index.js';
+import { updateProfiles, aiGenerator } from '../src/profiles/index.js';
 import { readSettings } from '../src/settings/index.js';
 import { useAgent, recordCalls } from '../src/ai-access.js';
 
@@ -12,7 +12,7 @@ const { values } = parseArgs({ options: { data: { type: 'string', default: 'data
 const t0 = performance.now();
 const token = process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const settings = readSettings(values.data);
-const generator = codexGenerator({ ...(await useAgent(values.data, settings, 'profiles')), effort: settings.effort.profiles });
+const generator = aiGenerator({ ...(await useAgent(values.data, settings, 'profiles')), effort: settings.effort.profiles });
 const r = await updateProfiles({ dataDir: values.data, token, generator });
 
 const NAMES = { generated: '新生成', reused: '资料重读后没变、沿用', unchanged: '没有新提交、沿用', failed: '生成失败', error: '资料读不全', missing: '官方接口查不到' };

@@ -26,7 +26,7 @@ export function poolFrom(dataDir, limit = POOL) {
   return [...byId.values()].sort((a, b) => b.total - a.total || a.id - b.id).slice(0, limit);
 }
 
-// tagger：{ version, suggest(tags, items) → { results: [{ i, tags }], ai? } }（picks-codex.js；ai 是这一批的留痕，#69）。
+// tagger：{ version, suggest(tags, items) → { results: [{ i, tags }], ai? } }（picks-prompt.js；ai 是这一批的留痕，#69）。
 export async function updatePicks({ dataDir, tagger, limit = POOL, batch = BATCH }) {
   const pool = poolFrom(dataDir, limit);
   const picks = openPicks(dataDir);
