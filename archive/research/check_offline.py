@@ -8,8 +8,8 @@ import subprocess
 import sys
 import tempfile
 
-ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "research" / "github-center-sustained-run"
+# 2026-11-22 随 research/ 移到 archive/research/（#112），源目录就在本文件旁边。
+SOURCE = Path(__file__).resolve().parent / "github-center-sustained-run"
 SUITES = ("test_runner.py", "tests_transport.py", "test_recovery.py", "test_atomic_mismatch.py", "test_leaf_drift.py")
 JSON_CASES = {"test_runner.py": 8, "test_recovery.py": 5, "test_leaf_drift.py": 3}
 
