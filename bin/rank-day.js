@@ -1,6 +1,6 @@
 // 跑一次出榜：npm run rank -- [--day YYYY-MM-DD] [--data data] [--limit 300]
 // 不给 --day 时取最近一个已结束的统计日（GitHub 统计日，按美国太平洋时间；每日定时任务就这样跑）。token 取环境变量 GITHUB_TOKEN，没有就用本机 gh 登录。
-// 涨星榜三个窗口（另存每个窗口全部已核数的候选，#10）和新项目榜、官方热门榜、累计高星榜一起出。已发布的不重跑，手动重跑是安全的。
+// 涨星榜三个窗口（另存每个窗口全部已核数的候选，#10）和官方热门榜一起出。已发布的不重跑，手动重跑是安全的。
 // 有榜单更新失败时退出码为 1；整次运行出错也记进 status.json，网站照样提示。设置页关掉的数据源（官方热门、ClickHouse）不用。
 // 回补（#103）：不给 --day 时，最近一期出成后再把前 5 个统计日里涨星榜缺的期次补出来（src/ranking/backfill.js）；
 // 回补失败只写日志，不影响退出码。给了 --day 就只出那一天。
@@ -63,13 +63,7 @@ async function rankOne(day, { windows, backfill = false } = {}) {
     console.log(`\n== ${LISTS[list]} 统计日 ${day}`);
     if (l.status === 'exists') { console.log(`快照已存在，没有重跑：${l.path}`); continue; }
     if (l.status === 'failed') { failed = true; console.log(`更新失败：${l.error}`); continue; }
-    const s = l.snapshot;
-    if (s.pages) {
-      for (const [since, p] of Object.entries(s.pages)) console.log(`${since}：${p.entries.length} 个，前 3 名 ${p.entries.slice(0, 3).map((e) => e.fullName).join('、')}`);
-    } else {
-      console.log(`搜索条件 ${s.query}，搜索计数 ${num(s.totalCount)}；上榜 ${s.entries.length} 个`);
-      for (const e of s.entries) console.log(`${String(e.rank).padStart(2)}  ${num(e.total).padEnd(9)} ${e.fullName}`);
-    }
+    for (const [since, p] of Object.entries(l.snapshot.pages)) console.log(`${since}：${p.entries.length} 个，前 3 名 ${p.entries.slice(0, 3).map((e) => e.fullName).join('、')}`);
   }
   console.log(`\n${backfill ? `回补 ${day}：` : ''}全部上游请求 ${upstream} 次；耗时 ${seconds} 秒`);
   return { failed };

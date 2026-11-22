@@ -17,11 +17,14 @@ const put = (dataDir, path, obj) => {
 };
 
 // 近 1 天这一期：已核数候选 items，榜上前几名 entries。
-function seed({ items, entries = [], lists = {} }) {
+// trending：官方热门日榜上的项目（#110 起出榜只生成官方热门榜）；lists：旧的新项目榜、累计高星榜快照，归类不再读。
+function seed({ items, entries = [], trending = [], lists = {} }) {
   const dataDir = mkdtempSync(join(tmpdir(), 'gc-cat-'));
+  const rows = (list) => list.map((e, i) => ({ rank: i + 1, projectId: e.id, fullName: e.fullName, total: 1 }));
   put(dataDir, `snapshots/d1/${day}.json`, { window: 'd1', statDay: day, entries: entries.map((e, i) => ({ rank: i + 1, projectId: e.id, fullName: e.fullName, gain: 1, total: 1, evidence: {} })) });
   put(dataDir, `candidates/d1/${day}.json`, { window: 'd1', statDay: day, items });
-  for (const [list, rows] of Object.entries(lists)) put(dataDir, `snapshots/${list}/${day}.json`, { list, statDay: day, entries: rows.map((e, i) => ({ rank: i + 1, projectId: e.id, fullName: e.fullName, total: 1 })) });
+  if (trending.length) put(dataDir, `snapshots/trending/${day}.json`, { list: 'trending', statDay: day, pages: { daily: { entries: rows(trending) } } });
+  for (const [list, r] of Object.entries(lists)) put(dataDir, `snapshots/${list}/${day}.json`, { list, statDay: day, entries: rows(r) });
   return dataDir;
 }
 const item = (id, fullName, extra = {}) => ({ id, fullName, gain: 100, total: 1, description: `${fullName} 的简介`, topics: ['t'], evidence: {}, ...extra });
@@ -71,7 +74,7 @@ test('按名字存的分类，之后知道 id 时也认得；一个项目可以�
 });
 
 test('其他榜单上还没归类的项目用 GraphQL 补取描述和 topics；已在候选里的不再取', async () => {
-  const dataDir = seed({ items: [item(1903522, 'php/php-src')], lists: { new: [{ id: 1092047360, fullName: 'luongnv89/claude-howto' }, { id: 1903522, fullName: 'php/php-src' }] } });
+  const dataDir = seed({ items: [item(1903522, 'php/php-src')], trending: [{ id: 1092047360, fullName: 'luongnv89/claude-howto' }, { id: 1903522, fullName: 'php/php-src' }] });
   const upstream = recordedUpstream();
   const gh = githubClient({ fetch: upstream.fetch, token: 't', sleep: async () => {} });
   const classifier = fakeClassifier();
@@ -87,6 +90,14 @@ test('其他榜单上还没归类的项目用 GraphQL 补取描述和 topics；�
   // 第二次都归过了，不再请求。
   const r2 = await updateCategories({ dataDir, classifier: fakeClassifier(), gh });
   assert.equal(r2.requests.graphql, 0);
+});
+
+test('旧的新项目榜、累计高星榜快照不再归类（#110）', async () => {
+  const dataDir = seed({ items: [], lists: { new: [{ id: 5, fullName: 'e/five' }], top: [{ id: 6, fullName: 'f/six' }] } });
+  const classifier = fakeClassifier();
+  const r = await updateCategories({ dataDir, classifier, gh: noGh });
+  assert.deepEqual(classifier.calls.flatMap((c) => c.items.map((x) => x.fullName)), []);
+  assert.deepEqual([r.targets, r.requests.graphql], [0, 0]);
 });
 
 test('分类榜上显示的项目也归类：历史榜（Skill 安装量）上的仓库，本地没有的用 GraphQL 补取；网址来源的不归', async () => {

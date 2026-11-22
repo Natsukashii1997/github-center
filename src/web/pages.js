@@ -21,7 +21,9 @@ function listTotals(dataDir) {
     if (e.projectId && !byId.has(e.projectId)) byId.set(e.projectId, e.total);
     if (!byName.has(e.fullName.toLowerCase())) byName.set(e.fullName.toLowerCase(), e.total);
   };
-  for (const b of [...Object.keys(WINDOWS), 'new', 'top']) readLatestSnapshot(dataDir, b)?.entries.forEach(note);
+  for (const b of Object.keys(WINDOWS)) readLatestSnapshot(dataDir, b)?.entries.forEach(note);
+  // 全站 Star 前 100（boards/history.js）。2026-11-22 前查的是累计高星榜（和它同一条搜索）和新项目榜，#110 起这两个榜不再生成。
+  readLatestSnapshot(dataDir, 'history')?.entries.forEach((e) => note({ projectId: e.id, fullName: e.repo, total: e.total }));
   const trending = readLatestSnapshot(dataDir, 'trending');
   for (const s of SINCES) trending?.pages[s]?.entries.forEach(note);
   return { of: (id, name) => (id && byId.get(id)) ?? byName.get(name.toLowerCase()) ?? null };

@@ -10,7 +10,6 @@
     "classify": "node --use-env-proxy bin/classify.js",
     "weekly": "node bin/weekly.js",
     "update": "node bin/update.js",
-    "calibrate": "node bin/calibrate.js",
     "serve": "node bin/serve.js",
     "account": "node bin/account.js",
     "history": "node --use-env-proxy bin/history.js",

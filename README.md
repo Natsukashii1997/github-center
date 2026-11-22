@@ -24,7 +24,7 @@
 上游（GitHub、GH Archive、ClickHouse、skills.sh、HN、V2EX）
         │
         ▼
-Mac：每日更新（launchd 定时，bin/update.js 按顺序跑十步）
+Mac：每日更新（launchd 定时，bin/update.js 按顺序跑九步）
         │   其中三步调本机已登录的 Codex / Claude 命令行
         ▼
 data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
@@ -36,7 +36,7 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 ```
 
 - **采集在 Mac，不在服务器**：大陆服务器连不上 GitHub、GH Archive 和 OpenAI。Mac 关机时网站照常能开，显示最后一次推上去的数据。
-- **十步的顺序**：出榜 → 全站 Star 前 100 → 历史榜（Skill 安装量）→ 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 校准报告 → 推到服务器并备份库。定义在 [src/update-steps.js](src/update-steps.js)，每步的命令和产出见产品说明第 8 节。一步失败照样跑后面的，失败的当天重试；涨星榜哪天没出成，之后的出榜会把前 5 个统计日里缺的期次补上（#103）。
+- **九步的顺序**：出榜 → 全站 Star 前 100 → 历史榜（Skill 安装量）→ 热点榜 → 精选榜 → 补资料 → 归类 → 周报 → 推到服务器并备份库。定义在 [src/update-steps.js](src/update-steps.js)，每步的命令和产出见产品说明第 8 节。一步失败照样跑后面的，失败的当天重试；涨星榜哪天没出成，之后的出榜会把前 5 个统计日里缺的期次补上（#103）。
 - **谁写哪份数据**：榜单、资料、归类只有 Mac 写；设置在服务器的设置页改，每日更新开头拉回 Mac；账号和收藏只在服务器的库里，不推、不覆盖。完整的表在 [docs/deploy.md](docs/deploy.md)「谁写什么」。
 - **涨星榜怎么算**：全站事件数据和官方热门榜找候选，GitHub 官方星数历史核数，每日自检估计漏失概率，前 20 含末位并列，缺失不补零。见 ADR 0001。
 
@@ -45,8 +45,8 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 | 位置 | 管什么 |
 |---|---|
 | `bin/` | 命令入口，每个文件对应一条 `npm run`；`update.js` 是每日更新的总入口 |
-| `src/update-steps.js` | 每日更新的十步、到点判断、当天重试 |
-| `src/ranking/` | 涨星榜：统计日（`stat-day.js`）、找候选（`sources.js`）、官方核数和出榜（`rank-day.js`）、自检（`check.js`）、名次变化（`moves.js`）、校准（`calibrate.js`） |
+| `src/update-steps.js` | 每日更新的九步、到点判断、当天重试 |
+| `src/ranking/` | 涨星榜：统计日（`stat-day.js`）、找候选（`sources.js`）、官方核数和出榜（`rank-day.js`）、自检（`check.js`）、名次变化（`moves.js`） |
 | `src/boards/` | 发现页的几块：历史榜、热点榜、精选榜，和给精选榜当候选池的全站 Star 前 100 |
 | `src/profiles/` | 项目资料：读项目原文、生成简介和使用条件、安装指令和交接文字 |
 | `src/categories/` | 把项目归进 9 个分类，按分类筛榜 |
@@ -64,12 +64,12 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 
 这些是现在代码里的实际情况，读代码前先知道，能省不少时间：
 
-- **`src/boards/history.js` 不是产品里的「历史榜」**。它是 GitHub 全站 Star 前 100，现在只给精选榜当候选池、不展示。产品里的「历史榜」（按 Skill 安装量）在 `src/boards/skills.js`。
+- **`src/boards/history.js` 不是产品里的「历史榜」**。它是 GitHub 全站 Star 前 100，不展示，给精选榜当候选池，也给收藏页、项目页查总 Star（#110）。产品里的「历史榜」（按 Skill 安装量）在 `src/boards/skills.js`。
 - **`hot` 有两个意思**。`src/ranking/rank-day.js` 里的 `hotPage`、`hot` 指 GitHub 官方热门榜（trending）；`src/boards/hot.js` 是 Hacker News 和 V2EX 的热点榜。
 - **三个 `codex.js` 不只管 Codex**。`src/profiles/codex.js`、`src/categories/codex.js`、`src/boards/picks-codex.js` 是补资料、归类、精选标签的提示词和输出格式，实际由哪家执行看设置页「AI 接入」。
 - **`src/ranking/store.js` 是全项目的文件存储**。`readJson`、`writeAtomic`、快照读写都在这里，设置、调度、资料、周报都用它。并发工具 `mapLimit` 在 `src/ranking/rank-day.js`。
 - **`src/web/home.js` 不只是首页**。它同时放着涨星页的数据、各页共用的项目卡转换和 HTML 外壳（`frame`）。
-- **榜单在代码里有三个词**。windows 是涨星榜的三个窗口（`d1`、`d7`、`d30`），lists 是新项目榜、官方热门榜、累计高星榜（`new`、`trending`、`top`），boards 是 `history`、`skills`、`hot`、`picks`；存快照时统一叫 board。
+- **榜单在代码里有三个词**。windows 是涨星榜的三个窗口（`d1`、`d7`、`d30`），lists 现在只剩官方热门榜（`trending`；新项目榜 `new`、累计高星榜 `top` 2026-11-22 起不再生成，旧快照还在，#110），boards 是 `history`、`skills`、`hot`、`picks`；存快照时统一叫 board。
 - **`daily` 有两个意思**。设置里的 `daily` 是每日更新的开关和时间；`data/daily/` 和 `/daily` 地址是 2026-11-03 已删除的日报留下的。
 - **前端文件名是缩写**。`bw.js`、`bw.css` 是白雾定稿的共用组件，`ho.js` 是决策状态和交接，`gc.js` 是只剩登录页在用的旧组件。
 
@@ -79,7 +79,7 @@ data/（JSON 快照 + SQLite，不入库）──► 本机网站 127.0.0.1:5310
 
 | 路径 | 内容 | 谁写 |
 |---|---|---|
-| `snapshots/<榜>/<日期>.json` | 每期榜单的快照，只写一次、不覆盖。`d1` `d7` `d30` `new` `top` `trending` 按统计日存；`history` `skills` `hot` 按抓取那天（UTC）存 | 出榜和各榜步骤 |
+| `snapshots/<榜>/<日期>.json` | 每期榜单的快照，只写一次、不覆盖。`d1` `d7` `d30` `trending` 按统计日存（`new` `top` 只有 2026-11-22 之前的）；`history` `skills` `hot` 按抓取那天（UTC）存 | 出榜和各榜步骤 |
 | `candidates/<窗口>/<统计日>.json` | 涨星榜每期全部已核数候选，分类榜从这里重新取前 20 | 出榜 |
 | `events/<日期>.json` | 每天全站 Star 事件按项目合计，只用来找候选和自检 | 出榜 |
 | `runs/<运行号>/raw/` | 每次运行的上游原始响应，榜上数字的证据；不推服务器，目前没有清理 | 出榜、补资料、归类 |
@@ -111,7 +111,7 @@ npm run serve                      # 本机起网站，默认 127.0.0.1:5310
 下面这些会联网、会写 `data/`，其中补资料、归类、精选榜还会用 Codex 或 Claude 的订阅额度。平时由定时任务跑，手动跑之前先想清楚：
 
 ```sh
-npm run update                     # 整套每日更新（十步）
+npm run update                     # 整套每日更新（九步）
 npm run rank                       # 只出榜；已发布的期次不会重跑
 npm run profiles                   # 补资料
 npm run classify                   # 归类
