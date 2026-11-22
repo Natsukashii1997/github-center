@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rankDay, readLatestSnapshot, readStatus } from '../src/ranking/index.js';
 import { recordedUpstream } from './helpers/recorded-upstream.js';
-import { boardProjects } from '../src/profiles/store.js';
+import { boardProjects } from '../src/listed.js';
 import { visit, dataOf } from './helpers/web.js';
 
 const day = '2026-10-22';

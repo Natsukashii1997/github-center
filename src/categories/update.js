@@ -11,7 +11,7 @@ import { readCandidates } from '../ranking/files.js';
 import { fetchMeta } from '../ranking/meta.js';
 import { withRetries } from '../retry.js';
 import { readProfile, findProfile, currentGenerated } from '../profiles/store.js';
-import { profileProjects } from '../profiles/update.js';
+import { profileProjects } from '../listed.js';
 import { readCategories, saveCategories, categoryKey, pickCategories, lookup } from './store.js';
 
 const BATCH = 50;

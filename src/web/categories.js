@@ -6,24 +6,13 @@
 // 精选榜的改动走 POST /api/picks/<操作>（同收藏接口：要登录、只接受本站提交）；谁能改由 boards/picks.js 的 canEdit 一处判断，
 // 拒绝时按 PicksError.status 回 JSON。
 import { readSkillsBoard, readHotBoard, HOT_SOURCES, BACKFILL_NOTE, SLOTS, PicksError } from '../boards/index.js';
-import { poolFrom } from '../boards/picks-update.js';
 import { parseRepoInput } from '../boards/repo-link.js';
 import { readCategories } from '../categories/index.js';
 import { readProfile, shownGenerated } from '../profiles/index.js';
 import { rankHistory } from '../ranking/moves.js';
 import { base, detail, latestBoards } from './pages.js';
 import { frame } from './frame.js';
-
-// 本地已有数字的项目（按项目 id）：历史榜最近一期前 100、涨星榜三个窗口这一期的候选（同精选候选池的来源），再加热点榜上核过的。
-// 换卡只能换进这些项目（总 Star、作者 id 取这里，不信页面传来的数字）；卡片和详情栏的 GitHub 描述也取这里。
-function known(dataDir) {
-  const byId = new Map();
-  for (const x of poolFrom(dataDir, Infinity)) byId.set(x.id, x);
-  for (const e of readHotBoard(dataDir, { show: Infinity })?.entries ?? []) {
-    if (e.id && !byId.has(e.id)) byId.set(e.id, { id: e.id, fullName: e.repo, ownerId: e.ownerId, total: e.total, description: e.description });
-  }
-  return byId;
-}
+import { knownProjects } from '../listed.js';
 
 // 一批项目在详情栏（bw.js 的 drawer）要的内容，和收藏页同一套（pages.js 的 detail）：在涨星榜上的数字取那一期的运行，不在的总 Star 另给。
 // 返回 { projects, views, key }：key(x) 是这个项目在页面数据里的名字（资料里改过名的用现在的名字）。
@@ -45,7 +34,7 @@ function details(dataDir, ctx, list) {
 }
 
 // 精选榜：标签清单和每个标签的卡（board(account) 的结果），加上卡片要的项目内容。
-function picksPart(dataDir, ctx, picks, have = known(dataDir)) {
+function picksPart(dataDir, ctx, picks, have = knownProjects(dataDir)) {
   const board = picks.board(ctx.account);
   const list = board.tags.flatMap((t) => t.cards.map((c) => {
     const k = have.get(c.projectId);
@@ -67,7 +56,7 @@ function picksPart(dataDir, ctx, picks, have = known(dataDir)) {
 }
 
 export function categoriesData(dataDir, ctx, picks) {
-  const have = known(dataDir);
+  const have = knownProjects(dataDir);
   const hist = readSkillsBoard(dataDir);
   const hot = readHotBoard(dataDir);
   const part = picksPart(dataDir, ctx, picks, have);
@@ -108,14 +97,6 @@ export function categoriesData(dataDir, ctx, picks) {
   };
 }
 
-// 详情栏里的收藏按钮：分类榜上的项目（本地有数字的、精选卡）也能收藏。返回 { id, name } 或 undefined。
-export function onCategoriesPage(dataDir, picks, id) {
-  const k = known(dataDir).get(id);
-  if (k) return { id, name: k.fullName };
-  const card = picks.board(null).tags.flatMap((t) => t.cards).find((c) => c.projectId === id);
-  return card ? { id, name: card.fullName } : undefined;
-}
-
 // ── 精选榜接口：POST /api/picks/<操作>，表单字段见各操作。成功回 { status: 200, body }；拒绝抛 PicksError（状态码在 status 上）。
 const int = (v) => (/^-?\d+$/.test(v ?? '') ? Number(v) : NaN);
 const CANDIDATES = 30;
@@ -132,7 +113,7 @@ function candidates(dataDir, picks, form) {
   const inTags = (id) => board.tags.filter((t) => t.cards.some((c) => c.projectId === id)).length;
   const repo = parseRepoInput(q);
   const needle = (repo ?? q.trim()).toLowerCase();
-  const have = known(dataDir);
+  const have = knownProjects(dataDir);
   const byId = new Map(picks.candidates({ tagId, query: q, limit: 200 }).map((c) => [c.projectId, { ...c, description: have.get(c.projectId)?.description ?? null }]));
   for (const x of have.values()) {
     if (here.has(x.id) || byId.has(x.id) || (needle && !x.fullName.toLowerCase().includes(needle))) continue;
@@ -184,7 +165,7 @@ export async function picksApi(dataDir, ctx, picks, op, form) {
       // 权限由 picks.swap 判断，先于查项目。
       if (!picks.canEdit(account)) throw new PicksError('只有所有者能改精选标签和换卡', 403);
       const id = int(form.get('project'));
-      const x = known(dataDir).get(id) ?? ctx.fetched?.get(id) ?? picks.board(null).tags.flatMap((t) => t.cards).find((c) => c.projectId === id);
+      const x = knownProjects(dataDir).get(id) ?? ctx.fetched?.get(id) ?? picks.board(null).tags.flatMap((t) => t.cards).find((c) => c.projectId === id);
       if (!x) throw new PicksError('本地还没有这个项目的数据，换不进来', 404);
       picks.swap(account, { tagId, slot: int(form.get('slot')), project: { id, fullName: x.fullName, total: x.total ?? undefined, ownerId: x.ownerId ?? undefined } });
       return after();

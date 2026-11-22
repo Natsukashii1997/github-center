@@ -1,5 +1,5 @@
 // 项目资料（#6）：给各榜单上的项目读 README、主要文档、仓库目录和 Skill，交给可替换的生成器写简介和使用条件。
-// 补哪些项目只在 profileProjects 一处定：涨星榜和官方热门榜（boardProjects）排前面，再加分类榜上显示的（#27）。
+// 补哪些项目只在 profileProjects（src/listed.js）一处定：涨星榜和官方热门榜（boardProjects）排前面，再加分类榜上显示的（#27）。
 // 只为首次上榜或资料过期的生成：项目没有新提交、简介和默认分支也没变就不重读；重读后资料哈希没变就不重新生成。
 // 简介生成不到 30 天的，资料变了也不重读、不重新生成（#54：热门项目几乎天天推送，原先每次都重读重生成，Codex 额度扛不住）。
 // 生成失败（含 Codex 登录失效）时不拿猜测的内容顶替：当轮重试 3 轮（#52），还不行就显示上一次的简介，
@@ -9,17 +9,14 @@
 // ai 是这条简介的留痕（谁做的、怎么接、模型、时间，#69），原样存进 generated.ai。
 // version 变了，所有项目重新生成。
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { githubClient } from '../ranking/github.js';
 import { openStore } from '../store.js';
 import { mapLimit } from '../map-limit.js';
 import { withRetries } from '../retry.js';
 import { isSkillFile, parseSkill } from './skills.js';
-import { boardProjects, readProfile, saveProfile } from './store.js';
-import { readSkillsBoard } from '../boards/skills.js';
-import { readHotBoard } from '../boards/hot.js';
-import { openPicks } from '../boards/picks.js';
+import { readProfile, saveProfile } from './store.js';
+import { profileProjects } from '../listed.js';
 
 export const CONDITION_KINDS = ['付费', '账号', '密钥', '环境'];
 // 定义标签（#23）：项目是什么，只能是这几种之一。
@@ -238,30 +235,6 @@ async function updateOne({ c, dataDir, gh, fetch, store, generator, now }) {
     saveProfile(dataDir, { ...base, material: saved, generated: old?.generated ?? null, lastError: { at, message: e.message } });
     return { name: info.full_name, status: 'failed', error: e.message };
   }
-}
-
-// 要补资料的项目：涨星榜和官方热门榜上的先补（boardProjects），再补分类榜上显示的：精选榜各标签的卡、历史榜（Skill 安装量）前 50 所在的 GitHub 仓库、热点榜前 15。
-// 按项目 id（没有 id 的按名字，不分大小写）去重。还没有库（data/center.db）时不建库，只是没有精选卡。
-export function profileProjects(dataDir) {
-  const out = boardProjects(dataDir);
-  const seen = new Set(out.flatMap((p) => [`name:${p.name.toLowerCase()}`, ...(p.id ? [`id:${p.id}`] : [])]));
-  const add = (id, name) => {
-    const keys = [`name:${name.toLowerCase()}`, ...(id ? [`id:${id}`] : [])];
-    if (keys.some((k) => seen.has(k))) return;
-    keys.forEach((k) => seen.add(k));
-    out.push({ id: id ?? null, name });
-  };
-  if (existsSync(join(dataDir, 'center.db'))) {
-    const picks = openPicks(dataDir);
-    try {
-      for (const t of picks.board(null).tags) t.cards.forEach((c) => add(c.projectId, c.fullName));
-    } finally {
-      picks.close();
-    }
-  }
-  for (const e of readSkillsBoard(dataDir)?.entries ?? []) if (e.repo) add(null, e.repo);
-  for (const e of readHotBoard(dataDir)?.entries ?? []) add(e.id, e.repo);
-  return out;
 }
 
 // 跑一次：处理网站上各榜单当前显示的项目（profileProjects）。一个项目出错不影响其他项目。

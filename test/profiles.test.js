@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { updateProfiles, aiGenerator, parseSkill } from '../src/profiles/index.js';
 import { readProfile } from '../src/profiles/store.js';
-import { profileProjects } from '../src/profiles/update.js';
+import { profileProjects } from '../src/listed.js';
 import { openPicks } from '../src/boards/index.js';
 import { visit, dataOf } from './helpers/web.js';
 

@@ -2,7 +2,7 @@
 // 安装指令（#7）由存下的项目资料现场拼出，不调用外部接口。
 export { updateProfiles, PROJECT_TYPES } from './update.js';
 export { aiGenerator } from './prompt.js';
-export { findProfile, readProfile, findOnBoards, currentGenerated, shownGenerated } from './store.js';
+export { findProfile, readProfile, currentGenerated, shownGenerated } from './store.js';
 export { parseSkill, skillPlace, skillPurpose } from './skills.js';
 export { installInstruction, INSTALL_AIS } from './install.js';
 export { handoffText, compareText, searchText, HANDOFF_KINDS, COMPARE_MIN, COMPARE_MAX } from './handoff.js';

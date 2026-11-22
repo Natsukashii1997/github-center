@@ -2,11 +2,10 @@
 // 整理成一份数据嵌进页面，页面脚本（assets/bw.js、assets/home.js）画出来，切换窗口不再请求服务端。
 // 名次、新增和总 Star 只取快照。卡片上的数字和 30 天走势取这一期榜单那次运行存下的官方原始响应：三个窗口的快照可能出自
 // 不同次运行（某个窗口失败后重跑），同一张卡上的数字和柱子来自同一份响应才对得上。缺数据的那天留空位，不补零。
-// 首页按定义标签筛选，不按分类（分类榜另成一页，后续批次）；只上了分类榜的项目仍由 categoryListed 认出来，项目页和收藏用。
+// 首页按定义标签筛选，不按分类（分类榜另成一页，后续批次）；只上了分类榜的项目仍由 categoryListed（src/listed.js）认出来，项目页和收藏用。
 // 各页共用的项目卡转换在 project-card.js，HTML 外壳在 frame.js（#114 拆出）。
 import { readLatestSnapshot, readStatus, newerFailure, WINDOWS } from '../ranking/index.js';
-import { readCandidates } from '../ranking/files.js';
-import { CATEGORIES, readCategories, gainersInCategory } from '../categories/index.js';
+import { readCategories } from '../categories/index.js';
 import { dayRange } from '../ranking/stat-day.js';
 import { rankHistory, markRows } from '../ranking/moves.js';
 import { INSTALL_AIS, PROJECT_TYPES } from '../profiles/index.js';
@@ -53,27 +52,6 @@ const rowsOf = (entries, snapshot) => {
   const ranks = entries.map((e) => e.rank);
   return entries.map((e) => ({ repo: e.fullName, rank: e.rank, tie: ranks.filter((r) => r === e.rank).length > 1, gain: e.gain, run: snapshot.runId }));
 };
-
-// 候选当成榜单条目用（卡片按它这次运行存下的官方星数历史取数字）。
-const candidateEntry = (c) => ({ projectId: c.id, fullName: c.fullName, gain: c.gain, total: c.total, description: c.description ?? null, evidence: { history: { path: c.evidence.history } } });
-
-// 最新一期各窗口分类榜上的项目（#10），按小写名字索引，值和首页卡片的 onBoards 同形（每个窗口一条）。
-// 只上了分类榜、不在其他榜单上的项目不生成项目资料（所有者 2026-10-24 选 B）：项目页和收藏靠它认出来，用候选里的描述和数字。
-export function categoryListed(dataDir) {
-  const find = readCategories(dataDir).get;
-  const byName = new Map();
-  for (const w of Object.keys(WINDOWS)) {
-    const snapshot = readLatestSnapshot(dataDir, w);
-    const candidates = snapshot && readCandidates(dataDir, w, snapshot.statDay);
-    if (!candidates) continue;
-    for (const category of CATEGORIES) for (const c of gainersInCategory({ candidates, find, category }).entries) {
-      const key = c.fullName.toLowerCase();
-      if (!byName.has(key)) byName.set(key, []);
-      if (!byName.get(key).some((b) => b.w === w)) byName.get(key).push({ w, snapshot, entry: candidateEntry(c) });
-    }
-  }
-  return byName;
-}
 
 function board(w, snapshot, status, history) {
   const { top, notes } = windowStatus(snapshot, newerFailure(status, w, snapshot));
